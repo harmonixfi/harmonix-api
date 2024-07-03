@@ -1,6 +1,7 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
+from models.referral_points import ReferralPoints
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
 from models.reward_sessions import RewardSessions
@@ -145,3 +146,25 @@ async def get_points(session: SessionDep, wallet_address: str):
         points.append(point)
 
     return points
+
+@router.get("/users/{wallet_address}/referral_points", response_model=schemas.ReferralPoints)
+async def get_referral_points(session: SessionDep, wallet_address: str):
+    wallet_address = wallet_address.lower()
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
+
+    user = get_user_by_wallet_address(session, wallet_address)
+    if not user:
+        return {"points": 0}
+    statement = select(ReferralPoints).where(ReferralPoints.user_id == user.user_id)
+    referral_points = session.exec(statement).first()
+    if not referral_points:
+        return {"points": 0}
+    return {
+        "points": referral_points.points,
+        "created_at": custom_encoder(referral_points.created_at),
+        "updated_at": custom_encoder(referral_points.updated_at),
+    }
+
+
+   

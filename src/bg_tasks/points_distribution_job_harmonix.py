@@ -214,9 +214,7 @@ def update_referral_points(
             unique_referrers.append(referral.referrer_id)
 
     for referrer_id in unique_referrers:
-        referrer_referrals = [
-            referral for referral in referrals if referral.referrer_id == referrer_id
-        ]
+        referrer_referrals = list(filter(lambda referral: referral.referrer_id == referrer_id, referrals))
         referral_points_query = select(ReferralPoints).where(
             ReferralPoints.user_id == referrer_id
         )
@@ -237,7 +235,7 @@ def update_referral_points(
                 )
                 user_points_history = session.exec(user_points_history_query).first()
                 referral_points += user_points_history.point
-            referral_points = calculate_referral_points(
+            referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
             )
             user_referral_points.points += referral_points
@@ -263,7 +261,7 @@ def update_referral_points(
                 if not user_points:
                     continue
                 referral_points += user_points.points
-            referral_points = calculate_referral_points(
+            referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
             )
 
@@ -292,7 +290,7 @@ def update_referral_points(
     logger.info("Referral Points distribution job completed.")
 
 
-def calculate_referral_points(
+def adjust_referral_points_within_bounds(
     reward_session_config, total_points_distributed, referral_points
 ):
     referral_points = referral_points * constants.REFERRAL_POINTS_PERCENTAGE
