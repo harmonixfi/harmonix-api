@@ -15,3 +15,5 @@ from .reward_sessions import RewardSessions
 from .points_multiplier_config import PointsMultiplierConfig
 from .reward_session_config import RewardSessionConfig
 from .user_points_history import UserPointsHistory
+from .referral_points import ReferralPoints
+from .referral_points_history import ReferralPointsHistory

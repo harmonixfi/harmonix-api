@@ -1,6 +1,9 @@
+from core import constants
+from datetime import datetime, timezone
 import uuid
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
+from models.rewards import Reward
 from models.user import User
 from sqlmodel import select
 import secrets
@@ -41,7 +44,6 @@ def create_user_with_referral(user_address, referral_code, session):
     referral.usage_limit -= 1
     user = User(user_id=uuid.uuid4(), wallet_address=user_address)
     session.add(user)
-    session.commit()
     create_referral_code(session, user)
 
     new_referral = Referral(
@@ -50,6 +52,14 @@ def create_user_with_referral(user_address, referral_code, session):
         referral_code_id=referral.referral_code_id,
     )
     session.add(new_referral)
+    new_reward = Reward(
+        user_id=referral.user_id,
+        referral_code_id=referral.referral_code_id,
+        reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
+        start_date=datetime.now(timezone.utc),
+        end_date=None,
+    )
+    session.add(new_reward)
     session.commit()
     return True
 
@@ -74,4 +84,3 @@ def create_referral_code(session, user):
         return
 
     session.add(new_referral_code)
-    session.commit()
