@@ -1,0 +1,52 @@
+name: API_CI_Workflow
+
+on:
+  push:
+    branches:
+      - devops-develop
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to build production image'
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout GitHub Action"
+        uses: actions/checkout@v2
+
+      - name: "List directory contents"
+        run: ls -R
+
+      - name: "Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.ECR_AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.ECR_AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: "Login to Amazon ECR"
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+
+      - name: "Set Environment Variables"
+        id: set-env
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/devops-develop" ]]; then
+            IMAGE_PREFIX=sandbox_
+          elif [[ "${{ github.event.inputs.tag_name }}" != "" ]]; then
+            IMAGE_PREFIX=prod_
+            git fetch --tags
+            git checkout tags/${{ github.event.inputs.tag_name }}
+          else
+            IMAGE_PREFIX=sandbox_
+          fi
+          echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
+
+      - name: "Build and push image"
+        run: |
+          IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
+          docker build -f backend.dockerfile -t $IMAGE_NAME .
+          docker push $IMAGE_NAME
