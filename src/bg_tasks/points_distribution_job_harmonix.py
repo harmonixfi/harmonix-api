@@ -27,6 +27,9 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
+POINT_PER_DOLLAR = 1000
+
+
 def harmonix_distribute_points(current_time):
     # get reward session with end_date = null, and partner_name = Harmonix
     reward_session_query = (
@@ -48,6 +51,7 @@ def harmonix_distribute_points(current_time):
     if not reward_session_config:
         logger.info("No reward session config found for Harmonix.")
         return
+    
     session_start_date = reward_session.start_date.replace(tzinfo=timezone.utc)
     session_end_date = (
         session_start_date
@@ -105,6 +109,7 @@ def harmonix_distribute_points(current_time):
     for portfolio in active_portfolios:
         if portfolio.vault_id not in multiplier_config_dict:
             continue
+
         multiplier = multiplier_config_dict[portfolio.vault_id]
 
         # get user points distributed for the user by wallet_address
@@ -126,7 +131,11 @@ def harmonix_distribute_points(current_time):
                     portfolio.trade_start_date.replace(tzinfo=timezone.utc),
                 )
             ).total_seconds() / 3600
-            points = (portfolio.total_balance / 100) * duration_hours * multiplier
+            points = (
+                (portfolio.total_balance / POINT_PER_DOLLAR)
+                * duration_hours
+                * multiplier
+            )
 
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:
@@ -170,7 +179,11 @@ def harmonix_distribute_points(current_time):
                 current_time
                 - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
-            points = (portfolio.total_balance / 100) * duration_hours * multiplier
+            points = (
+                (portfolio.total_balance / POINT_PER_DOLLAR)
+                * duration_hours
+                * multiplier
+            )
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:
                 points = reward_session_config.max_points - total_points_distributed
@@ -214,7 +227,9 @@ def update_referral_points(
             unique_referrers.append(referral.referrer_id)
 
     for referrer_id in unique_referrers:
-        referrer_referrals = list(filter(lambda referral: referral.referrer_id == referrer_id, referrals))
+        referrer_referrals = list(
+            filter(lambda referral: referral.referrer_id == referrer_id, referrals)
+        )
         referral_points_query = select(ReferralPoints).where(
             ReferralPoints.user_id == referrer_id
         )
