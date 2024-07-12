@@ -2,8 +2,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 import uuid
 from sqlmodel import Session, select
-from uuid import UUID
-from log import setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.referral_points import ReferralPoints
@@ -17,7 +15,6 @@ from models.user_points_history import UserPointsHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault
 from core.db import engine
-from core.config import settings
 from core import constants
 from sqlmodel import Session, select
 
@@ -51,7 +48,7 @@ def harmonix_distribute_points(current_time):
     if not reward_session_config:
         logger.info("No reward session config found for Harmonix.")
         return
-    
+
     session_start_date = reward_session.start_date.replace(tzinfo=timezone.utc)
     session_end_date = (
         session_start_date
