@@ -1,7 +1,7 @@
 """Add group schema and relationship to vault
 
 Revision ID: 9c8725467e5d
-Revises: 5cc6cf68ef68
+Revises: 5b3faeb8146d
 Create Date: 2024-07-13 06:51:32.217006
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = '9c8725467e5d'
-down_revision: Union[str, None] = '5cc6cf68ef68'
+down_revision: Union[str, None] = '5b3faeb8146d'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
