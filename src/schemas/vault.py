@@ -37,6 +37,9 @@ class VaultInDBBase(VaultBase):
 class Vault(VaultInDBBase):
     apy: float | None = None
     tvl: float | None = None
+    is_default: bool | None = None
+
+    supported_network: list[NetworkChain] | None = None
 
 
 # Properties properties stored in DB

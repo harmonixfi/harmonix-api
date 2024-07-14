@@ -91,7 +91,7 @@ async def get_all_vaults(
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
 ):
-    statement = select(Vault).where(Vault.is_active == True)
+    statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
     if category or network_chain:
         conditions = []
         if category:
@@ -108,11 +108,19 @@ async def get_all_vaults(
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
         if group_id not in grouped_vaults:
+            if (
+                vault.vault_group and vault.vault_group.default_vault_id == vault.id
+            ) or (not vault.vault_group):
+                schema_vault.is_default = True
+
             grouped_vaults[group_id] = {
                 "id": group_id,
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
                 "tvl": schema_vault.tvl or 0,
                 "apy": schema_vault.apy or 0,
+                "default_vault_id": (
+                    vault.vault_group.default_vault_id if vault.vault_group else None
+                ),
                 "vaults": [schema_vault],
                 "points": {},
             }
@@ -160,6 +168,20 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault)
     schema_vault.points = get_earned_points(session, vault)
+
+    # Check if the vault is part of a group
+    if vault.vault_group:
+        # Query all vaults in the group
+        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id)
+        group_vaults = session.exec(group_vaults_statement).all()
+
+        # Get the selected network chain of all vaults in the group
+        selected_networks = {v.network_chain for v in group_vaults if v.network_chain}
+        schema_vault.supported_network = list(selected_networks)
+    else:
+        # If the vault doesn't have a group, get the network of this vault
+        schema_vault.supported_network = [vault.network_chain] if vault.network_chain else []
+
     return schema_vault
 
 

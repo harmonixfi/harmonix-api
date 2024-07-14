@@ -25,6 +25,7 @@ class VaultGroup(sqlmodel.SQLModel, table=True):
     id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
     name: str
 
+    default_vault_id: uuid.UUID | None = None
     vaults: list["Vault"] = sqlmodel.Relationship(back_populates="vault_group")
 
 
@@ -53,6 +54,7 @@ class VaultBase(sqlmodel.SQLModel):
     strategy_name: str | None = None
     is_active: bool | None = None
     owner_wallet_address: str | None = None
+    order: int | None = None
 
 
 # Database model, database table inferred from class name
