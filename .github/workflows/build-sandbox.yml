@@ -45,8 +45,18 @@ jobs:
           fi
           echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
 
-      - name: "Build and push image"
+      - name: "Build and tag image"
         run: |
           IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
-          docker build -f backend.dockerfile -t $IMAGE_NAME .
+          LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+          docker build -f backend.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME .
+
+      - name: "Push image with version tag"
+        run: |
+          IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
           docker push $IMAGE_NAME
+
+      - name: "Push image with latest tag"
+        run: |
+          LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+          docker push $LATEST_IMAGE_NAME
