@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import func
 from sqlmodel import Session, create_engine, select
@@ -11,7 +11,7 @@ from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
 from models.user import User
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain, Vault
+from models.vaults import NetworkChain, Vault, VaultGroup
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
 
@@ -37,6 +37,40 @@ def init_pps_history(session: Session, vault: Vault):
 
         for pps in pps_history_data:
             session.add(pps)
+
+        session.commit()
+
+
+def init_vault_performance(session: Session, vault: Vault):
+    cnt = session.exec(
+        select(func.count())
+        .select_from(VaultPerformance)
+        .where(VaultPerformance.vault_id == vault.id)
+    ).one()
+
+    if cnt == 0:
+        performance_hist = [
+            VaultPerformance(
+                datetime=datetime.now(timezone.utc),
+                vault_id=vault.id,
+                total_locked_value=0,
+                apy_1m=0,
+                apy_1w=0,
+                benchmark=0,
+                pct_benchmark=0,
+                risk_factor=0,
+                all_time_high_per_share=0,
+                total_shares=0,
+                sortino_ratio=0,
+                downside_risk=0,
+                earned_fee=0,
+                unique_depositors=0,
+                fee_structure='{"deposit_fee":0.0,"exit_fee":0.0,"performance_fee":10.0,"management_fee":1.0}',
+            )
+        ]
+
+        for item in performance_hist:
+            session.add(item)
 
         session.commit()
 
@@ -74,7 +108,7 @@ def seed_stablecoin_pps_history(session: Session, vault: Vault):
         session.commit()
 
 
-def seed_vault_performance(stablecoin_vault: Vault, session):
+def seed_opitons_wheel_vault_performance(stablecoin_vault: Vault, session):
     cnt = session.exec(select(func.count()).select_from(VaultPerformance)).one()
     if cnt == 0:
         if stablecoin_vault:
@@ -207,7 +241,18 @@ def seed_reward_session_config(session: Session):
     session.commit()
 
 
-def init_db(session: Session) -> None:
+def init_new_vault(session: Session, vault: Vault):
+    existing_vault = session.exec(select(Vault).where(Vault.slug == vault.slug)).first()
+    if existing_vault:
+        init_pps_history(session, vault)
+        init_vault_performance(session, vault)
+
+
+def seed_vaults(session: Session):
+    kelpdao_group = session.exec(
+        select(VaultGroup).where(VaultGroup.name == "Koi & Chill with Kelp DAO")
+    ).first()
+
     # Create initial data
     vaults = [
         Vault(
@@ -230,7 +275,7 @@ def init_db(session: Session) -> None:
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_RENZO_ZIRCUIT_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
             slug="renzo-zircuit-restaking-delta-neutral-vault",
-            routes="['renzo', 'zircuit']",
+            routes='["renzo", "zircuit"]',
             category="points",
             network_chain=NetworkChain.ethereum,
         ),
@@ -240,9 +285,28 @@ def init_db(session: Session) -> None:
             vault_currency="USDC",
             contract_address=settings.ROCKONYX_KELPDAO_ARB_RESTAKING_DELTA_NEUTRAL_VAULT_ADDRESS,
             slug="kelpdao-restaking-delta-neutral-vault",
-            routes="['kelpdao']",
+            routes='["kelpdao"]',
             category="points",
             network_chain=NetworkChain.arbitrum_one,
+        ),
+        Vault(
+            name="Koi & Chill with Kelp DAO",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address="",
+            slug="ethereum-kelpdao-restaking-delta-neutral-vault",
+            routes='["kelpdao", "zircuit"]',
+            category="points",
+            network_chain=NetworkChain.ethereum,
+            group_id=kelpdao_group.id if kelpdao_group else None,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            is_active=False,
+            max_drawdown=0,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY
         ),
     ]
 
@@ -255,23 +319,57 @@ def init_db(session: Session) -> None:
 
     session.commit()
 
+
+def seed_group(session: Session):
+    groups = [
+        VaultGroup(
+            name="Koi & Chill with Kelp DAO",
+        )
+    ]
+
+    for group in groups:
+        existing_group = session.exec(
+            select(VaultGroup).where(VaultGroup.name == group.name)
+        ).first()
+        if not existing_group:
+            session.add(group)
+        
+    session.commit()
+
+
+def seed_options_wheel_vault(session: Session):
     # Seed data for VaultPerformance for Stablecoin Vault
     stablecoin_vault = session.exec(
         select(Vault).where(Vault.name == "Options Wheel Vault")
     ).first()
 
-    seed_vault_performance(stablecoin_vault, session)
+    seed_opitons_wheel_vault_performance(stablecoin_vault, session)
     seed_stablecoin_pps_history(session, stablecoin_vault)
     seed_users(session)
     seed_referral_codes(session)
     seed_reward_sessions(session)
     seed_reward_session_config(session)
-    renzo_zircuit_restaking = session.exec(
+
+
+def init_db(session: Session) -> None:
+    seed_group(session)
+    seed_vaults(session)
+
+    seed_options_wheel_vault(session)
+
+    renzo_vault = session.exec(
         select(Vault).where(Vault.slug == "renzo-zircuit-restaking-delta-neutral-vault")
     ).first()
-    init_pps_history(session, renzo_zircuit_restaking)
+    init_new_vault(session, renzo_vault)
 
-    renzo_zircuit_restaking = session.exec(
+    kelpdao_vault = session.exec(
         select(Vault).where(Vault.slug == "kelpdao-restaking-delta-neutral-vault")
     ).first()
-    init_pps_history(session, renzo_zircuit_restaking)
+    init_new_vault(session, kelpdao_vault)
+
+    kelpdao_vault1 = session.exec(
+        select(Vault).where(
+            Vault.slug == "ethereum-kelpdao-restaking-delta-neutral-vault"
+        )
+    ).first()
+    init_new_vault(session, kelpdao_vault1)
