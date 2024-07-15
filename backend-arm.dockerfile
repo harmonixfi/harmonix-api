@@ -16,8 +16,7 @@ RUN apk update && apk add --no-cache \
 
 WORKDIR /app/
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
-    POETRY_HOME=/opt/poetry python3 install-poetry.py || (cat /app/poetry-installer-error-*.log && false) && \
+RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python - && \
     cd /usr/local/bin && \
     ln -s /opt/poetry/bin/poetry && \
     poetry config virtualenvs.create false
