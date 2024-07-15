@@ -1,5 +1,6 @@
 from datetime import datetime
 import enum
+from typing import List, Optional
 import uuid
 
 import sqlmodel
@@ -55,6 +56,17 @@ class VaultBase(sqlmodel.SQLModel):
     is_active: bool | None = None
     owner_wallet_address: str | None = None
     order: int | None = None
+    tags: str | None = None
+
+    # Method to serialize list of tags to string
+    def set_tags(self, tags_list: List[str]):
+        self.tags = ",".join(tags_list)
+
+    # Method to deserialize string to list of tags
+    def get_tags(self) -> List[str]:
+        if self.tags:
+            return self.tags.split(",")
+        return []
 
 
 # Database model, database table inferred from class name

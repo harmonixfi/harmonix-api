@@ -1,9 +1,9 @@
 import json
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, select, or_
 
 import schemas
 from api.api_v1.deps import SessionDep
@@ -11,7 +11,7 @@ from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory
-from schemas.vault import GroupSchema
+from schemas.vault import GroupSchema, SupportedNetwork
 
 router = APIRouter()
 
@@ -90,18 +90,24 @@ async def get_all_vaults(
     session: SessionDep,
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
+    tags: Optional[List[str]] = Query(None),
 ):
     statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
-    if category or network_chain:
-        conditions = []
-        if category:
-            conditions.append(Vault.category == category)
-        if network_chain:
-            conditions.append(Vault.network_chain == network_chain)
+    conditions = []
+    if category:
+        conditions.append(Vault.category == category)
+
+    if network_chain:
+        conditions.append(Vault.network_chain == network_chain)
+
+    if tags:
+        # Adjust the filter for tags stored as a serialized string
+        tags_conditions = [Vault.tags.contains(tag) for tag in tags]
+        conditions.append(or_(*tags_conditions))
+    if conditions:
         statement = statement.where(and_(*conditions))
 
     vaults = session.exec(statement).all()
-
     grouped_vaults = {}
     for vault in vaults:
         group_id = vault.group_id or vault.id
@@ -112,7 +118,6 @@ async def get_all_vaults(
                 vault.vault_group and vault.vault_group.default_vault_id == vault.id
             ) or (not vault.vault_group):
                 schema_vault.is_default = True
-
             grouped_vaults[group_id] = {
                 "id": group_id,
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
@@ -130,7 +135,6 @@ async def get_all_vaults(
             grouped_vaults[group_id]["apy"] = max(
                 grouped_vaults[group_id]["apy"], vault.ytd_apy or 0
             )
-
         # Aggregate points for each partner
         for point in schema_vault.points:
             if point.name in grouped_vaults[group_id]["points"]:
@@ -152,7 +156,6 @@ async def get_all_vaults(
         )
         for group in grouped_vaults.values()
     ]
-
     return groups
 
 
@@ -176,11 +179,19 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group
-        selected_networks = {v.network_chain for v in group_vaults if v.network_chain}
-        schema_vault.supported_network = list(selected_networks)
+        selected_networks = {
+            SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
+            for v in group_vaults
+            if v.network_chain
+        }
+        schema_vault.supported_networks = list(selected_networks)
     else:
         # If the vault doesn't have a group, get the network of this vault
-        schema_vault.supported_network = [vault.network_chain] if vault.network_chain else []
+        schema_vault.supported_networks = (
+            [SupportedNetwork(chain=vault.network_chain, vault_slug=vault.slug)]
+            if vault.network_chain
+            else []
+        )
 
     return schema_vault
 

@@ -1,6 +1,6 @@
 from typing import List, Optional
 import uuid
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, validator
 from datetime import datetime
 
 from models.point_distribution_history import PointDistributionHistory
@@ -33,13 +33,35 @@ class VaultInDBBase(VaultBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+class SupportedNetwork(BaseModel):
+    chain: NetworkChain | None = None
+    vault_slug: str | None = None
+
+    def __hash__(self):
+        # This creates a hash based on the tuple of all relevant attributes
+        return hash((self.chain, self.vault_slug))
+
+    def __eq__(self, other):
+        # This ensures equality is based on the same attributes used in the hash
+        if isinstance(other, SupportedNetwork):
+            return (self.chain, self.vault_slug) == (other.chain, other.vault_slug)
+        return False
+
+
 # Properties to return to client
 class Vault(VaultInDBBase):
     apy: float | None = None
     tvl: float | None = None
     is_default: bool | None = None
 
-    supported_network: list[NetworkChain] | None = None
+    supported_networks: List[SupportedNetwork] | None = None
+    tags: List[str] | None = None
+
+    @validator('tags', pre=True, always=True)
+    def split_str_to_list(cls, v):
+        if isinstance(v, str):
+            return v.split(',')
+        return v
 
 
 # Properties properties stored in DB
