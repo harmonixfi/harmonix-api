@@ -9,10 +9,10 @@ RUN apk update && apk add --no-cache curl bash tzdata build-base linux-headers
 
 WORKDIR /app/
 
-# Environment variables for Supercronic
-ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.1.5/supercronic-linux-arm64 \
-    SUPERCRONIC=supercronic-linux-arm64 \
-    SUPERCRONIC_SHA1SUM=9aeb41e00cc7b71d30d33c57a2333f2c2581a201
+# Latest releases available at https://github.com/aptible/supercronic/releases
+ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.2.30/supercronic-linux-arm \
+    SUPERCRONIC=supercronic-linux-arm \
+    SUPERCRONIC_SHA1SUM=9375e13dab716bab9f325de4a9145b482145f5e7
 
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python3 - && \
