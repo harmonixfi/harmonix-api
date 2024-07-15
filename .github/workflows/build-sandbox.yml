@@ -50,18 +50,10 @@ jobs:
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
           docker buildx create --use
 
-      - name: "Build and tag image"
+      - name: "Build and Push image"
         run: |
           IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
           LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
-          docker buildx build --platform linux/amd64,linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME --push .
-
-      - name: "Push image with version tag"
-        run: |
-          IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
+          docker buildx build --platform linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME .
           docker push $IMAGE_NAME
-
-      - name: "Push image with latest tag"
-        run: |
-          LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
           docker push $LATEST_IMAGE_NAME
