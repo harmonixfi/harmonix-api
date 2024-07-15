@@ -10,9 +10,9 @@ RUN apk update && apk add --no-cache curl bash tzdata build-base linux-headers
 WORKDIR /app/
 
 # Environment variables for Supercronic (update the URL and SHA1 as per the latest release)
-ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.1.5/supercronic-linux-arm64 \
-    SUPERCRONIC=supercronic-linux-arm64 \
-    SUPERCRONIC_SHA1SUM=d41d8cd98f00b204e9800998ecf8427e  # Example checksum, replace with the correct one
+# ENV SUPERCRONIC_URL=https://github.com/aptible/supercronic/releases/download/v0.1.5/supercronic-linux-arm64 \
+#     SUPERCRONIC=supercronic-linux-arm64 \
+#     SUPERCRONIC_SHA1SUM=d41d8cd98f00b204e9800998ecf8427e  # Example checksum, replace with the correct one
 
 # Install Poetry
 RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
@@ -32,11 +32,11 @@ RUN pip install --force-reinstall httpcore==0.15
 RUN pip install "uvicorn[standard]"
 
 # Install Supercronic for ARM architecture
-RUN curl -fsSLO "$SUPERCRONIC_URL" \
-    && echo "${SUPERCRONIC_SHA1SUM}  ${SUPERCRONIC}" | sha1sum -c - \
-    && chmod +x "$SUPERCRONIC" \
-    && mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
-    && ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
+# RUN curl -fsSLO "$SUPERCRONIC_URL" \
+#     && echo "${SUPERCRONIC_SHA1SUM}  ${SUPERCRONIC}" | sha1sum -c - \
+#     && chmod +x "$SUPERCRONIC" \
+#     && mv "$SUPERCRONIC" "/usr/local/bin/${SUPERCRONIC}" \
+#     && ln -s "/usr/local/bin/${SUPERCRONIC}" /usr/local/bin/supercronic
 
 # Create logs directory if it doesn't exist
 RUN mkdir -p /app-logs/
