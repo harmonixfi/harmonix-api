@@ -113,12 +113,13 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+
+        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
+            not vault.vault_group
+        ):
+            schema_vault.is_default = True
+
         if group_id not in grouped_vaults:
-            if (
-                vault.vault_group and vault.vault_group.default_vault_id == vault.id
-            ) or (not vault.vault_group):
-                schema_vault.is_default = True
-            
             grouped_vaults[group_id] = {
                 "id": group_id,
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
@@ -136,6 +137,7 @@ async def get_all_vaults(
             grouped_vaults[group_id]["apy"] = max(
                 grouped_vaults[group_id]["apy"], schema_vault.apy or 0
             )
+
         # Aggregate points for each partner
         for point in schema_vault.points:
             if point.name in grouped_vaults[group_id]["points"]:
@@ -227,17 +229,19 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
         if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
             pps_history_df = pps_history_df[["date", "apy"]].copy()
-            
+
             # resample pps_history_df to daily frequency
             pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
             pps_history_df.set_index("date", inplace=True)
             pps_history_df = pps_history_df.resample("D").mean()
             pps_history_df.ffill(inplace=True)
 
-            if len(pps_history_df) >= 7 * 2:  # we will make sure the normalized series enough to plot
+            if (
+                len(pps_history_df) >= 7 * 2
+            ):  # we will make sure the normalized series enough to plot
                 # calculate ma 7 days pps_history_df['apy']
                 pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
-            
+
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 
