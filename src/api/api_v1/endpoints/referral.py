@@ -131,14 +131,21 @@ async def get_points(session: SessionDep, wallet_address: str):
     # for each session
     session_points = {}
 
-    for user_point, session in user_points:
+    for user_point, reward_session in user_points:
         if user_point.session_id not in session_points:
+            statement = (
+                select(ReferralPoints)
+                .where(ReferralPoints.user_id == user.user_id)
+                .where(ReferralPoints.session_id == user_point.session_id)
+            )
+            referral_points = session.exec(statement).first()
             session_points[user_point.session_id] = schemas.Points(
                 points=0,
-                start_date=custom_encoder(session.start_date),
-                end_date=custom_encoder(session.end_date),
-                session_name=session.session_name,
-                partner_name=session.partner_name,
+                start_date=custom_encoder(reward_session.start_date),
+                end_date=custom_encoder(reward_session.end_date),
+                session_name=reward_session.session_name,
+                partner_name=reward_session.partner_name,
+                referral_points=referral_points.points if referral_points else 0,
             )
         session_points[user_point.session_id].points += user_point.points
 
@@ -146,25 +153,3 @@ async def get_points(session: SessionDep, wallet_address: str):
         points.append(point)
 
     return points
-
-@router.get("/users/{wallet_address}/referral_points", response_model=schemas.ReferralPoints)
-async def get_referral_points(session: SessionDep, wallet_address: str):
-    wallet_address = wallet_address.lower()
-    if not is_valid_wallet_address(wallet_address):
-        raise HTTPException(status_code=400, detail="Invalid wallet address")
-
-    user = get_user_by_wallet_address(session, wallet_address)
-    if not user:
-        return {"points": 0}
-    statement = select(ReferralPoints).where(ReferralPoints.user_id == user.user_id)
-    referral_points = session.exec(statement).first()
-    if not referral_points:
-        return {"points": 0}
-    return {
-        "points": referral_points.points,
-        "created_at": custom_encoder(referral_points.created_at),
-        "updated_at": custom_encoder(referral_points.updated_at),
-    }
-
-
-   
