@@ -5,10 +5,20 @@ FROM python:3.10-alpine3.19
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Update the package repository and install necessary dependencies
-RUN apk update && apk add curl bash tzdata pipx gcc musl-dev
-RUN apk add --update --no-cache --virtual .tmp-build-deps \
-    gcc libc-dev linux-headers postgresql-dev \
-    && apk add libffi-dev
+# --no-cache
+RUN apk update && apk add \
+    curl \
+    bash \
+    tzdata \
+    pipx \
+    gcc \
+    g++ \
+    musl-dev \
+    libffi-dev \
+    libc-dev \
+    linux-headers \
+    build-base
+
 
 WORKDIR /app/
 # Install Poetry
