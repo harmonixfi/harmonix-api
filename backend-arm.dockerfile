@@ -10,7 +10,6 @@ RUN apk update && apk add \
     curl \
     bash \
     tzdata \
-    pipx \
     gcc \
     g++ \
     musl-dev \
