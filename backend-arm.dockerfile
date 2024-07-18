@@ -10,12 +10,12 @@ RUN yum update -y && yum install curl bash tzdata
 WORKDIR /app/
 
 # Install Poetry
-# RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
-#     POETRY_HOME=/opt/poetry python install-poetry.py && \
-#     cd /usr/local/bin && \
-#     ln -s /opt/poetry/bin/poetry && \
-#     poetry config virtualenvs.create false
-RUN pip install peotry
+RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
+    POETRY_HOME=/opt/poetry python install-poetry.py && \
+    cd /usr/local/bin && \
+    ln -s /opt/poetry/bin/poetry && \
+    poetry config virtualenvs.create false
+# RUN pip install peotry
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml /app/
