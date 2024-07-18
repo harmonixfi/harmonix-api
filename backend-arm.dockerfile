@@ -8,8 +8,10 @@ RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 RUN apk update && apk add curl bash tzdata
 
 WORKDIR /app/
+
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python - && \
+RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
+    POETRY_HOME=/opt/poetry python install-poetry.py && \
     cd /usr/local/bin && \
     ln -s /opt/poetry/bin/poetry && \
     poetry config virtualenvs.create false
