@@ -49,6 +49,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           context: .
+          file: ./backend-arm.dockerfile
           push: true
           tags: |
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
