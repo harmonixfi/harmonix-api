@@ -17,6 +17,9 @@ jobs:
       - name: "Checkout GitHub Action"
         uses: actions/checkout@v2
 
+       - name: "Using ARM Runner"
+         uses: pguyot/arm-runner-action@v2
+
       - name: "List directory contents"
         run: ls -R
 
@@ -54,6 +57,4 @@ jobs:
         run: |
           IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
           LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
-          docker buildx build --platform linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME .
-          docker push $IMAGE_NAME
-          docker push $LATEST_IMAGE_NAME
+          docker buildx build --platform linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME --push .
