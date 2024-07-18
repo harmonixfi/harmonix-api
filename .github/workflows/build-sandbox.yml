@@ -52,8 +52,7 @@ jobs:
       - name: "Build and Push Image ARM"
         uses: pguyot/arm-runner-action@v2
         with:
-          entrypoint: /bin/sh
-          args: |
+          commands: |
             docker buildx create --use
             IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
             LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
