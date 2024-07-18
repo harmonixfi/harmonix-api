@@ -5,7 +5,7 @@ FROM public.ecr.aws/lambda/python:3.10
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Update the package repository and install necessary dependencies
-RUN yum update -y && yum install curl bash tzdata pipx
+RUN yum update -y && yum install curl bash tzdata
 
 WORKDIR /app/
 
