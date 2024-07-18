@@ -53,7 +53,7 @@ def create_user_with_referral(user_address, referral_code, session):
     )
     session.add(new_referral)
     new_reward = Reward(
-        user_id=referral.user_id,
+        user_id=user.user_id,
         referral_code_id=referral.referral_code_id,
         reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
         start_date=datetime.now(timezone.utc),
