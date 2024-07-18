@@ -12,5 +12,4 @@ class OnchainTransactionHistory(SQLModel, table=True):
     to_address: str
     method_id: str
     input: str
-    data: str
     value: float

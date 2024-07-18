@@ -31,7 +31,6 @@ def upgrade() -> None:
         sa.Column("to_address", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("method_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("input", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("data", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("value", sa.Float(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
