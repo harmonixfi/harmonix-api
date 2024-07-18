@@ -6,6 +6,7 @@ from sqlmodel import Field, Index
 from datetime import datetime
 from core.config import settings
 from core.db import engine
+from models.onchain_transaction_history import OnchainTransactionHistory
 from services.arbiscan_service import get_transactions
 
 # Configure logging
@@ -14,20 +15,6 @@ logger = logging.getLogger(__name__)
 
 # Setup Web3 connection
 w3 = Web3(HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
-
-session = Session(engine)
-
-
-class Transaction(SQLModel, table=True):
-    id: int = Field(default=None, primary_key=True)
-    tx_hash: str = Field(index=True)
-    block_number: int = Field(index=True)
-    from_address: str
-    to_address: str
-    method_id: str
-    input: str
-    data: str
-    value: float
 
 
 def process_transaction(tx_hash):
@@ -51,13 +38,14 @@ def index_transactions(contract_addresses):
             page = 1
             while True:
                 transactions = get_transactions(
-                    address, start_block, w3.eth.block_number, page
+                    address, start_block, w3.eth.block_number, page, offset=100
                 )
                 if not transactions:
                     break
+
                 for tx in transactions:
                     tx_data = process_transaction(tx["hash"])
-                    new_transaction = Transaction(**tx_data)
+                    new_transaction = OnchainTransactionHistory(**tx_data)
                     session.add(new_transaction)
                 session.commit()
                 page += 1
@@ -65,7 +53,9 @@ def index_transactions(contract_addresses):
 
 if __name__ == "__main__":
     contract_addresses = [
-        ("0xContractAddress1", 1000000),
-        ("0xContractAddress2", 1000000),
+        (
+            Web3.to_checksum_address("0x2b7cdad36a86fd05ac1680cdc42a0ea16804d80c"),
+            222059232,
+        ),
     ]
     index_transactions(contract_addresses)

@@ -114,10 +114,10 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "indexing_historical_transactions_data_run_once",
+            "name": "indexing_historical_transactions_data",
             "type": "debugpy",
             "request": "launch",
-            "module": "bg_tasks.indexing_historical_transactions_data_run_once",
+            "module": "bg_tasks.indexing_historical_transactions_data",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
