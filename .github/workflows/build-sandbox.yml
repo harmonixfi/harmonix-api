@@ -17,9 +17,6 @@ jobs:
       - name: "Checkout GitHub Action"
         uses: actions/checkout@v2
 
-       - name: "Using ARM Runner"
-         uses: pguyot/arm-runner-action@v2
-
       - name: "List directory contents"
         run: ls -R
 
@@ -37,24 +34,27 @@ jobs:
       - name: "Set Environment Variables"
         id: set-env
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/devops-develop" ]]; then
+          if [ "${{ github.ref }}" == "refs/heads/devops-develop" ]; then
             IMAGE_PREFIX=sandbox_
-          elif [[ "${{ github.event.inputs.tag_name }}" != "" ]]; then
+          elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
             IMAGE_PREFIX=prod_
             git fetch --tags
             git checkout tags/${{ github.event.inputs.tag_name }}
           else
             IMAGE_PREFIX=sandbox_
           fi
-          echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
+          echo "IMAGE_PREFIX=${IMAGE_PREFIX}" >> $GITHUB_ENV
 
-      - name: "Set up Docker Buildx"
+      - name: "Setup QEMU"
         run: |
           docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-          docker buildx create --use
 
-      - name: "Build and Push image"
-        run: |
-          IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ steps.set-env.outputs.image_prefix }}${{ github.run_number }}
-          LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
-          docker buildx build --platform linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME --push .
+      - name: "Build and Push Image ARM"
+        uses: pguyot/arm-runner-action@v2
+        with:
+          entrypoint: /bin/sh
+          args: |
+            docker buildx create --use
+            IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
+            LATEST_IMAGE_NAME=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
+            docker buildx build --platform linux/arm64 -f backend-arm.dockerfile -t $IMAGE_NAME -t $LATEST_IMAGE_NAME --push .
