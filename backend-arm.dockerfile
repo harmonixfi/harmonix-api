@@ -1,11 +1,11 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-alpine
+FROM public.ecr.aws/lambda/python:3.10
 
 # Set the timezone to UTC
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Update the package repository and install necessary dependencies
-RUN apk update && apk add curl bash tzdata
+RUN yum update -y && yum install curl bash tzdata
 
 WORKDIR /app/
 
