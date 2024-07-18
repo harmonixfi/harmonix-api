@@ -105,5 +105,21 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "indexing_user_holding_kelpdao",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_user_holding_kelpdao",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "indexing_historical_transactions_data_run_once",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_historical_transactions_data_run_once",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
