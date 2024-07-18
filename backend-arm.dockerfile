@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-alpine3.19
+FROM public.ecr.aws/lambda/python:3.10
 
 # Set the timezone to UTC
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
@@ -15,16 +15,14 @@ WORKDIR /app/
 #     cd /usr/local/bin && \
 #     ln -s /opt/poetry/bin/poetry && \
 #     poetry config virtualenvs.create false
+RUN pip install peotry
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml /app/
 
 # Allow installing dev dependencies to run tests
-# ARG INSTALL_DEV=false
-# RUN bash -c "if [ $INSTALL_DEV == 'true' ] ; then poetry install --no-root ; else poetry install --no-root --only main ; fi"
-
-RUN pipx ensurepath
-RUN pipx install
+ARG INSTALL_DEV=false
+RUN bash -c "if [ $INSTALL_DEV == 'true' ] ; then poetry install --no-root ; else poetry install --no-root --only main ; fi"
 
 RUN pip install --force-reinstall httpcore==0.15
 RUN pip install "uvicorn[standard]"
