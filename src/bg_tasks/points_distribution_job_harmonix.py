@@ -227,8 +227,10 @@ def update_referral_points(
         referrer_referrals = list(
             filter(lambda referral: referral.referrer_id == referrer_id, referrals)
         )
-        referral_points_query = select(ReferralPoints).where(
-            ReferralPoints.user_id == referrer_id
+        referral_points_query = (
+            select(ReferralPoints)
+            .where(ReferralPoints.user_id == referrer_id)
+            .where(ReferralPoints.session_id == reward_session.session_id)
         )
         user_referral_points = session.exec(referral_points_query).first()
         if user_referral_points:
@@ -283,6 +285,7 @@ def update_referral_points(
                 points=referral_points,
                 created_at=current_time,
                 updated_at=current_time,
+                session_id=reward_session.session_id,
             )
             session.add(user_referral_points)
             referral_points_history = ReferralPointsHistory(
