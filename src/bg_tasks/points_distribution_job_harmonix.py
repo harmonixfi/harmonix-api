@@ -107,7 +107,7 @@ def harmonix_distribute_points(current_time):
         if portfolio.vault_id not in multiplier_config_dict:
             continue
 
-        multiplier = multiplier_config_dict[portfolio.vault_id]
+        vault_multiplier = multiplier_config_dict[portfolio.vault_id]
 
         # get user points distributed for the user by wallet_address
         user_points_query = (
@@ -131,7 +131,7 @@ def harmonix_distribute_points(current_time):
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
-                * multiplier
+                * vault_multiplier
             )
 
             # Check if the total points exceed the maximum allowed
@@ -179,7 +179,7 @@ def harmonix_distribute_points(current_time):
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
-                * multiplier
+                * vault_multiplier
             )
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:

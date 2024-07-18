@@ -7,6 +7,7 @@
 
 
 
+
         {
             "name": "Python: Update Weekly Performance",
             "type": "debugpy",
@@ -110,6 +111,14 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.update_tvl_for_vaults",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: calculate_monthly_tvl",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.calculate_monthly_tvl",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

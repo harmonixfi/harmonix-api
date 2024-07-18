@@ -34,3 +34,15 @@ NETWORK_SOCKET_URLS = {
 class Status(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"
+
+class UserTier(str, Enum):
+    DEFAULT = "default"
+    KOL = "kol"
+    PARTNER = "partner"
+
+monthly_new_tvl_threshold = {
+    "zero": 0,
+    "500k": 500000,
+    "1M": 1000000,
+    "1.5m": 1500000,
+}

@@ -5,10 +5,12 @@ from sqlmodel import Session, create_engine, select
 
 from core import constants
 from core.config import settings
+from models.campaigns import Campaign
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
+from models.reward_thresholds import RewardThresholds
 from models.user import User
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault, VaultGroup
@@ -240,6 +242,53 @@ def seed_reward_session_config(session: Session):
             session.add(reward_session_config)
     session.commit()
 
+def seed_campaigns(session: Session):
+    cnt = session.exec(select(func.count()).select_from(Campaign)).one()
+    if cnt == 0:
+        campaigns = [
+            Campaign(
+                name="KOL_PARTNER_CAMPAIGN",
+                start_date=datetime(2024, 7, 16),
+                status=constants.Status.ACTIVE.value,
+            ),
+        ]
+        for campaign in campaigns:
+            session.add(campaign)
+    session.commit()
+
+def seed_reward_thresholds(session: Session):
+    cnt = session.exec(select(func.count()).select_from(RewardThresholds)).one()
+    if cnt == 0:
+        reward_thresholds = [
+            RewardThresholds(
+                tier=0,
+                threshold=0,
+                commission_rate=0.05,
+            ),
+            RewardThresholds(
+                tier=1,
+                threshold=0,
+                commission_rate=0.06,
+            ),
+            RewardThresholds(
+                tier=2,
+                threshold=500000,
+                commission_rate=0.07,
+            ),
+            RewardThresholds(
+                tier=3,
+                threshold=1000000,
+                commission_rate=0.08,
+            ),
+            RewardThresholds(
+                tier=4,
+                threshold=1500000,
+                commission_rate=0.09,
+            ),
+        ]
+        for reward_threshold in reward_thresholds:
+            session.add(reward_threshold)
+    session.commit()
 
 def init_new_vault(session: Session, vault: Vault):
     existing_vault = session.exec(select(Vault).where(Vault.slug == vault.slug)).first()
@@ -349,8 +398,8 @@ def seed_options_wheel_vault(session: Session):
     seed_referral_codes(session)
     seed_reward_sessions(session)
     seed_reward_session_config(session)
-
-
+    seed_campaigns(session)
+    seed_reward_thresholds(session)
 def init_db(session: Session) -> None:
     seed_group(session)
     seed_vaults(session)
