@@ -1,11 +1,12 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
 from sqlmodel import select
+from models.referral_points import ReferralPoints
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
 from models.reward_sessions import RewardSessions
 from models.user import User
-from models.user_portfolio import UserPortfolio
+from models.user_portfolio import PositionStatus, UserPortfolio
 from models.rewards import Reward
 from models.user_points import UserPoints
 import schemas
@@ -60,7 +61,11 @@ async def get_rewards(session: SessionDep, wallet_address: str):
 
     user = get_user_by_wallet_address(session, wallet_address)
     if not user:
-        return {"reward_percentage": 0, "depositors": 0}
+        return {
+            "reward_percentage": 0,
+            "depositors": 0,
+            "high_balance_depositors": 0,
+        }
 
     statement = select(Referral).where(Referral.referrer_id == user.user_id)
     referrals = session.exec(statement).all()
@@ -73,18 +78,23 @@ async def get_rewards(session: SessionDep, wallet_address: str):
     depositors = session.exec(statement).all()
     high_balance_depositors = 0
     for depositor in depositors:
-        statement = select(UserPortfolio).where(
-            UserPortfolio.user_address == depositor.wallet_address
+        statement = (
+            select(UserPortfolio)
+            .where(UserPortfolio.user_address == depositor.wallet_address)
+            .where(UserPortfolio.status == PositionStatus.ACTIVE)
         )
-        portfolios = session.exec(statement).first()
-        if portfolios and portfolios.total_balance >= 50:
-            high_balance_depositors += 1
+        portfolios = session.exec(statement).all()
+        for portfolio in portfolios:
+            if portfolio.total_balance >= 50:
+                high_balance_depositors += 1
+                break
 
-    statement = select(Reward).where(Reward.user_id == user.user_id)
+    statement = (
+        select(Reward)
+        .where(Reward.user_id == user.user_id)
+        .where(Reward.status == constants.Status.ACTIVE)
+    )
     rewards = session.exec(statement).first()
-    if not rewards:
-        rewards = Reward(reward_percentage=0)
-
     return {
         "reward_percentage": rewards.reward_percentage,
         "depositors": total_referees,
@@ -121,14 +131,21 @@ async def get_points(session: SessionDep, wallet_address: str):
     # for each session
     session_points = {}
 
-    for user_point, session in user_points:
+    for user_point, reward_session in user_points:
         if user_point.session_id not in session_points:
+            statement = (
+                select(ReferralPoints)
+                .where(ReferralPoints.user_id == user.user_id)
+                .where(ReferralPoints.session_id == user_point.session_id)
+            )
+            referral_points = session.exec(statement).first()
             session_points[user_point.session_id] = schemas.Points(
                 points=0,
-                start_date=custom_encoder(session.start_date),
-                end_date=custom_encoder(session.end_date),
-                session_name=session.session_name,
-                partner_name=session.partner_name,
+                start_date=custom_encoder(reward_session.start_date),
+                end_date=custom_encoder(reward_session.end_date),
+                session_name=reward_session.session_name,
+                partner_name=reward_session.partner_name,
+                referral_points=referral_points.points if referral_points else 0,
             )
         session_points[user_point.session_id].points += user_point.points
 

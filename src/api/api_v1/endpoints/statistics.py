@@ -73,41 +73,64 @@ async def get_dashboard_statistics(session: SessionDep):
         select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
     )
     vaults = session.exec(statement).all()
-    data = []
+
+    grouped_vaults = {}
     tvl_in_all_vaults = 0
     tvl_composition = {}
+
     for vault in vaults:
+        group_id = vault.group_id or vault.id
+        if group_id not in grouped_vaults:
+            grouped_vaults[group_id] = {
+                "total_tvl": 0,
+                "default_vault": None,
+                "vaults": []
+            }
+        
+        grouped_vaults[group_id]["vaults"].append(vault)
+        grouped_vaults[group_id]["total_tvl"] += vault.tvl or 0
+
+        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (not vault.vault_group):
+            grouped_vaults[group_id]["default_vault"] = vault
+
+    data = []
+    for group in grouped_vaults.values():
+        default_vault = group["default_vault"]
+        total_tvl = group["total_tvl"]
+        
+        if not default_vault:
+            continue  # skip if there's no default vault (shouldn't happen)
+
         statement = (
             select(VaultPerformance)
-            .where(VaultPerformance.vault_id == vault.id)
+            .where(VaultPerformance.vault_id == default_vault.id)
             .order_by(VaultPerformance.datetime.desc())
         )
         performance = session.exec(statement).first()
 
         pps_history = session.exec(
             select(PricePerShareHistory)
-            .where(PricePerShareHistory.vault_id == vault.id)
+            .where(PricePerShareHistory.vault_id == default_vault.id)
             .order_by(PricePerShareHistory.datetime.desc())
         ).first()
 
         last_price_per_share = pps_history.price_per_share if pps_history else 0
 
         statistic = schemas.VaultStats(
-            name=vault.name,
+            name=default_vault.name,
             price_per_share=last_price_per_share,
             apy_1y=(
                 performance.apy_ytd
-                if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
+                if default_vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
                 else performance.apy_1m
             ),
             risk_factor=performance.risk_factor,
-            total_value_locked=performance.total_locked_value,
-            vault_address=vault.contract_address,
-            slug=vault.slug,
-            id=vault.id,
+            total_value_locked=total_tvl,
+            slug=default_vault.slug,
+            id=default_vault.id,
         )
-        tvl_in_all_vaults += performance.total_locked_value
-        tvl_composition[vault.name] = performance.total_locked_value
+        tvl_in_all_vaults += total_tvl
+        tvl_composition[default_vault.name] = total_tvl
         data.append(statistic)
 
     for key in tvl_composition:
@@ -116,16 +139,18 @@ async def get_dashboard_statistics(session: SessionDep):
         )
 
     # count all portfolio of vault
-    statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(UserPortfolio)
+    statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(
+        UserPortfolio
+    )
     count = session.scalar(statement)
 
-    data = schemas.DashboardStats(
+    dashboard_stats = schemas.DashboardStats(
         tvl_in_all_vaults=tvl_in_all_vaults,
         total_depositors=count,
         tvl_composition=tvl_composition,
         vaults=data,
     )
-    return data
+    return dashboard_stats
 
 
 @router.get("/{vault_id}/tvl-history")

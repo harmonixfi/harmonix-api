@@ -16,3 +16,6 @@ class Points(BaseModel):
     end_date: Optional[datetime] = None
     session_name: Optional[str] = None
     partner_name: Optional[str] = None
+    referral_points: Optional[float] = None
+
+

@@ -1,9 +1,9 @@
 import json
-from typing import List
+from typing import List, Optional
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, and_, select
+from sqlmodel import Session, and_, select, or_
 
 import schemas
 from api.api_v1.deps import SessionDep
@@ -11,6 +11,7 @@ from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory
+from schemas.vault import GroupSchema, SupportedNetwork
 
 router = APIRouter()
 
@@ -84,28 +85,81 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     return earned_points
 
 
-@router.get("/", response_model=List[schemas.Vault])
+@router.get("/", response_model=List[schemas.GroupSchema])
 async def get_all_vaults(
     session: SessionDep,
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
+    tags: Optional[List[str]] = Query(None),
 ):
-    statement = select(Vault).where(Vault.is_active == True)
-    if category or network_chain:
-        conditions = []
-        if category:
-            conditions.append(Vault.category == category)
-        if network_chain:
-            conditions.append(Vault.network_chain == network_chain)
+    statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
+    conditions = []
+    if category:
+        conditions.append(Vault.category == category)
+
+    if network_chain:
+        conditions.append(Vault.network_chain == network_chain)
+
+    if tags:
+        # Adjust the filter for tags stored as a serialized string
+        tags_conditions = [Vault.tags.contains(tag) for tag in tags]
+        conditions.append(or_(*tags_conditions))
+    if conditions:
         statement = statement.where(and_(*conditions))
 
     vaults = session.exec(statement).all()
-    data = []
+    grouped_vaults = {}
     for vault in vaults:
+        group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
-        data.append(schema_vault)
-    return data
+
+        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
+            not vault.vault_group
+        ):
+            schema_vault.is_default = True
+
+        if group_id not in grouped_vaults:
+            grouped_vaults[group_id] = {
+                "id": group_id,
+                "name": vault.vault_group.name if vault.vault_group else vault.name,
+                "tvl": schema_vault.tvl or 0,
+                "apy": schema_vault.apy or 0,
+                "default_vault_id": (
+                    vault.vault_group.default_vault_id if vault.vault_group else None
+                ),
+                "vaults": [schema_vault],
+                "points": {},
+            }
+        else:
+            grouped_vaults[group_id]["vaults"].append(schema_vault)
+            grouped_vaults[group_id]["tvl"] += vault.tvl or 0
+            grouped_vaults[group_id]["apy"] = max(
+                grouped_vaults[group_id]["apy"], schema_vault.apy or 0
+            )
+
+        # Aggregate points for each partner
+        for point in schema_vault.points:
+            if point.name in grouped_vaults[group_id]["points"]:
+                grouped_vaults[group_id]["points"][point.name] += point.point
+            else:
+                grouped_vaults[group_id]["points"][point.name] = point.point
+
+    groups = [
+        GroupSchema(
+            id=group["id"],
+            name=group["name"],
+            tvl=group["tvl"],
+            apy=group["apy"],
+            vaults=group["vaults"],
+            points=[
+                schemas.EarnedPoints(name=partner, point=points)
+                for partner, points in group["points"].items()
+            ],
+        )
+        for group in grouped_vaults.values()
+    ]
+    return groups
 
 
 @router.get("/{vault_slug}", response_model=schemas.Vault)
@@ -120,6 +174,28 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault)
     schema_vault.points = get_earned_points(session, vault)
+
+    # Check if the vault is part of a group
+    if vault.vault_group:
+        # Query all vaults in the group
+        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id)
+        group_vaults = session.exec(group_vaults_statement).all()
+
+        # Get the selected network chain of all vaults in the group
+        selected_networks = {
+            SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
+            for v in group_vaults
+            if v.network_chain
+        }
+        schema_vault.supported_networks = list(selected_networks)
+    else:
+        # If the vault doesn't have a group, get the network of this vault
+        schema_vault.supported_networks = (
+            [SupportedNetwork(chain=vault.network_chain, vault_slug=vault.slug)]
+            if vault.network_chain
+            else []
+        )
+
     return schema_vault
 
 
@@ -153,17 +229,19 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
         if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
             pps_history_df = pps_history_df[["date", "apy"]].copy()
-            
+
             # resample pps_history_df to daily frequency
             pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
             pps_history_df.set_index("date", inplace=True)
             pps_history_df = pps_history_df.resample("D").mean()
             pps_history_df.ffill(inplace=True)
 
-            if len(pps_history_df) >= 7 * 2:  # we will make sure the normalized series enough to plot
+            if (
+                len(pps_history_df) >= 7 * 2
+            ):  # we will make sure the normalized series enough to plot
                 # calculate ma 7 days pps_history_df['apy']
                 pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
-            
+
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
 

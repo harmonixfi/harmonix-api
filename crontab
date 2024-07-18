@@ -1,8 +1,9 @@
 15 8 * * 5 cd /app && python -m bg_tasks.update_performance_weekly > /app-logs/update_performance_weekly.log
-5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain arbitrum_one > /app-logs/update_delta_neutral_vault_performance_daily.log
-5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain base > /app-logs/update_delta_neutral_vault_performance_daily.log
-15 8 * * 5 cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain ethereum > /app-logs/update_delta_neutral_vault_performance_daily.log
+5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain arbitrum_one > /app-logs/update_delta_neutral_vault_performance_daily_arbitrum.log
+5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain base > /app-logs/update_delta_neutral_vault_performance_daily_base.log
+15 8 * * 5 cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain ethereum > /app-logs/update_delta_neutral_vault_performance_daily_ethereum.log
 0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle > /app-logs/update_usdce_usdc_price_feed_oracle.log
 0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation > /app-logs/restaking_point_calculation.log
 0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix > /app-logs/points_distribution_job_harmonix.log
 0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job > /app-logs/reward_distribution_job.log
+0 */1 * * * cd /app && python -m bg_tasks.update_tvl_for_vaults > /app-logs/update_tvl_for_vaults.log
