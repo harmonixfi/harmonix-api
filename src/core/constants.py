@@ -10,6 +10,7 @@ BSX = "bsx"
 
 REWARD_HIGH_PERCENTAGE = 0.08
 REWARD_DEFAULT_PERCENTAGE = 0.05
+REWARD_KOL_AND_PARTNER_DEFAULT_PERCENTAGE = 0.06
 REWARD_HIGH_LIMIT = 101
 MIN_FUNDS_FOR_HIGH_REWARD = 50.0
 HIGH_REWARD_DURATION_DAYS = 90
@@ -46,3 +47,8 @@ monthly_new_tvl_threshold = {
     "1M": 1000000,
     "1.5m": 1500000,
 }
+
+class Campaign(str, Enum):
+    DEFAULT = "default"
+    REFERRAL_101 = "referral_101"
+    KOL_AND_PARTNER = "kol_and_partner"

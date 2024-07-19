@@ -247,8 +247,11 @@ def seed_campaigns(session: Session):
     if cnt == 0:
         campaigns = [
             Campaign(
-                name="KOL_PARTNER_CAMPAIGN",
-                start_date=datetime(2024, 7, 16),
+                name=constants.Campaign.KOL_AND_PARTNER.value,
+                status=constants.Status.ACTIVE.value,
+            ),
+            Campaign(
+                name=constants.Campaign.REFERRAL_101.value,
                 status=constants.Status.ACTIVE.value,
             ),
         ]
