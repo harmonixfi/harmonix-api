@@ -4,8 +4,8 @@ from uuid import UUID
 from datetime import datetime
 
 
-class UserHistory(SQLModel, table=True):
-    __tablename__ = "user_history"
+class UserHoldingAssetHistory(SQLModel, table=True):
+    __tablename__ = "user_holding_asset_history"
     id: Optional[int] = Field(default=None, primary_key=True)
     user_address: str
     total_shares: float

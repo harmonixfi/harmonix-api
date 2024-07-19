@@ -28,7 +28,7 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.update_delta_neutral_vault_performance_daily",
-            "args": ["--chain", "ethereum"],
+            "args": ["--chain", "arbitrum_one"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

@@ -18,3 +18,4 @@ from .user_points_history import UserPointsHistory
 from .referral_points import ReferralPoints
 from .referral_points_history import ReferralPointsHistory
 from .onchain_transaction_history import OnchainTransactionHistory
+from .user_assets_history import UserHoldingAssetHistory

@@ -19,6 +19,7 @@ def process_transaction(transaction):
     return {
         "tx_hash": transaction["hash"],
         "block_number": transaction["blockNumber"],
+        "timestamp": transaction["timeStamp"],
         "from_address": transaction["from"],
         "to_address": transaction["to"],
         "method_id": method_id,
