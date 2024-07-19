@@ -113,7 +113,7 @@ async def get_points(session: SessionDep, wallet_address: str):
         return []
 
     # get list reward_sessions
-    statement = select(RewardSessions).order_by(RewardSessions.start_date)
+    statement = select(RewardSessions).order_by(RewardSessions.start_date.desc())
     reward_sessions = session.exec(statement).all()
     points: List[schemas.Points] = []
 
