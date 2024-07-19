@@ -113,11 +113,13 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+
+        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
+            not vault.vault_group
+        ):
+            schema_vault.is_default = True
+
         if group_id not in grouped_vaults:
-            if (
-                vault.vault_group and vault.vault_group.default_vault_id == vault.id
-            ) or (not vault.vault_group):
-                schema_vault.is_default = True
             grouped_vaults[group_id] = {
                 "id": group_id,
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
@@ -133,8 +135,9 @@ async def get_all_vaults(
             grouped_vaults[group_id]["vaults"].append(schema_vault)
             grouped_vaults[group_id]["tvl"] += vault.tvl or 0
             grouped_vaults[group_id]["apy"] = max(
-                grouped_vaults[group_id]["apy"], vault.ytd_apy or 0
+                grouped_vaults[group_id]["apy"], schema_vault.apy or 0
             )
+
         # Aggregate points for each partner
         for point in schema_vault.points:
             if point.name in grouped_vaults[group_id]["points"]:
