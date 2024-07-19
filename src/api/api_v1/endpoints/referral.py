@@ -112,44 +112,32 @@ async def get_points(session: SessionDep, wallet_address: str):
     if not user:
         return []
 
-    statement = (
-        select(UserPoints, RewardSessions)
-        .where(UserPoints.session_id == RewardSessions.session_id)
-        .where(RewardSessions.end_date == None)
-        .where(UserPoints.partner_name == constants.HARMONIX)
-        .where(UserPoints.wallet_address == wallet_address)
-    )
-
-    user_points = session.exec(statement).all()
-
-    if not user_points:
-        return []
-
+    # get list reward_sessions
+    statement = select(RewardSessions).order_by(RewardSessions.start_date.desc())
+    reward_sessions = session.exec(statement).all()
     points: List[schemas.Points] = []
 
-    # we need to group the user_points by session id and sum the points
-    # for each session
-    session_points = {}
-
-    for user_point, reward_session in user_points:
-        if user_point.session_id not in session_points:
-            statement = (
-                select(ReferralPoints)
-                .where(ReferralPoints.user_id == user.user_id)
-                .where(ReferralPoints.session_id == user_point.session_id)
-            )
-            referral_points = session.exec(statement).first()
-            session_points[user_point.session_id] = schemas.Points(
-                points=0,
-                start_date=custom_encoder(reward_session.start_date),
-                end_date=custom_encoder(reward_session.end_date),
-                session_name=reward_session.session_name,
-                partner_name=reward_session.partner_name,
-                referral_points=referral_points.points if referral_points else 0,
-            )
-        session_points[user_point.session_id].points += user_point.points
-
-    for _, point in session_points.items():
+    for reward_session in reward_sessions:
+        statement = (
+            select(UserPoints)
+            .where(UserPoints.session_id == reward_session.session_id)
+            .where(UserPoints.partner_name == constants.HARMONIX)
+            .where(UserPoints.wallet_address == wallet_address)
+        )
+        user_points = session.exec(statement).first()
+        statement = (
+            select(ReferralPoints)
+            .where(ReferralPoints.user_id == user.user_id)
+            .where(ReferralPoints.session_id == reward_session.session_id)
+        )
+        referral_points = session.exec(statement).first()
+        point = schemas.Points(
+            points=user_points.points if user_points else 0,
+            start_date=custom_encoder(reward_session.start_date),
+            end_date=custom_encoder(reward_session.end_date),
+            session_name=reward_session.session_name,
+            partner_name=reward_session.partner_name,
+            referral_points=referral_points.points if referral_points else 0,
+        )
         points.append(point)
-
     return points
