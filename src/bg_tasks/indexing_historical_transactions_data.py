@@ -40,6 +40,9 @@ def index_transactions(contract_addresses):
                     break
 
                 for tx in transactions:
+                    if tx['isError'] == '1':
+                        continue
+                    
                     tx_data = process_transaction(tx)
                     new_transaction = OnchainTransactionHistory(**tx_data)
                     session.add(new_transaction)
@@ -51,6 +54,10 @@ if __name__ == "__main__":
     contract_addresses = [
         (
             Web3.to_checksum_address("0x2b7cdad36a86fd05ac1680cdc42a0ea16804d80c"),
+            0,
+        ),
+        (
+            Web3.to_checksum_address("0xF30353335003E71b42a89314AAaeC437E7Bc8F0B"),
             0,
         ),
         (
