@@ -69,12 +69,10 @@ def calculate_rseth_holding(vault_contract, vault_address: str):
         )
 
         user_positions = {}
+        pending_to_deploy = {}
 
         for tx in transactions:
-            if tx.method_id in {
-                "0x2e2d2984",
-                "0x12edde5e",
-            }:  # Deposit, InitiateWithdraw
+            if tx.method_id == "0x2e2d2984":  # Deposit
                 """
                 When events happen, we need to update the current user shares in vault
                 """
@@ -90,10 +88,7 @@ def calculate_rseth_holding(vault_contract, vault_address: str):
 
                 user_positions[tx.from_address] = user_shares
 
-            elif tx.method_id in {
-                "0x99ff8203",
-                "0xa126d601",
-            }:  # openPosition, closePosition
+            elif tx.method_id == "0x99ff8203":  # openPosition
                 """
                 This method will actually change the rsETH in vault
                 leed to change in user holdnig as well
@@ -143,6 +138,10 @@ def calculate_rseth_holding(vault_contract, vault_address: str):
                 session.commit()
 
                 print("------- // end open position //----")
+            elif tx.method_id == "0x12edde5e":  # initiateWithdraw
+                pass
+            elif tx.method_id == "0xa126d601":  # closePosition
+                pass
 
 
 def _create_vault_contract(vault_address: str):
@@ -170,4 +169,3 @@ if __name__ == "__main__":
         vault_address = vault["address"]
         vault_contract = _create_vault_contract(vault_address)
         calculate_rseth_holding(vault_contract, vault_address)
-    # get_user_shares("0x8737AcdA55a43aCccF7Ed4A3818663D921ef826b", 216998166)
