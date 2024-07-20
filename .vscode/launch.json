@@ -4,9 +4,6 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-
-
-
         {
             "name": "Python: Update Weekly Performance",
             "type": "debugpy",
@@ -28,7 +25,10 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.update_delta_neutral_vault_performance_daily",
-            "args": ["--chain", "arbitrum_one"],
+            "args": [
+                "--chain",
+                "ethereum"
+            ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
@@ -53,7 +53,10 @@
             "type": "debugpy",
             "request": "launch",
             "module": "web3_listener",
-            "args": ["--network", "arbitrum_one"],
+            "args": [
+                "--network",
+                "arbitrum_one"
+            ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
