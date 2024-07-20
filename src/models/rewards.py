@@ -13,3 +13,4 @@ class Reward(SQLModel, table=True):
     start_date: Optional[datetime]
     end_date: Optional[datetime]
     status: str = Field(default="active")  # Could be Enum if you have defined statuses
+    campaign_name: str = Field(nullable=False, index=True, default="default")

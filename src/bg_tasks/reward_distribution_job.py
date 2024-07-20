@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from core import constants
+from models.campaigns import Campaign
 from models.referrals import Referral
 from models.rewards import Reward
 from models.user import User
@@ -16,10 +17,16 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-def reward_distribution_job():
+def distribute_referral_101_rewards(current_time):
     with Session(engine) as session:
+        campaign_101 = session.exec(
+            select(Campaign).where(
+                Campaign.name == constants.Campaign.REFERRAL_101.value
+            )
+        ).first()
+        if campaign_101 is None or campaign_101.status == constants.Status.CLOSED.value:
+            return
         logger.info("Starting reward distribution job...")
-        current_time = datetime.now(timezone.utc)
         unique_referrers = []
         referrals_query = select(Referral).order_by(Referral.created_at)
         referrals = session.exec(referrals_query).all()
@@ -40,23 +47,40 @@ def reward_distribution_job():
             if rewards is None:
                 continue
 
-            if len(rewards) > 1:
-                if last_reward.reward_percentage == constants.REWARD_HIGH_PERCENTAGE:
+            if last_reward.campaign_name == campaign_101.name:
+                if (
+                    last_reward.end_date is not None
+                    and last_reward.end_date.replace(tzinfo=timezone.utc) < current_time
+                ):
+                    last_reward.status = constants.Status.CLOSED
+                    referrer_query = select(User).where(
+                        User.user_id == referral.referrer_id
+                    )
+                    referrer = session.exec(referrer_query).first()
                     if (
-                        last_reward.end_date is not None
-                        and last_reward.end_date.replace(tzinfo=timezone.utc)
-                        < current_time
+                        referrer.tier == constants.UserTier.KOL.value
+                        or referrer.tier == constants.UserTier.PARTNER.value
                     ):
-                        last_reward.status = constants.Status.CLOSED
+                        new_reward = Reward(
+                            user_id=referral.referrer_id,
+                            referral_code_id=referral.referral_code_id,
+                            reward_percentage=constants.REWARD_KOL_AND_PARTNER_DEFAULT_PERCENTAGE,
+                            start_date=current_time,
+                            end_date=None,
+                            campaign_name=constants.Campaign.KOL_AND_PARTNER.value,
+                        )
+                        session.add(new_reward)
+                    else:
                         new_reward = Reward(
                             user_id=referral.referrer_id,
                             referral_code_id=referral.referral_code_id,
                             reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
                             start_date=current_time,
                             end_date=None,
+                            campaign_name=constants.Campaign.DEFAULT.value,
                         )
                         session.add(new_reward)
-                        session.commit()
+                    session.commit()
                 unique_referrers.append(referral.referrer_id)
                 continue
 
@@ -80,6 +104,7 @@ def reward_distribution_job():
                         start_date=current_time,
                         end_date=current_time
                         + timedelta(constants.HIGH_REWARD_DURATION_DAYS),
+                        campaign_name=campaign_101.name,
                     )
                     session.add(high_reward)
                     session.commit()
@@ -90,4 +115,5 @@ def reward_distribution_job():
 
 
 if __name__ == "__main__":
-    reward_distribution_job()
+    current_time = datetime.now(timezone.utc)
+    distribute_referral_101_rewards(current_time)

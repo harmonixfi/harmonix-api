@@ -107,8 +107,27 @@ def harmonix_distribute_points(current_time):
         if portfolio.vault_id not in multiplier_config_dict:
             continue
 
-        multiplier = multiplier_config_dict[portfolio.vault_id]
-
+        vault_multiplier = multiplier_config_dict[portfolio.vault_id]
+        referrer_mutiplier = 1
+        # get user by wallet address
+        user_query = select(User).where(User.wallet_address == portfolio.user_address)
+        user = session.exec(user_query).first()
+        if not user:
+            continue
+        # get referral by referee_id
+        referral_query = select(Referral).where(Referral.referee_id == user.user_id)
+        referral = session.exec(referral_query).first()
+        if referral:
+            # get referrer user by user_id
+            referrer_query = select(User).where(User.user_id == referral.referrer_id)
+            referrer = session.exec(referrer_query).first()
+            if referrer:
+                if (
+                    referrer.tier == constants.UserTier.KOL.value
+                    or referrer.tier == constants.UserTier.PARTNER.value
+                ):
+                    print(portfolio.id)
+                    referrer_mutiplier = 2
         # get user points distributed for the user by wallet_address
         user_points_query = (
             select(UserPoints)
@@ -131,7 +150,8 @@ def harmonix_distribute_points(current_time):
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
-                * multiplier
+                * vault_multiplier
+                * referrer_mutiplier
             )
 
             # Check if the total points exceed the maximum allowed
@@ -179,7 +199,8 @@ def harmonix_distribute_points(current_time):
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
-                * multiplier
+                * vault_multiplier
+                * referrer_mutiplier
             )
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:
