@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from sqlmodel import Session, select
 from web3 import Web3
+from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
@@ -9,16 +10,10 @@ from models.user_assets_history import UserHoldingAssetHistory
 from schemas.vault_state import OldVaultState, VaultState
 
 
-w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
-
 OWNER = "0x0d4eef21D898883a6bd1aE518B60fEf7A951ce4D"
 
 rockonyx_delta_neutral_vault_abi = read_abi("rockonyxrestakingdeltaneutralvault")
-
 erc20_abi = read_abi("erc20")
-
-RSETH_ADDRESS = "0x4186BFC76E2E237523CBC30FD220FE055156b41F"
-rseth_contract = w3.eth.contract(address=RSETH_ADDRESS, abi=erc20_abi)
 
 
 def get_pps(vault_contract, block_number: int) -> float:
@@ -59,7 +54,7 @@ def get_total_shares(vault_contract, vault_address: str, block_number: int) -> f
     return vault_state.total_share
 
 
-def calculate_rseth_holding(vault_contract, vault_address: str):
+def calculate_rseth_holding(vault_contract, vault_address: str, chain: str):
     with Session(engine) as session:
         # fetch all OnchainTransactionHistory order by block_number asc
         transactions = session.exec(
@@ -144,7 +139,7 @@ def calculate_rseth_holding(vault_contract, vault_address: str):
                 pass
 
 
-def _create_vault_contract(vault_address: str):
+def _create_vault_contract(vault_address: str, chain: str):
     vault_address = Web3.to_checksum_address(vault_address)
     vault_contract = w3.eth.contract(
         address=vault_address,
@@ -156,16 +151,37 @@ def _create_vault_contract(vault_address: str):
 kelpdao_vaults = [
     {
         "address": "0x2b7cdad36a86fd05ac1680cdc42a0ea16804d80c",
+        "chain": constants.CHAIN_ARBITRUM,
     },
     {
         "address": "0x4a10C31b642866d3A3Df2268cEcD2c5B14600523",
+        "chain": constants.CHAIN_ARBITRUM,
     },
 ]
 
+w3: Web3 = None
+rseth_contract = None
+weth_contract = None
 
-if __name__ == "__main__":
 
+def main(chain):
+    if chain == constants.CHAIN_ARBITRUM:
+        w3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+    elif chain == constants.CHAIN_ETHER_MAINNET:
+        w3 = Web3(Web3.HTTPProvider(settings.ETHER_MAINNET_INFURA_URL))
+    else:
+        raise Exception("Chain not supported")
+
+    rseth_contract = w3.eth.contract(address=constants.RSETH_ADDRESS[constants.CHAIN_ARBITRUM], abi=erc20_abi)
+    weth_contract = w3.eth.contract(address=constants.WETH_ADDRESS[constants.CHAIN_ARBITRUM], abi=erc20_abi)
+    
     for vault in kelpdao_vaults:
         vault_address = vault["address"]
+        chain = vault["chain"]
+
         vault_contract = _create_vault_contract(vault_address)
         calculate_rseth_holding(vault_contract, vault_address)
+
+
+if __name__ == "__main__":
+    main(constants.CHAIN_ARBITRUM)
