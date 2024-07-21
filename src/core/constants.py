@@ -64,11 +64,30 @@ DAI_ADDRESS: dict = {
     CHAIN_ETHER_MAINNET: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
 }
 
+ZIRCUIT_DEPOSIT_CONTRACT_ADDRESS = "0xF047ab4c75cebf0eB9ed34Ae2c186f3611aEAfa6"
+ZIRCUIT_ABI = [
+    {
+        "inputs": [
+            {"internalType": "address", "name": "", "type": "address"},
+            {"internalType": "address", "name": "", "type": "address"},
+        ],
+        "name": "balance",
+        "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    }
+]
+
+
 ARB_UNISWAP_WETH_USDC_POOL_ADDRESS = "0xC6962004f452bE9203591991D15f6b388e09E8D0"
+ETH_UNISWAP_WETH_USDC_POOL_ADDRESS = "0x88e6A0c2dDD26FEEb64F039a2c41296FcB3f5640"
 
 UNISWAP_POOLS = {
     WETH_ADDRESS[CHAIN_ARBITRUM]: {
         USDC_ADDRESS[CHAIN_ARBITRUM]: ARB_UNISWAP_WETH_USDC_POOL_ADDRESS
+    },
+    WETH_ADDRESS[CHAIN_ETHER_MAINNET]: {
+        USDC_ADDRESS[CHAIN_ETHER_MAINNET]: ETH_UNISWAP_WETH_USDC_POOL_ADDRESS
     },
 }
 
@@ -77,10 +96,12 @@ class Status(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"
 
+
 class UserTier(str, Enum):
     DEFAULT = "default"
     KOL = "kol"
     PARTNER = "partner"
+
 
 monthly_new_tvl_threshold = {
     "zero": 0,
@@ -88,6 +109,7 @@ monthly_new_tvl_threshold = {
     "1M": 1000000,
     "1.5m": 1500000,
 }
+
 
 class Campaign(str, Enum):
     DEFAULT = "default"

@@ -17,3 +17,4 @@ class UserHoldingAssetHistory(SQLModel, table=True):
     holding_percentage: float
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     block_number: int
+    chain: str = Field(default="arbitrum_one", index=True, nullable=True)

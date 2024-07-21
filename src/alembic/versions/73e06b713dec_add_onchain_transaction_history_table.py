@@ -1,7 +1,7 @@
 """add onchain_transaction_history table
 
 Revision ID: 73e06b713dec
-Revises: e44b0c50293a
+Revises: c60cbeb13f60
 Create Date: 2024-07-18 16:53:26.624949
 
 """
@@ -15,7 +15,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = "73e06b713dec"
-down_revision: Union[str, None] = "e44b0c50293a"
+down_revision: Union[str, None] = "c60cbeb13f60"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

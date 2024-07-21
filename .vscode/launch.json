@@ -113,6 +113,16 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.indexing_user_holding_kelpdao",
+            "args": ["live", "--chain", "arbitrum_one", "--vault-id", "65f75bd7-a2d2-4764-ae31-78e4bb132c62"],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "indexing_user_holding_kelpdao eth",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_user_holding_kelpdao",
+            "args": ["historical", "--chain", "ethereum", "--vault-id", "2e63ed8f-c42a-4ac8-bf31-092270fc9ed1"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
@@ -121,6 +131,26 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.indexing_historical_transactions_data",
+            "args": ["live", "--address", "0x09f2b45a6677858f016EBEF1E8F141D6944429DF", "--chain", "ethereum"],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        
+        {
+            "name": "arb historical tx data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_historical_transactions_data",
+            "args": ["historical", "--chain", "arbitrum_one"],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "eth historical tx data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_historical_transactions_data",
+            "args": ["historical", "--chain", "ethereum"],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
