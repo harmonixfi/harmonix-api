@@ -13,65 +13,65 @@ services:
     networks:
       - onyx_network
 
-  api:
-    image: 'onyxapi:${TAG-latest}'
-    env_file:
-      - .env
-    environment:
-      - SERVER_NAME=${SERVER_NAME?Variable not set}
-      - SERVER_HOST=${SERVER_HOST?Variable not set}
-      # Allow explicit env var override for tests
-      - CRONTAB="cat crontab"
-      - TZ="UTC"
-    volumes:
-      - ./src/:/app
-    build:
-      context: .
-      dockerfile: backend.dockerfile
-      args:
-        INSTALL_DEV: ${INSTALL_DEV-false}
-    command: sh -c "while :; do sleep 1; done"
-    depends_on:
-      - db
-    networks:
-      - onyx_network
+  # api:
+  #   image: 'onyxapi:${TAG-latest}'
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - SERVER_NAME=${SERVER_NAME?Variable not set}
+  #     - SERVER_HOST=${SERVER_HOST?Variable not set}
+  #     # Allow explicit env var override for tests
+  #     - CRONTAB="cat crontab"
+  #     - TZ="UTC"
+  #   volumes:
+  #     - ./src/:/app
+  #   build:
+  #     context: .
+  #     dockerfile: backend.dockerfile
+  #     args:
+  #       INSTALL_DEV: ${INSTALL_DEV-false}
+  #   command: sh -c "while :; do sleep 1; done"
+  #   depends_on:
+  #     - db
+  #   networks:
+  #     - onyx_network
 
-  listener:
-    image: 'listener_runner:${TAG-latest}'
-    env_file:
-      - .env
-    environment:
-      - SERVER_NAME=${SERVER_NAME?Variable not set}
-      - SERVER_HOST=${SERVER_HOST?Variable not set}
-      # Allow explicit env var override for tests
-      - CRONTAB="cat crontab"
-      - TZ="UTC"
-    volumes:
-      - /app-logs:/app-logs
-    build:
-      context: .
-      dockerfile: listener.dockerfile
-      args:
-        SEQ_SERVER_API_KEY: ${SEQ_SERVER_API_KEY}
-    depends_on:
-      - db
-      - seq_logs
-    networks:
-      - onyx_network
+  # listener:
+  #   image: 'listener_runner:${TAG-latest}'
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - SERVER_NAME=${SERVER_NAME?Variable not set}
+  #     - SERVER_HOST=${SERVER_HOST?Variable not set}
+  #     # Allow explicit env var override for tests
+  #     - CRONTAB="cat crontab"
+  #     - TZ="UTC"
+  #   volumes:
+  #     - /app-logs:/app-logs
+  #   build:
+  #     context: .
+  #     dockerfile: listener.dockerfile
+  #     args:
+  #       SEQ_SERVER_API_KEY: ${SEQ_SERVER_API_KEY}
+  #   depends_on:
+  #     - db
+  #     - seq_logs
+  #   networks:
+  #     - onyx_network
   
-  seq_logs:
-    image: datalust/seq:latest
-    ports:
-      - "80:80"
-      - "5341:5341"
-    volumes:
-      - /seq/data:/data
-    environment:
-      - ACCEPT_EULA=Y
-      - BASE_URI=https://localhost
-      - SEQ_FIRSTRUN_ADMINPASSWORDHASH=QC9tV8PCjecjXF20rGk2szhhdL4kkgq+PO+BYSMcq8rAZYPlaQV4wPNJc7JBJzaIpq1O2rYl3LDpk07Pudxh1o4GZw6Y5PJC87x9JQ9ot0La
-    networks:
-      - onyx_network
+  # seq_logs:
+  #   image: datalust/seq:latest
+  #   ports:
+  #     - "80:80"
+  #     - "5341:5341"
+  #   volumes:
+  #     - /seq/data:/data
+  #   environment:
+  #     - ACCEPT_EULA=Y
+  #     - BASE_URI=https://localhost
+  #     - SEQ_FIRSTRUN_ADMINPASSWORDHASH=QC9tV8PCjecjXF20rGk2szhhdL4kkgq+PO+BYSMcq8rAZYPlaQV4wPNJc7JBJzaIpq1O2rYl3LDpk07Pudxh1o4GZw6Y5PJC87x9JQ9ot0La
+  #   networks:
+  #     - onyx_network
 
 
 networks:

@@ -20,3 +20,5 @@ from .referral_points_history import ReferralPointsHistory
 from .campaigns import Campaign
 from .reward_thresholds import RewardThresholds
 from .user_monthly_tvl import UserMonthlyTVL
+from .onchain_transaction_history import OnchainTransactionHistory
+from .user_assets_history import UserHoldingAssetHistory

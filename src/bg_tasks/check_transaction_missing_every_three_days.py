@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 import pendulum
 import requests
@@ -73,6 +73,7 @@ def check_missing_transactions():
         while flag:
             transactions = get_transactions(vault.contract_address, page)
             if transactions == "Max rate limit reached":
+                time.sleep(60)
                 break
             if not transactions:
                 break
@@ -176,8 +177,5 @@ if __name__ == "__main__":
     setup_logging_to_file(
         app="check_transaction_missing_every_three_days", level=logging.INFO, logger=logger
     )
-
-    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-        seqlog.configure_from_file("./config/seqlog.yml")
     
     check_missing_transactions()

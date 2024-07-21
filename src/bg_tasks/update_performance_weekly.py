@@ -24,9 +24,6 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.market_data import get_price
 
-if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-    seqlog.configure_from_file("./config/seqlog.yml")
-
 # # Initialize logger
 logger = logging.getLogger("options_wheel_update_performance_weekly")
 logger.setLevel(logging.INFO)
