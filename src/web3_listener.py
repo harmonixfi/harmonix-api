@@ -4,6 +4,7 @@ import json
 import logging
 import traceback
 from datetime import datetime, timezone
+from typing import Optional
 
 import click
 import seqlog
@@ -72,7 +73,7 @@ def _extract_delta_neutral_event(entry):
 
 
 def handle_deposit_event(
-    user_portfolio: UserPortfolio,
+    user_portfolio: Optional[UserPortfolio],
     value,
     from_address,
     vault: Vault,

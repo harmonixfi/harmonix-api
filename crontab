@@ -5,5 +5,10 @@
 0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle > /app-logs/update_usdce_usdc_price_feed_oracle.log
 0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation > /app-logs/restaking_point_calculation.log
 0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix > /app-logs/points_distribution_job_harmonix.log
-0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job > /app-logs/reward_distribution_job.log
+# 0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job > /app-logs/reward_distribution_job.log
 0 */1 * * * cd /app && python -m bg_tasks.update_tvl_for_vaults > /app-logs/update_tvl_for_vaults.log
+
+0 */15 * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x09f2b45a6677858f016EBEF1E8F141D6944429DF --chain ethereum
+0 */15 * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x4a10C31b642866d3A3Df2268cEcD2c5B14600523 --chain arbitrum_one
+0 */20 * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain arbitrum_one --vault-id 65f75bd7-a2d2-4764-ae31-78e4bb132c62
+0 */20 * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain ethereum --vault-id 2e63ed8f-c42a-4ac8-bf31-092270fc9ed1

@@ -212,7 +212,7 @@ def calculate_performance(
 
     # query last 7 days VaultPerformance
     if update_freq == "daily":
-        last_7_day = datetime.now(timezone.utc) - timedelta(days=6)
+        last_7_day = datetime.now(timezone.utc) - timedelta(days=7)
 
         last_6_days = session.exec(
             select(VaultPerformance)
