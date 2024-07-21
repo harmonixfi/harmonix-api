@@ -446,7 +446,7 @@ def import_live_data(chain, vault_id: str):
             .order_by(OnchainTransactionHistory.block_number.asc())
         ).all()
 
-        tx_history.append((vault_contract, vault_address, transactions))
+        tx_history.append((vault_contract, vault_address, vault.owner_wallet_address, transactions))
 
         calculate_rseth_holding(
             session,
