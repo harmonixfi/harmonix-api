@@ -468,7 +468,7 @@ def cli():
 @click.option("--vault-id", required=True, help="Vault ID")
 def live(chain, vault_id):
     setup_logging_to_file(
-        f"indexing_user_holding_kelpdao_{chain.value}_{vault_id}", logger=logger
+        f"indexing_user_holding_kelpdao_{chain}_{vault_id}", logger=logger
     )
     # Logic for live mode
     logger.info(f"Running in live mode for chain {chain} and vault ID {vault_id}")
