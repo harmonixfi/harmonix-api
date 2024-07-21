@@ -13,6 +13,8 @@ on:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    outputs:
+      image_prefix: ${{ steps.set-env.outputs.image_prefix }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -44,6 +46,7 @@ jobs:
             IMAGE_PREFIX=sandbox_
           fi
           echo "IMAGE_PREFIX=${IMAGE_PREFIX}" >> $GITHUB_ENV
+          echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
 
       - name: Build and Push Image ARM
         uses: docker/build-push-action@v2
@@ -55,10 +58,10 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
           platforms: linux/arm64
+
   update-helm:
     needs: build-and-deploy
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout devops-infra repository
         uses: actions/checkout@v2
@@ -68,7 +71,8 @@ jobs:
 
       - name: Update Helm values
         run: |
-          sed -i 's|tag: .*|tag: '"${{ env.IMAGE_PREFIX }}${{ github.run_number }}"'|' charts/harmonix-backend/sandbox/values.yaml
+          IMAGE_PREFIX="${{ needs.build-and-deploy.outputs.image_prefix }}"
+          sed -i 's|tag: .*|tag: '"${IMAGE_PREFIX}${{ github.run_number }}"'|' charts/harmonix-backend/sandbox/values.yaml
 
       - name: Configure Git
         run: |
@@ -82,5 +86,5 @@ jobs:
           ssh-agent -a /tmp/ssh-agent.sock
           ssh-add - <<< "${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}"
           git add charts/harmonix-backend/sandbox/values.yaml
-          git commit -m "Update SandBox Image Tag to ${{ env.IMAGE_PREFIX }}${{ github.run_number }}"
+          git commit -m "Update SandBox Image Tag to ${{ needs.build-and-deploy.outputs.image_prefix }}${{ github.run_number }}"
           git push
