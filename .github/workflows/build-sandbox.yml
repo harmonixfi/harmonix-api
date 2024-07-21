@@ -55,3 +55,32 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
           platforms: linux/arm64
+  update-helm:
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout devops-infra repository
+        uses: actions/checkout@v2
+        with:
+          repository: harmonixfi/devops-infra
+          ssh-key: ${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}
+
+      - name: Update Helm values
+        run: |
+          sed -i 's|tag: .*|tag: '"${{ env.IMAGE_PREFIX }}${{ github.run_number }}"'|' charts/harmonix-backend/sandbox/values.yaml
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Commit and push updated Helm values
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh-agent.sock
+        run: |
+          ssh-agent -a /tmp/ssh-agent.sock
+          ssh-add - <<< "${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}"
+          git add charts/harmonix-backend/sandbox/values.yaml
+          git commit -m "Update SandBox Image Tag to ${{ env.IMAGE_PREFIX }}${{ github.run_number }}"
+          git push
