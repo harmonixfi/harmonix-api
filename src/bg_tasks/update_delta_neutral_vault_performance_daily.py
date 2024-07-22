@@ -106,11 +106,11 @@ def get_vault_state(vault_contract: Contract, owner_address: str):
         {"from": Web3.to_checksum_address(owner_address)}
     )
     vault_state = VaultState(
-        performance_fee=state[0] / 1e6,
-        management_fee=state[1] / 1e6,
-        withdrawal_pool=state[2] / 1e6,
-        pending_deposit=state[3] / 1e6,
-        total_share=state[4] / 1e6,
+        withdraw_pool_amount=state[0] / 1e6,
+        pending_deposit=state[1] / 1e6,
+        total_share=state[2] / 1e6,
+        total_fee_pool_amount=state[3] / 1e6,
+        last_update_management_fee_date=state[4],
     )
     return vault_state
 
@@ -192,7 +192,7 @@ def calculate_performance(
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
-    time_diff = (pendulum.now(tz=pendulum.UTC) - week_ago_datetime)
+    time_diff = pendulum.now(tz=pendulum.UTC) - week_ago_datetime
     days = min(time_diff.days, 7) if time_diff.days > 0 else time_diff.hours / 24
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share.price_per_share, days=days
@@ -276,7 +276,7 @@ def calculate_performance(
         sortino_ratio=sortino,
         downside_risk=downside,
         unique_depositors=count,
-        earned_fee=vault_state.performance_fee + vault_state.management_fee,
+        earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
     )
     update_price_per_share(vault_id, current_price_per_share)
