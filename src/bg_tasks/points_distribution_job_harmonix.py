@@ -126,8 +126,8 @@ def harmonix_distribute_points(current_time):
                     referrer.tier == constants.UserTier.KOL.value
                     or referrer.tier == constants.UserTier.PARTNER.value
                 ):
-                    print(portfolio.id)
-                    referrer_mutiplier = 2
+                    if (current_time - referrer.created_at.replace(tzinfo=timezone.utc)).days < 14:
+                        referrer_mutiplier = 2
         # get user points distributed for the user by wallet_address
         user_points_query = (
             select(UserPoints)
