@@ -21,7 +21,7 @@ from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 from schemas.fee_info import FeeInfo
-from schemas.vault_state import VaultState
+from schemas.vault_state import OldVaultState, VaultState
 from services.market_data import get_price
 
 # # Initialize logger
@@ -128,7 +128,7 @@ def get_vault_state(vault_contract: Contract, owner_wallet_address: str):
     state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_wallet_address)}
     )
-    vault_state = VaultState(
+    vault_state = OldVaultState(
         performance_fee=state[0] / 1e6,
         management_fee=state[1] / 1e6,
         current_round_fee=state[2] / 1e6,
