@@ -446,7 +446,7 @@ def import_live_data(chain, vault_id: str):
             .order_by(OnchainTransactionHistory.block_number.asc())
         ).all()
 
-        tx_history.append((vault_contract, vault_address, transactions))
+        tx_history.append((vault_contract, vault_address, vault.owner_wallet_address, transactions))
 
         calculate_rseth_holding(
             session,
@@ -468,7 +468,7 @@ def cli():
 @click.option("--vault-id", required=True, help="Vault ID")
 def live(chain, vault_id):
     setup_logging_to_file(
-        f"indexing_user_holding_kelpdao_{chain.value}_{vault_id}", logger=logger
+        f"indexing_user_holding_kelpdao_{chain}_{vault_id}", logger=logger
     )
     # Logic for live mode
     logger.info(f"Running in live mode for chain {chain} and vault ID {vault_id}")
