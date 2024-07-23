@@ -10,6 +10,7 @@ class OldVaultState(BaseModel):
     total_share: float = 0
     last_locked: float = 0
 
+
 class VaultState(BaseModel):
     withdraw_pool_amount: float = 0
     pending_deposit: float = 0

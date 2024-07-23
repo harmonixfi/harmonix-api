@@ -27,7 +27,7 @@
             "module": "bg_tasks.update_delta_neutral_vault_performance_daily",
             "args": [
                 "--chain",
-                "ethereum"
+                "arbitrum_one"
             ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
@@ -73,6 +73,14 @@
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.restaking_point_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "update_solv_vault_performance",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_solv_vault_performance",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

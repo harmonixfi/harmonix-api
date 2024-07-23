@@ -19,6 +19,7 @@ REFERRAL_POINTS_PERCENTAGE = 0.1
 
 OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"
 DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
+STAKING_STRATEGY = "staking_strategy"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"

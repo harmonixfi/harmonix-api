@@ -242,6 +242,7 @@ def seed_reward_session_config(session: Session):
             session.add(reward_session_config)
     session.commit()
 
+
 def seed_campaigns(session: Session):
     cnt = session.exec(select(func.count()).select_from(Campaign)).one()
     if cnt == 0:
@@ -258,6 +259,7 @@ def seed_campaigns(session: Session):
         for campaign in campaigns:
             session.add(campaign)
     session.commit()
+
 
 def seed_reward_thresholds(session: Session):
     cnt = session.exec(select(func.count()).select_from(RewardThresholds)).one()
@@ -292,6 +294,7 @@ def seed_reward_thresholds(session: Session):
         for reward_threshold in reward_thresholds:
             session.add(reward_threshold)
     session.commit()
+
 
 def init_new_vault(session: Session, vault: Vault):
     existing_vault = session.exec(select(Vault).where(Vault.slug == vault.slug)).first()
@@ -358,7 +361,25 @@ def seed_vaults(session: Session):
             tvl=0,
             is_active=False,
             max_drawdown=0,
-            strategy_name=constants.DELTA_NEUTRAL_STRATEGY
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+        ),
+        Vault(
+            name="Solv Vault",
+            vault_capacity=4 * 1e6,
+            vault_currency="WBTC",
+            contract_address="",
+            slug="arbitrum-wbtc-vault",
+            routes=None,
+            category="real_yield",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            is_active=False,
+            max_drawdown=0,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
         ),
     ]
 
@@ -385,7 +406,7 @@ def seed_group(session: Session):
         ).first()
         if not existing_group:
             session.add(group)
-        
+
     session.commit()
 
 
@@ -403,6 +424,8 @@ def seed_options_wheel_vault(session: Session):
     seed_reward_session_config(session)
     seed_campaigns(session)
     seed_reward_thresholds(session)
+
+
 def init_db(session: Session) -> None:
     seed_group(session)
     seed_vaults(session)
@@ -425,3 +448,10 @@ def init_db(session: Session) -> None:
         )
     ).first()
     init_new_vault(session, kelpdao_vault1)
+
+    solv_vault1 = session.exec(
+        select(Vault).where(
+            Vault.slug == "arbitrum-wbtc-vault"
+        )
+    ).first()
+    init_new_vault(session, solv_vault1)

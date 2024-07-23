@@ -124,6 +124,8 @@ class Settings(BaseSettings):
     
     ETHERSCAN_API_KEY: str
     ETHERSCAN_GET_TRANSACTIONS_URL: str = "https://api.etherscan.io/api?module=account&action=txlist"
+
+    SOLV_API_KEY: str
     
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

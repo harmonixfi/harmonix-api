@@ -1,5 +1,9 @@
-from web3 import AsyncWeb3
+from web3 import AsyncWeb3, Web3
 from web3.eth import Contract
+
+from core import constants
+from core.abi_reader import read_abi
+from models.vaults import Vault
 
 
 async def sign_and_send_transaction(
@@ -7,10 +11,7 @@ async def sign_and_send_transaction(
 ):
     cnt = await web3.eth.get_transaction_count(from_address)
     # cnt = 1235
-    transaction = {
-        "from": from_address,
-        "nonce": cnt
-    }
+    transaction = {"from": from_address, "nonce": cnt}
     if value is not None:
         transaction["value"] = value
 
@@ -27,3 +28,25 @@ def parse_hex_to_int(hex_str, is_signed=True):
         return int.from_bytes(bytes.fromhex(hex_str), byteorder="big", signed=True)
     else:
         return int(hex_str, 16)
+
+
+def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
+    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+    vault_contract = w3.eth.contract(
+        address=vault.contract_address,
+        abi=rockonyx_delta_neutral_vault_abi,
+    )
+    return vault_contract, w3
+
+
+def get_current_pps(vault_contract: Contract):
+    pps = vault_contract.functions.pricePerShare().call()
+    return pps / 1e6
+
+
+def get_current_tvl(vault_contract: Contract):
+    tvl = vault_contract.functions.totalValueLocked().call()
+
+    return tvl / 1e6
