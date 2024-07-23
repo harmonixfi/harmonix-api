@@ -413,7 +413,7 @@ def seed_group(session: Session):
 def seed_options_wheel_vault(session: Session):
     # Seed data for VaultPerformance for Stablecoin Vault
     stablecoin_vault = session.exec(
-        select(Vault).where(Vault.name == "Options Wheel Vault")
+        select(Vault).where(Vault.slug == "options-wheel-vault")
     ).first()
 
     seed_opitons_wheel_vault_performance(stablecoin_vault, session)

@@ -47,19 +47,19 @@ def fetch_nav_data():
 
 
 def get_monthly_apy(df):
-    now = datetime.now(timezone.utc)
+    now = pd.Timestamp.now(tz='UTC')
     one_month_ago = now - pd.DateOffset(months=1)
-    recent_nav = df[df["navDate"] <= now].iloc[-1]["nav"]
-    month_ago_nav = df[df["navDate"] <= one_month_ago].iloc[-1]["nav"]
+    recent_nav = df[df["navDate"] <= now.strftime('%Y-%m-%d')].iloc[-1]["nav"]
+    month_ago_nav = df[df["navDate"] <= one_month_ago.strftime('%Y-%m-%d')].iloc[-1]["nav"]
     days = (now - one_month_ago).days
     return calculate_roi(recent_nav, month_ago_nav, days)
 
 
 def get_weekly_apy(df):
-    now = datetime.now(timezone.utc)
+    now = pd.Timestamp.now(tz='UTC')
     one_week_ago = now - pd.DateOffset(weeks=1)
-    recent_nav = df[df["navDate"] <= now].iloc[-1]["nav"]
-    week_ago_nav = df[df["navDate"] <= one_week_ago].iloc[-1]["nav"]
+    recent_nav = df[df["navDate"] <= now.strftime('%Y-%m-%d')].iloc[-1]["nav"]
+    week_ago_nav = df[df["navDate"] <= one_week_ago.strftime('%Y-%m-%d')].iloc[-1]["nav"]
     days = (now - one_week_ago).days
     return calculate_roi(recent_nav, week_ago_nav, days)
 

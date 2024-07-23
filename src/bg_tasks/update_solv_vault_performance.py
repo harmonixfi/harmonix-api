@@ -93,9 +93,9 @@ def calculate_performance(
 ):
     current_price = get_price("BTCUSDT")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    current_price_per_share = get_current_pps(vault_contract)
-    total_balance = get_current_tvl(vault_contract)
-    fee_info = get_fee_info()
+    # current_price_per_share = get_current_pps(vault_contract)
+    # total_balance = get_current_tvl(vault_contract)
+    # fee_info = get_fee_info()
     # vault_state = get_vault_state(vault_contract, owner_address=owner_address)
 
     # get performance
@@ -155,31 +155,25 @@ def calculate_performance(
     return performance
 
 
-def main(chain: str):
+def main():
     try:
-        # Parse chain to NetworkChain enum
-        network_chain = NetworkChain[chain.lower()]
 
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
-            .where(Vault.is_active == True)
-            .where(Vault.network_chain == network_chain)
+            .where(Vault.slug == "arbitrum-wbtc-vault")
+            # .where(Vault.is_active == True)
         ).all()
 
         for vault in vaults:
-            vault_contract, _ = get_vault_contract(vault)
+            # vault_contract, _ = get_vault_contract(vault)
+            vault_contract = None
 
             new_performance_rec = calculate_performance(
                 vault.id,
                 vault_contract,
                 vault.owner_wallet_address,
-                update_freq=(
-                    "daily"
-                    if network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}
-                    else "weekly"
-                ),
+                update_freq="daily"
             )
             # Add the new performance record to the session and commit
             session.add(new_performance_rec)
