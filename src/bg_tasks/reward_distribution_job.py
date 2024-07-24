@@ -140,6 +140,7 @@ def distribute_kol_and_partner_rewards(current_time):
 
 def get_reward_percentage_by_user_tvl(rewards_thresholds, user):
     tvl = 0
+    reward_percentage = 0
     user_last_30_days_tvl_query = (
                 select(UserLast30DaysTVL)
                 .where(UserLast30DaysTVL.user_id == user.user_id)
