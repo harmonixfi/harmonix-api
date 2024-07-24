@@ -103,6 +103,8 @@ def historical(chain: NetworkChain):
     elif chain == NetworkChain.ethereum:
         contract_addresses = [
             Web3.to_checksum_address("0x09f2b45a6677858f016EBEF1E8F141D6944429DF"),
+            Web3.to_checksum_address("0xFae8821DD6e5F93431506bf234Ed94dDaaD2A533"),
+            
         ]
 
     index_transactions(contract_addresses, chain)

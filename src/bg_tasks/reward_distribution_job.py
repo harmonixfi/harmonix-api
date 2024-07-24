@@ -3,9 +3,12 @@ from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from core import constants
 from models.campaigns import Campaign
+from models.referralcodes import ReferralCode
 from models.referrals import Referral
+from models.reward_thresholds import RewardThresholds
 from models.rewards import Reward
 from models.user import User
+from models.user_last_30_days_tvl import UserLast30DaysTVL
 from models.user_portfolio import UserPortfolio
 from core.db import engine
 from sqlmodel import Session, select
@@ -53,33 +56,15 @@ def distribute_referral_101_rewards(current_time):
                     and last_reward.end_date.replace(tzinfo=timezone.utc) < current_time
                 ):
                     last_reward.status = constants.Status.CLOSED
-                    referrer_query = select(User).where(
-                        User.user_id == referral.referrer_id
+                    new_reward = Reward(
+                        user_id=referral.referrer_id,
+                        referral_code_id=referral.referral_code_id,
+                        reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
+                        start_date=current_time,
+                        end_date=None,
+                        campaign_name=constants.Campaign.DEFAULT.value,
                     )
-                    referrer = session.exec(referrer_query).first()
-                    if (
-                        referrer.tier == constants.UserTier.KOL.value
-                        or referrer.tier == constants.UserTier.PARTNER.value
-                    ):
-                        new_reward = Reward(
-                            user_id=referral.referrer_id,
-                            referral_code_id=referral.referral_code_id,
-                            reward_percentage=constants.REWARD_KOL_AND_PARTNER_DEFAULT_PERCENTAGE,
-                            start_date=current_time,
-                            end_date=None,
-                            campaign_name=constants.Campaign.KOL_AND_PARTNER.value,
-                        )
-                        session.add(new_reward)
-                    else:
-                        new_reward = Reward(
-                            user_id=referral.referrer_id,
-                            referral_code_id=referral.referral_code_id,
-                            reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
-                            start_date=current_time,
-                            end_date=None,
-                            campaign_name=constants.Campaign.DEFAULT.value,
-                        )
-                        session.add(new_reward)
+                    session.add(new_reward)
                     session.commit()
                 unique_referrers.append(referral.referrer_id)
                 continue
@@ -114,6 +99,62 @@ def distribute_referral_101_rewards(current_time):
         logger.info("Reward distribution job completed.")
 
 
+def distribute_kol_and_partner_rewards(current_time):
+    statement = select(Campaign).where(
+        Campaign.name == constants.Campaign.KOL_AND_PARTNER.value
+    )
+    campaign = session.exec(statement).first()
+    if campaign is None or campaign.status == constants.Status.CLOSED.value:
+        return
+    logger.info("Starting KOL and Partner reward distribution job...")
+    rewards_thresholds = session.exec(
+        select(RewardThresholds).order_by(RewardThresholds.tier)
+    ).all()
+    user_query = select(User).where(
+        User.tier.in_([constants.UserTier.KOL.value, constants.UserTier.PARTNER.value])
+    )
+    users = session.exec(user_query).all()
+    for user in users:
+        reward_query = (
+            select(Reward)
+            .where(Reward.user_id == user.user_id)
+            .order_by(Reward.start_date)
+        )
+        rewards = session.exec(reward_query).all()
+        last_reward = rewards[-1]
+        if last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value or last_reward.campaign_name == constants.Campaign.DEFAULT.value :
+            reward_percentage = get_reward_percentage_by_user_tvl(rewards_thresholds, user)
+            if reward_percentage != last_reward.reward_percentage:
+                last_reward.status = constants.Status.CLOSED
+                last_reward.end_date = current_time
+                new_reward = Reward(
+                    user_id=user.user_id,
+                    referral_code_id=last_reward.referral_code_id,
+                    reward_percentage=reward_percentage,
+                    start_date=current_time,
+                    end_date=None,
+                    campaign_name=constants.Campaign.KOL_AND_PARTNER.value,
+                )
+                session.add(new_reward)
+        session.commit()
+
+def get_reward_percentage_by_user_tvl(rewards_thresholds, user):
+    tvl = 0
+    user_last_30_days_tvl_query = (
+                select(UserLast30DaysTVL)
+                .where(UserLast30DaysTVL.user_id == user.user_id)
+                .order_by(UserLast30DaysTVL.created_at.desc())
+            )
+    user_last_30_days_tvl = session.exec(user_last_30_days_tvl_query).first()
+    if user_last_30_days_tvl is not None:
+        tvl = user_last_30_days_tvl.total_value_locked
+    for rewards_threshold in rewards_thresholds:
+        if tvl >= rewards_threshold.threshold:
+            reward_percentage = rewards_threshold.commission_rate
+    return reward_percentage
+
+
 if __name__ == "__main__":
     current_time = datetime.now(timezone.utc)
     distribute_referral_101_rewards(current_time)
+    distribute_kol_and_partner_rewards(current_time)

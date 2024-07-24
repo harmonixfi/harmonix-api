@@ -7,7 +7,7 @@ class Campaign(SQLModel, table=True):
     
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     name: str = Field(nullable=False)
-    start_date: datetime = Field(nullable=False)
+    start_date: datetime = Field(nullable=True)
     end_date: datetime = Field(nullable=True)
     status: str = Field(nullable=False)  # Could be Enum if you have defined statuses
     created_at: datetime = Field(default=datetime.now(timezone.utc))

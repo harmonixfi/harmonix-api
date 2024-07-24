@@ -154,5 +154,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "calculate_tvl_last_30_days",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.calculate_tvl_last_30_days",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
