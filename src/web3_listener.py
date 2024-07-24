@@ -61,13 +61,13 @@ def _extract_delta_neutral_event(entry):
     # token_in = None
     # if len(entry["topics"]) >= 3:
     #     token_in = f'0x{entry["topics"][2].hex()[26:]}'
-    
+
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     amount = int(data[2:66], 16)
 
     amount = amount / 1e18 if len(str(amount)) >= 18 else amount / 1e6
-    
+
     shares = int(data[66 : 66 + 64], 16) / 1e6
     return amount, shares, from_address
 
@@ -82,6 +82,9 @@ def handle_deposit_event(
     **kwargs,
 ):
     if user_portfolio is None:
+        logger.info(
+            f"User deposit {from_address} amount = {value} at pps = {latest_pps}"
+        )
         # Create new user_portfolio for this user address
         user_portfolio = UserPortfolio(
             vault_id=vault.id,
@@ -97,6 +100,8 @@ def handle_deposit_event(
         session.add(user_portfolio)
         logger.info(f"User with address {from_address} added to user_portfolio table")
     else:
+
+        logger.info(f"User position before update {user_portfolio}")
         # Update the user_portfolio
         user_portfolio.total_balance += value
         user_portfolio.init_deposit += value
@@ -105,20 +110,36 @@ def handle_deposit_event(
         )
         user_portfolio.total_shares += value / latest_pps
         session.add(user_portfolio)
+        logger.info(
+            f"User deposit {from_address}, amount = {value}, shares = {value / latest_pps}"
+        )
         logger.info(f"User with address {from_address} updated in user_portfolio table")
     return user_portfolio
 
 
 def handle_initiate_withdraw_event(
-    user_portfolio: UserPortfolio, value, from_address, shares, *args, **kwargs
+    user_portfolio: UserPortfolio,
+    value,
+    from_address,
+    shares,
+    latest_pps,
+    *args,
+    **kwargs,
 ):
     if user_portfolio is not None:
+        logger.info(
+            f"User initiate withdrawal {from_address} amount = {value}, shares = {shares}"
+        )
         if user_portfolio.pending_withdrawal is None:
-            user_portfolio.pending_withdrawal = value
+            user_portfolio.pending_withdrawal = shares
         else:
-            user_portfolio.pending_withdrawal += value
+            user_portfolio.pending_withdrawal += shares
 
-        user_portfolio.init_deposit -= value
+        user_portfolio.init_deposit -= (
+            value
+            if user_portfolio.init_deposit >= value
+            else user_portfolio.init_deposit
+        )
         user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
         session.add(user_portfolio)
         logger.info(f"User with address {from_address} updated in user_portfolio table")
@@ -133,6 +154,7 @@ def handle_withdrawn_event(
     user_portfolio: UserPortfolio, value, from_address, *args, **kwargs
 ):
     if user_portfolio is not None:
+        logger.info(f"User complete withdrawal {from_address} {value}")
         user_portfolio.total_balance -= value
 
         # Update the pending_withdrawal, we don't allow user to withdraw more or less than pending_withdrawal
@@ -319,7 +341,9 @@ async def run(network: str):
     global chain_name
 
     setup_logging_to_console(level=logging.INFO, logger=logger)
-    setup_logging_to_file(app=f"web3_listener_{network}", level=logging.INFO, logger=logger)
+    setup_logging_to_file(
+        app=f"web3_listener_{network}", level=logging.INFO, logger=logger
+    )
 
     if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
         print("initializing seqlog")

@@ -100,7 +100,7 @@ async def get_portfolio_info(
             vault_address=vault.contract_address,
             total_balance=pos.total_balance,
             init_deposit=(
-                pos.init_deposit + pos.pending_withdrawal
+                pos.init_deposit + pos.pending_withdrawal * pos.entry_price
                 if pos.pending_withdrawal
                 else pos.init_deposit
             ),
@@ -140,7 +140,9 @@ async def get_portfolio_info(
         price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-        position.total_balance = shares * price_per_share + pending_withdrawal * price_per_share
+        position.total_balance = (
+            shares * price_per_share + pending_withdrawal * price_per_share
+        )
         position.pnl = position.total_balance - position.init_deposit
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days

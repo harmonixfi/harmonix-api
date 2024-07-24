@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 import math
 from unittest.mock import patch
 import uuid
@@ -236,10 +236,17 @@ def test_handle_event_deposit_then_init_withdraw(
         100,
         "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
     )  # amount, from_address
+
+    vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
+    vault = (
+        db_session.query(Vault).filter(Vault.contract_address == vault_address).first()
+    )
+
     amount = 200_000000
     shares = 200_000000
     event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
-    handle_event("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "Deposit")
+    handle_event(vault_address, event_data, "Deposit")
+
     user_portfolio = (
         db_session.query(UserPortfolio)
         .filter(
@@ -250,8 +257,19 @@ def test_handle_event_deposit_then_init_withdraw(
     assert user_portfolio is not None
     assert user_portfolio.total_balance == 200
 
-    amount = 200_000000
-    shares = 200_000000
+    updated_pps = 1.05
+    db_session.execute(
+        PricePerShareHistory.__table__.insert(),
+        {
+            "vault_id": vault.id,
+            "price_per_share": updated_pps,
+            "datetime": datetime.now() + timedelta(days=1),
+        },
+    )
+    db_session.commit()
+
+    amount = int((200 * updated_pps) * 1e6)
+    shares = int(200 * 1e6)
     event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
     handle_event(
         "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5", event_data, "InitiateWithdraw"
