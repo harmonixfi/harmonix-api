@@ -46,6 +46,12 @@ def distribute_referral_101_rewards(current_time):
                 .order_by(Reward.start_date)
             )
             rewards = session.exec(reward_query).all()
+            is_already_in_101_campaign = False
+            for reward in rewards:
+                if reward.campaign_name == campaign_101.name:
+                    unique_referrers.append(referral.referrer_id)
+                    is_already_in_101_campaign = True
+                    break
             last_reward = rewards[-1]
             if rewards is None:
                 continue
@@ -66,9 +72,9 @@ def distribute_referral_101_rewards(current_time):
                     )
                     session.add(new_reward)
                     session.commit()
-                unique_referrers.append(referral.referrer_id)
                 continue
-
+            if is_already_in_101_campaign:
+                continue
             user_query = select(User).where(User.user_id == referral.referee_id)
             user = session.exec(user_query).first()
             if not user:
@@ -122,8 +128,13 @@ def distribute_kol_and_partner_rewards(current_time):
         )
         rewards = session.exec(reward_query).all()
         last_reward = rewards[-1]
-        if last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value or last_reward.campaign_name == constants.Campaign.DEFAULT.value :
-            reward_percentage = get_reward_percentage_by_user_tvl(rewards_thresholds, user)
+        if (
+            last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value
+            or last_reward.campaign_name == constants.Campaign.DEFAULT.value
+        ):
+            reward_percentage = get_reward_percentage_by_user_tvl(
+                rewards_thresholds, user
+            )
             if reward_percentage != last_reward.reward_percentage:
                 last_reward.status = constants.Status.CLOSED
                 last_reward.end_date = current_time
@@ -138,14 +149,15 @@ def distribute_kol_and_partner_rewards(current_time):
                 session.add(new_reward)
         session.commit()
 
+
 def get_reward_percentage_by_user_tvl(rewards_thresholds, user):
     tvl = 0
     reward_percentage = 0
     user_last_30_days_tvl_query = (
-                select(UserLast30DaysTVL)
-                .where(UserLast30DaysTVL.user_id == user.user_id)
-                .order_by(UserLast30DaysTVL.created_at.desc())
-            )
+        select(UserLast30DaysTVL)
+        .where(UserLast30DaysTVL.user_id == user.user_id)
+        .order_by(UserLast30DaysTVL.created_at.desc())
+    )
     user_last_30_days_tvl = session.exec(user_last_30_days_tvl_query).first()
     if user_last_30_days_tvl is not None:
         tvl = user_last_30_days_tvl.total_value_locked
