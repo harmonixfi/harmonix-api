@@ -116,3 +116,8 @@ class Campaign(str, Enum):
     DEFAULT = "default"
     REFERRAL_101 = "referral_101"
     KOL_AND_PARTNER = "kol_and_partner"
+
+class MethodID(str, Enum):
+    DEPOSIT = "0x2e2d2984"
+    WITHDRAW = "0x12edde5e"
+    

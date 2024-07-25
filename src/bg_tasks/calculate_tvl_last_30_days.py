@@ -34,19 +34,17 @@ def calculate_tvl_last_30_days():
     logger.info("Starting calculate TVL last 30 days job...")
     now = datetime.now().timestamp()
     last_30_days_timestamp = now - 30 * 24 * 60 * 60
-    statement = select(User)
-    users = session.exec(statement).all()
-    statement = select(Vault)
-    vaults = session.exec(statement).all()
+    users = session.exec(select(User)).all()
+    vaults = session.exec(select(Vault)).all()
 
     for user in users:
         statement = select(Referral).where(Referral.referrer_id == user.user_id)
         referrals = session.exec(statement).all()
         if len(referrals) == 0:
             continue
-        share_deposited = 0
+        shares_deposited = 0
         balance_deposited = 0
-        share_withdraw = 0
+        shares_withdraw = 0
         for referral in referrals:
             statement = select(User).where(User.user_id == referral.referee_id)
             referee = session.exec(statement).first()
@@ -58,42 +56,52 @@ def calculate_tvl_last_30_days():
             onchain_transaction_histories = session.exec(statement).all()
             if len(onchain_transaction_histories) == 0:
                 continue
-            for onchain_transaction_historie in onchain_transaction_histories:
-                if onchain_transaction_historie.method_id == "0xb6b55f25":
-                    pps = get_pps_by_vault(onchain_transaction_historie, vaults)
-                    input = parse_hex_to_int(onchain_transaction_historie.input[10:])
-                    deposit = input / 1e6
-                    balance_deposited += deposit
-                    share_deposited += deposit / pps
-                elif onchain_transaction_historie.method_id == "0x2e2d2984":
-                    pps = get_pps_by_vault(onchain_transaction_historie, vaults)
+            for onchain_transaction_history in onchain_transaction_histories:
+                if (
+                    onchain_transaction_history.method_id
+                    == constants.MethodID.DEPOSIT.value
+                ):
+                    pps = get_pps_by_vault(onchain_transaction_history, vaults)
                     if pps is None:
                         continue
-                    input = parse_hex_to_int(onchain_transaction_historie.input[10:74])
-                    if constants.DAI_CONTRACT_ADDRESS in onchain_transaction_historie.input:
+                    input = parse_hex_to_int(onchain_transaction_history.input[10:74])
+                    if (
+                        constants.DAI_CONTRACT_ADDRESS
+                        in onchain_transaction_history.input
+                    ):
                         deposit = input / 1e18
                     else:
                         deposit = input / 1e6
                     balance_deposited += deposit
-                    share_deposited += deposit / pps
-                elif onchain_transaction_historie.method_id == "0x12edde5e":
-                    input = parse_hex_to_int(onchain_transaction_historie.input[10:])
+                    shares_deposited += deposit / pps
+                elif (
+                    onchain_transaction_history.method_id
+                    == constants.MethodID.WITHDRAW.value
+                ):
+                    input = parse_hex_to_int(onchain_transaction_history.input[10:])
                     withdraw = input / 1e6
-                    share_withdraw += withdraw
+                    shares_withdraw += withdraw
         if balance_deposited == 0:
-            if share_deposited == 0:
-                tvl = 0
-                continue
-            tvl = share_deposited
+            user_last_30_days_tvl = UserLast30DaysTVL(
+                user_id=user.user_id,
+                avg_entry_price=0,
+                shares_deposited=0,
+                shares_withdraw=shares_withdraw,
+                total_value_locked=0,
+            )
+            session.add(user_last_30_days_tvl)
+            session.commit()
             continue
-        weighted_median_share = balance_deposited / share_deposited
-        balance_withdraw = share_withdraw * weighted_median_share
+        avg_entry_price = balance_deposited / shares_deposited
+        balance_withdraw = shares_withdraw * avg_entry_price
         tvl = balance_deposited - balance_withdraw
+        if tvl < 0:
+            tvl = 0
         user_last_30_days_tvl = UserLast30DaysTVL(
             user_id=user.user_id,
-            weighted_median_share=weighted_median_share,
-            share_deposited=share_deposited,
-            share_withdraw=share_withdraw,
+            avg_entry_price=avg_entry_price,
+            shares_deposited=shares_deposited,
+            shares_withdraw=shares_withdraw,
             total_value_locked=tvl,
         )
         session.add(user_last_30_days_tvl)

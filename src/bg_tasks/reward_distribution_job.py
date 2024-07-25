@@ -127,6 +127,7 @@ def distribute_kol_and_partner_rewards(current_time):
             .order_by(Reward.start_date)
         )
         rewards = session.exec(reward_query).all()
+        
         last_reward = rewards[-1]
         if (
             last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value

@@ -24,9 +24,9 @@ def upgrade() -> None:
     op.create_table('user_last_30_days_tvl',
     sa.Column('id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
     sa.Column('user_id', sqlmodel.sql.sqltypes.GUID(), nullable=False),
-    sa.Column('weighted_median_share', sa.Float(), nullable=False),
-    sa.Column('share_deposited', sa.Float(), nullable=False),
-    sa.Column('share_withdraw', sa.Float(), nullable=False),
+    sa.Column('avg_entry_price', sa.Float(), nullable=False),
+    sa.Column('shares_deposited', sa.Float(), nullable=False),
+    sa.Column('shares_withdraw', sa.Float(), nullable=False),
     sa.Column('total_value_locked', sa.Float(), nullable=False),
     sa.Column('created_at', sa.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
