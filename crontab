@@ -7,6 +7,7 @@
 0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix
 # 0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job
 0 */1 * * * cd /app && python -m bg_tasks.update_tvl_for_vaults
+0 0 * * * cd /app && python -m bg_tasks.calculate_tvl_last_30_days
 
 */15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x09f2b45a6677858f016EBEF1E8F141D6944429DF --chain ethereum
 */15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x4a10C31b642866d3A3Df2268cEcD2c5B14600523 --chain arbitrum_one
