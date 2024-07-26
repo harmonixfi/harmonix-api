@@ -66,9 +66,9 @@ def calculate_tvl_last_30_days():
                         continue
                     amount = onchain_transaction_history.input[10:].lower()
                     amount = amount[:64]
-                    amount = parse_hex_to_int(amount)
                     tokenIn = amount[64:128]
                     tokenIn = f"0x{tokenIn[24:]}"
+                    amount = parse_hex_to_int(amount)
                     if tokenIn == constants.DAI_CONTRACT_ADDRESS:
                         deposit = amount / 1e18
                     else:
