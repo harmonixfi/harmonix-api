@@ -64,22 +64,23 @@ def calculate_tvl_last_30_days():
                     pps = get_pps_by_vault(onchain_transaction_history, vaults)
                     if pps is None:
                         continue
-                    input = parse_hex_to_int(onchain_transaction_history.input[10:74])
-                    if (
-                        constants.DAI_CONTRACT_ADDRESS
-                        in onchain_transaction_history.input
-                    ):
-                        deposit = input / 1e18
+                    amount = onchain_transaction_history.input[10:].lower()
+                    amount = amount[:64]
+                    tokenIn = amount[64:128]
+                    tokenIn = f"0x{tokenIn[24:]}"
+                    amount = parse_hex_to_int(amount)
+                    if tokenIn == constants.DAI_CONTRACT_ADDRESS:
+                        deposit = amount / 1e18
                     else:
-                        deposit = input / 1e6
+                        deposit = amount / 1e6
                     balance_deposited += deposit
                     shares_deposited += deposit / pps
                 elif (
                     onchain_transaction_history.method_id
                     == constants.MethodID.WITHDRAW.value
                 ):
-                    input = parse_hex_to_int(onchain_transaction_history.input[10:])
-                    withdraw = input / 1e6
+                    amount = parse_hex_to_int(onchain_transaction_history.input[10:])
+                    withdraw = amount / 1e6
                     shares_withdraw += withdraw
         if balance_deposited == 0:
             user_last_30_days_tvl = UserLast30DaysTVL(
