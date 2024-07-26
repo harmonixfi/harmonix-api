@@ -8,7 +8,10 @@
 # 0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job > /app-logs/reward_distribution_job.log
 0 */1 * * * cd /app && python -m bg_tasks.update_tvl_for_vaults > /app-logs/update_tvl_for_vaults.log
 
-0 */15 * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x09f2b45a6677858f016EBEF1E8F141D6944429DF --chain ethereum
-0 */15 * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x4a10C31b642866d3A3Df2268cEcD2c5B14600523 --chain arbitrum_one
-0 */20 * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain arbitrum_one --vault-id 65f75bd7-a2d2-4764-ae31-78e4bb132c62
-0 */20 * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain ethereum --vault-id 2e63ed8f-c42a-4ac8-bf31-092270fc9ed1
+*/15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x09f2b45a6677858f016EBEF1E8F141D6944429DF --chain ethereum
+*/15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0xFae8821DD6e5F93431506bf234Ed94dDaaD2A533 --chain ethereum
+*/15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x4a10C31b642866d3A3Df2268cEcD2c5B14600523 --chain arbitrum_one
+*/15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0x316CDbBEd9342A1109D967543F81FA6288eBC47D --chain arbitrum_one
+*/15 * * * * cd /app && python -m bg_tasks.indexing_historical_transactions_data live --address 0xd531d9212cB1f9d27F9239345186A6e9712D8876 --chain arbitrum_one
+*/20 * * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain arbitrum_one --vault-id 65f75bd7-a2d2-4764-ae31-78e4bb132c62
+*/20 * * * * cd /app && python -m bg_tasks.indexing_user_holding_kelpdao live --chain ethereum --vault-id 2e63ed8f-c42a-4ac8-bf31-092270fc9ed1
