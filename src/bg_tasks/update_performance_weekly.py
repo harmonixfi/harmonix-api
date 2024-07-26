@@ -10,12 +10,16 @@ from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
 
-from bg_tasks.utils import (calculate_pps_statistics, calculate_roi,
-                            get_before_price_per_shares)
+from bg_tasks.utils import (
+    calculate_pps_statistics,
+    calculate_roi,
+    get_before_price_per_shares,
+)
 from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -41,6 +45,7 @@ token_abi = read_abi("ERC20")
 # )
 
 session = Session(engine)
+
 
 def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
     w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
@@ -175,7 +180,9 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 
 # Step 4: Calculate Performance Metrics
-def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_address: str):
+def calculate_performance(
+    vault_id: uuid.UUID, vault_contract: Contract, owner_address: str
+):
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
@@ -225,9 +232,13 @@ def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_a
     )
 
     # count all portfolio of vault
-    statement = select(func.count()).select_from(UserPortfolio).where(UserPortfolio.vault_id == vault_id)
+    statement = (
+        select(func.count())
+        .select_from(UserPortfolio)
+        .where(UserPortfolio.vault_id == vault_id)
+    )
     count = session.scalar(statement)
-    
+
     # Create a new VaultPerformance object
     performance = VaultPerformance(
         datetime=today,
@@ -245,7 +256,7 @@ def calculate_performance(vault_id: uuid.UUID, vault_contract: Contract, owner_a
         downside_risk=downside,
         earned_fee=vault_state.performance_fee + vault_state.management_fee,
         fee_structure=fee_info,
-        unique_depositors=count
+        unique_depositors=count,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
@@ -262,7 +273,9 @@ def main():
 
         vault_contract, _ = get_vault_contract(vault)
 
-        new_performance_rec = calculate_performance(vault.id, vault_contract, vault.owner_wallet_address)
+        new_performance_rec = calculate_performance(
+            vault.id, vault_contract, vault.owner_wallet_address
+        )
         # Add the new performance record to the session and commit
         session.add(new_performance_rec)
 
@@ -284,4 +297,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_file("update_performance_weekly", logger=logger)
     main()
