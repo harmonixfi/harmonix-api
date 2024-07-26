@@ -20,6 +20,7 @@ from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -28,9 +29,6 @@ from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.market_data import get_price
-
-if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-    seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
 logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
@@ -300,6 +298,9 @@ def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
 @click.option("--chain", default="arbitrum_one", help="Blockchain network to use")
 def main(chain: str):
     try:
+        setup_logging_to_file(
+            f"update_delta_neutral_vault_performance_daily_{chain}", logger=logger
+        )
         # Parse chain to NetworkChain enum
         network_chain = NetworkChain[chain.lower()]
 

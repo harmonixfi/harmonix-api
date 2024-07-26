@@ -42,3 +42,4 @@ env/
 .env
 set_env.sh
 src/notebooks/
+env.sh
