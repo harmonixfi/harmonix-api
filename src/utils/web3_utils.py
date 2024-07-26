@@ -50,3 +50,8 @@ def get_current_tvl(vault_contract: Contract):
     tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / 1e6
+
+def get_total_share(vault_contract: Contract):
+    total_share = vault_contract.functions.totalValueLocked().call()
+    return total_share / 1e6
+

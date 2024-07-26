@@ -19,7 +19,7 @@ from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from services.market_data import get_price
-from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
+from utils.web3_utils import get_total_share, get_vault_contract, get_current_pps, get_current_tvl
 from services import solv_service
 
 # # Initialize logger
@@ -93,11 +93,12 @@ def calculate_performance(
 ):
     current_price = get_price("BTCUSDT")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    # current_price_per_share = get_current_pps(vault_contract)
-    # total_balance = get_current_tvl(vault_contract)
-    # fee_info = get_fee_info()
-    # vault_state = get_vault_state(vault_contract, owner_address=owner_address)
-
+    current_price_per_share = get_current_pps(vault_contract)
+    total_balance = get_current_tvl(vault_contract)
+    fee_info = get_fee_info()
+    #vault_state = get_vault_state(vault_contract, owner_address=owner_address)
+    
+    total_share = get_total_share(vault_contract)
     # get performance
     df = solv_service.fetch_nav_data()
     if df is None:
@@ -143,7 +144,7 @@ def calculate_performance(
         vault_id=vault_id,
         risk_factor=risk_factor,
         all_time_high_per_share=all_time_high_per_share,
-        total_shares=0,
+        total_shares=total_share,
         sortino_ratio=sortino,
         downside_risk=downside,
         unique_depositors=count,
@@ -166,8 +167,8 @@ def main():
         ).all()
 
         for vault in vaults:
-            # vault_contract, _ = get_vault_contract(vault)
-            vault_contract = None
+            vault_contract, _ = get_vault_contract(vault)
+           #vault_contract = None
 
             new_performance_rec = calculate_performance(
                 vault.id,
