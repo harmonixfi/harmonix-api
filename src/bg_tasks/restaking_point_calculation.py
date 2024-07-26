@@ -258,7 +258,4 @@ if __name__ == "__main__":
         app="restaking_point_calculation", level=logging.INFO, logger=logger
     )
 
-    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-        seqlog.configure_from_file("./config/seqlog.yml")
-
     main()
