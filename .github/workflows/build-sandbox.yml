@@ -3,7 +3,7 @@ name: API_CI_Workflow
 on:
   push:
     branches:
-      - devops-develop
+      - develop
   workflow_dispatch:
     inputs:
       tag_name:
@@ -36,7 +36,7 @@ jobs:
       - name: Set Environment Variables
         id: set-env
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/devops-develop" ]; then
+          if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
             IMAGE_PREFIX=sandbox_
           elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
             IMAGE_PREFIX=prod_
@@ -49,6 +49,7 @@ jobs:
           echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
 
       - name: Build and Push Image ARM
+        if: github.event.inputs.tag_name == ''
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -59,7 +60,20 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
           platforms: linux/arm64
 
+      - name: Build and Push Image ARM (Prod)
+        if: github.event.inputs.tag_name != ''
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./backend-arm.dockerfile
+          push: true
+          tags: |
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_PROD_REPOSITORY_NAME }}:${{ env.IMAGE_PREFIX }}${{ github.run_number }}
+            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_PROD_REPOSITORY_NAME }}:latest
+          platforms: linux/arm64
+
   update-helm:
+    if: github.event.inputs.tag_name == ''
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
@@ -87,4 +101,35 @@ jobs:
           ssh-add - <<< "${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}"
           git add charts/harmonix-backend/sandbox/values.yaml
           git commit -m "Update SandBox Image Tag to ${{ needs.build-and-deploy.outputs.image_prefix }}${{ github.run_number }}"
+          git push
+
+  update-production-helm:
+    if: github.event.inputs.tag_name != ''
+    needs: build-and-deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout devops-infra repository
+        uses: actions/checkout@v2
+        with:
+          repository: harmonixfi/devops-infra
+          ssh-key: ${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}
+
+      - name: Update Helm values
+        run: |
+          IMAGE_PREFIX="${{ needs.build-and-deploy.outputs.image_prefix }}"
+          sed -i 's|tag: .*|tag: '"${IMAGE_PREFIX}${{ github.run_number }}"'|' charts/harmonix-backend/production/values.yaml
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Commit and push updated Helm values
+        env:
+          SSH_AUTH_SOCK: /tmp/ssh-agent.sock
+        run: |
+          ssh-agent -a /tmp/ssh-agent.sock
+          ssh-add - <<< "${{ secrets.DEVOPS_INFRA_DEPLOY_KEY }}"
+          git add charts/harmonix-backend/production/values.yaml
+          git commit -m "Update Production Image Tag to ${{ needs.build-and-deploy.outputs.image_prefix }}${{ github.run_number }}"
           git push
