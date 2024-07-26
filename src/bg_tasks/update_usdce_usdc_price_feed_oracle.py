@@ -11,12 +11,10 @@ from web3.eth import AsyncEth
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models.price_feed_oracle_history import PriceFeedOracleHistory
 from utils.calculate_price import sqrt_price_to_price
 from utils.web3_utils import sign_and_send_transaction
-
-if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-    seqlog.configure_from_file("./config/seqlog.yml")
 
 # # Initialize logger
 logger = logging.getLogger("update_usdce_usdc_price_feed_oracle")
@@ -113,4 +111,5 @@ async def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_file("update_usdce_usdc_price_feed_oracle", logger=logger)
     asyncio.run(main())
