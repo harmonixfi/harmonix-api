@@ -6,6 +6,7 @@ from web3 import Web3
 from web3.contract import Contract
 
 from core.db import engine
+from log import setup_logging_to_file
 from models import Vault
 from core.abi_reader import read_abi
 from core import constants
@@ -65,4 +66,5 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_file("update_vault_tvl", logger=logger)
     main()
