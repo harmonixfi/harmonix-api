@@ -33,7 +33,6 @@ def upgrade() -> None:
     )
     op.drop_index('ix_user_monthly_tvl_month', table_name='user_monthly_tvl')
     op.drop_table('user_monthly_tvl')
-    op.drop_table('userstoupdate')
     op.alter_column('campaigns', 'start_date',
                existing_type=postgresql.TIMESTAMP(),
                nullable=True)
@@ -51,12 +50,6 @@ def downgrade() -> None:
     op.alter_column('campaigns', 'start_date',
                existing_type=postgresql.TIMESTAMP(),
                nullable=True)
-    op.create_table('userstoupdate',
-    sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=True),
-    sa.Column('wallet_address', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('tier', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('created_at', postgresql.TIMESTAMP(), autoincrement=False, nullable=True)
-    )
     op.create_table('user_monthly_tvl',
     sa.Column('id', sa.UUID(), autoincrement=False, nullable=False),
     sa.Column('user_id', sa.UUID(), autoincrement=False, nullable=False),
