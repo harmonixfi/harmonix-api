@@ -1,5 +1,9 @@
-from web3 import AsyncWeb3
+from web3 import AsyncWeb3, Web3
 from web3.eth import Contract
+
+from core import constants
+from core.abi_reader import read_abi
+from models.vaults import Vault
 
 
 async def sign_and_send_transaction(
@@ -27,3 +31,13 @@ def parse_hex_to_int(hex_str, is_signed=True):
         return int.from_bytes(bytes.fromhex(hex_str), byteorder="big", signed=True)
     else:
         return int(hex_str, 16)
+
+def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
+    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+    vault_contract = w3.eth.contract(
+        address=vault.contract_address,
+        abi=rockonyx_delta_neutral_vault_abi,
+    )
+    return vault_contract, w3

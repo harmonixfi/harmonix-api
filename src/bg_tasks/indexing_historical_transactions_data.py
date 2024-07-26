@@ -99,10 +99,14 @@ def historical(chain: NetworkChain):
             Web3.to_checksum_address("0x2b7cdad36a86fd05ac1680cdc42a0ea16804d80c"),
             Web3.to_checksum_address("0xF30353335003E71b42a89314AAaeC437E7Bc8F0B"),
             Web3.to_checksum_address("0x4a10C31b642866d3A3Df2268cEcD2c5B14600523"),
+            Web3.to_checksum_address("0x316CDbBEd9342A1109D967543F81FA6288eBC47D"),
+            Web3.to_checksum_address("0xd531d9212cB1f9d27F9239345186A6e9712D8876"),
         ]
     elif chain == NetworkChain.ethereum:
         contract_addresses = [
             Web3.to_checksum_address("0x09f2b45a6677858f016EBEF1E8F141D6944429DF"),
+            Web3.to_checksum_address("0xFae8821DD6e5F93431506bf234Ed94dDaaD2A533"),
+            
         ]
 
     index_transactions(contract_addresses, chain)
