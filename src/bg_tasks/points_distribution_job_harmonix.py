@@ -1,7 +1,9 @@
 import logging
 from datetime import datetime, timedelta, timezone
+import traceback
 import uuid
 from sqlmodel import Session, select
+from log import setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.referral_points import ReferralPoints
@@ -126,7 +128,9 @@ def harmonix_distribute_points(current_time):
                     referrer.tier == constants.UserTier.KOL.value
                     or referrer.tier == constants.UserTier.PARTNER.value
                 ):
-                    if (current_time - referrer.created_at.replace(tzinfo=timezone.utc)).days < 14:
+                    if (
+                        current_time - referrer.created_at.replace(tzinfo=timezone.utc)
+                    ).days < 14:
                         referrer_mutiplier = 2
         # get user points distributed for the user by wallet_address
         user_points_query = (
@@ -356,30 +360,39 @@ def update_vault_points(current_time):
     active_vaults = session.exec(active_vaults_query).all()
 
     for vault in active_vaults:
-        # get all earned points for the vault
-        earned_points_query = (
-            select(UserPoints)
-            .where(UserPoints.vault_id == vault.id)
-            .where(UserPoints.partner_name == constants.HARMONIX)
-        )
-        earned_points = session.exec(earned_points_query).all()
-        total_points = sum([point.points for point in earned_points])
-        logger.info(
-            f"Vault {vault.name} has earned {total_points} points from Harmonix."
-        )
-        # insert points distribution history
-        point_distribution_history = PointDistributionHistory(
-            vault_id=vault.id,
-            partner_name=constants.HARMONIX,
-            point=total_points,
-            created_at=current_time,
-        )
-        session.add(point_distribution_history)
-        session.commit()
+        try:
+            # get all earned points for the vault
+            earned_points_query = (
+                select(UserPoints)
+                .where(UserPoints.vault_id == vault.id)
+                .where(UserPoints.partner_name == constants.HARMONIX)
+            )
+            earned_points = session.exec(earned_points_query).all()
+            total_points = sum([point.points for point in earned_points])
+            logger.info(
+                f"Vault {vault.name} has earned {total_points} points from Harmonix."
+            )
+            # insert points distribution history
+            point_distribution_history = PointDistributionHistory(
+                vault_id=vault.id,
+                partner_name=constants.HARMONIX,
+                point=total_points,
+                created_at=current_time,
+            )
+            session.add(point_distribution_history)
+            session.commit()
+        except Exception as e:
+            logger.error(
+                f"An error occurred while updating points distribution history for vault {vault.name}: {e}",
+                exc_info=True,
+            )
+            logger.error(traceback.format_exc())
+
     logger.info("Points distribution history updated.")
 
 
 if __name__ == "__main__":
+    setup_logging_to_file("points_distribution_job_harmonix", logger=logger)
     current_time = datetime.now(tz=timezone.utc)
     harmonix_distribute_points(current_time)
     update_vault_points(current_time)

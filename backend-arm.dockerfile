@@ -1,31 +1,20 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-alpine3.19
+FROM public.ecr.aws/lambda/python:3.10
 
 # Set the timezone to UTC
 RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
 
 # Update the package repository and install necessary dependencies
-# --no-cache
-RUN apk update && apk add \
-    curl \
-    bash \
-    tzdata \
-    gcc \
-    g++ \
-    musl-dev \
-    libffi-dev \
-    libc-dev \
-    linux-headers \
-    build-base
-
+RUN yum update -y && yum install curl bash tzdata
 
 WORKDIR /app/
+
 # Install Poetry
-RUN curl -sSL https://install.python-poetry.org | POETRY_HOME=/opt/poetry python - && \
+RUN curl -sSL https://install.python-poetry.org -o install-poetry.py && \
+    POETRY_HOME=/opt/poetry python install-poetry.py && \
     cd /usr/local/bin && \
     ln -s /opt/poetry/bin/poetry && \
     poetry config virtualenvs.create false
-# RUN pipx install poetry
 
 # Copy poetry.lock* in case it doesn't exist in the repo
 COPY ./pyproject.toml /app/
@@ -42,4 +31,8 @@ RUN mkdir -p /app-logs/
 
 COPY ./src /app
 ENV PYTHONPATH=/app
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+
+ENTRYPOINT ["uvicorn"]
+
+# Default command
+CMD ["main:app", "--host", "0.0.0.0", "--port", "8080"]

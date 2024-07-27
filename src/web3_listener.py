@@ -369,10 +369,6 @@ async def run(network: str):
         app=f"web3_listener_{network}", level=logging.INFO, logger=logger
     )
 
-    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-        print("initializing seqlog")
-        seqlog.configure_from_file("./config/seqlog.yml")
-
     # Parse network to NetworkChain enum
     network_chain = NetworkChain[network.lower()]
     chain_name = network.lower()
