@@ -19,7 +19,7 @@ from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from services.market_data import get_price
-from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
+from utils.web3_utils import get_total_share, get_vault_contract, get_current_pps, get_current_tvl
 from services import solv_service
 
 # # Initialize logger
