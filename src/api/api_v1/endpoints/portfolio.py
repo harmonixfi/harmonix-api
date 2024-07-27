@@ -21,6 +21,7 @@ router = APIRouter()
 
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+solv_vault_abi = read_abi("solv")
 
 
 def create_vault_contract(vault: Vault):
@@ -34,6 +35,8 @@ def create_vault_contract(vault: Vault):
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rockonyx_stablecoin_vault_abi
         )
+    elif vault.slug == constants.SOLV_VAULT_SLUG:
+        contract = w3.eth.contract(address=vault.contract_address, abi=solv_vault_abi)
     else:
         raise HTTPException(status_code=400, detail="Invalid vault strategy")
 
@@ -124,6 +127,15 @@ async def get_portfolio_info(
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
+            shares = shares / 10**6
+            price_per_share = price_per_share / 10**6
+        elif vault.slug == constants.SOLV_VAULT_SLUG:
+            price_per_share = vault_contract.functions.pricePerShare().call()
+            shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+            shares = shares / 10**8
+            price_per_share = price_per_share / 10**8
         else:
             # calculate next Friday from today
             position.next_close_round_date = (
@@ -135,9 +147,8 @@ async def get_portfolio_info(
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
-
-        shares = shares / 10**6
-        price_per_share = price_per_share / 10**6
+            shares = shares / 10**6
+            price_per_share = price_per_share / 10**6        
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
         position.total_balance = (

@@ -41,16 +41,16 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     PROJECT_NAME: str
-    
+
     ETHER_MAINNET_INFURA_URL: str | None = None
     ETHER_MAINNET_INFURA_WEBSOCKER_URL: str | None = None
-    
+
     BASE_MAINNET_NETWORK_RPC: str
     BASE_MAINNET_WSS_NETWORK_RPC: str
-    
+
     ARBITRUM_MAINNET_INFURA_URL: str
     ARBITRUM_MAINNET_INFURA_WEBSOCKER_URL: str
-    
+
     SEPOLIA_TESTNET_INFURA_WEBSOCKER_URL: str
     SEPOLIA_TESTNET_INFURA_URL: str
 
@@ -58,8 +58,8 @@ class Settings(BaseSettings):
     USDC_ADDRESS: str = "0xaf88d065e77c8cC2239327C5EDb3A432268e5831"
     USDCE_ADDRESS: str = "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8"
     DAI_ADDRESS: dict = {
-        'arbitrum_one': '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
-        'ethereum': '0x6B175474E89094C44Da98b954EedeAC495271d0F'
+        "arbitrum_one": "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1",
+        "ethereum": "0x6B175474E89094C44Da98b954EedeAC495271d0F",
     }
     ROCKONYX_STABLECOIN_ADDRESS: str = ""
     ROCKONYX_DELTA_NEUTRAL_VAULT_ADDRESS: str = ""
@@ -92,6 +92,16 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256)"]
     ).hex()
 
+    SOLV_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Deposit(address,address,uint256,uint256)"]
+    ).hex()
+    SOLV_INITIATE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["RequestFunds(address,address,uint256)"]
+    ).hex()
+    SOLV_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,address,uint256,uint256)"]
+    ).hex()
+
     OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str
 
     OPERATION_ADMIN_WALLET_ADDRESS: str
@@ -120,10 +130,14 @@ class Settings(BaseSettings):
     SEQ_SERVER_API_KEY: Optional[str] = None
 
     ARBISCAN_API_KEY: str
-    ARBISCAN_GET_TRANSACTIONS_URL: str = "https://api.arbiscan.io/api?module=account&action=txlist"
-    
+    ARBISCAN_GET_TRANSACTIONS_URL: str = (
+        "https://api.arbiscan.io/api?module=account&action=txlist"
+    )
+
     ETHERSCAN_API_KEY: str
     ETHERSCAN_GET_TRANSACTIONS_URL: str = "https://api.etherscan.io/api?module=account&action=txlist"
+
+    SOLV_API_KEY: str
     
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
