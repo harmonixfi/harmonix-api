@@ -21,6 +21,8 @@ OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"
 DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 STAKING_STRATEGY = "staking_strategy"
 
+SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
+
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
 CHAIN_BASE = "base"
