@@ -1,11 +1,13 @@
 15 8 * * 5 cd /app && python -m bg_tasks.update_performance_weekly
 5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain arbitrum_one
 5 */8 * * * cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain base
+5 */8 * * * cd /app && python -m bg_tasks.update_solv_vault_performance
+
 15 8 * * 5 cd /app && python -m bg_tasks.update_delta_neutral_vault_performance_daily --chain ethereum
 0 0 * * * cd /app && python -m bg_tasks.update_usdce_usdc_price_feed_oracle
 0 */12 * * * cd /app && python -m bg_tasks.restaking_point_calculation
 0 */1 * * * cd /app && python -m bg_tasks.points_distribution_job_harmonix
-# 0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job
+0 */1 * * * cd /app && python -m bg_tasks.reward_distribution_job
 0 */1 * * * cd /app && python -m bg_tasks.update_tvl_for_vaults
 0 0 * * * cd /app && python -m bg_tasks.calculate_tvl_last_30_days
 

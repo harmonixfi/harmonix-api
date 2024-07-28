@@ -18,7 +18,7 @@ class VaultBase(BaseModel):
     # weekly_apy: float | None = None
     max_drawdown: float | None = None
     # vault_capacity: int | None = None
-    # vault_currency: str | None = None
+    vault_currency: str | None = None
     current_round: int | None = None
     next_close_round_date: datetime | None = None
     slug: str | None = None

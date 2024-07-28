@@ -29,6 +29,7 @@ from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.market_data import get_price
+from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
 logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
@@ -74,17 +75,6 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
         session.add(new_pps)
 
     session.commit()
-
-
-def get_current_pps(vault_contract: Contract):
-    pps = vault_contract.functions.pricePerShare().call()
-    return pps / 1e6
-
-
-def get_current_tvl(vault_contract: Contract):
-    tvl = vault_contract.functions.totalValueLocked().call()
-
-    return tvl / 1e6
 
 
 def get_fee_info():
@@ -280,17 +270,6 @@ def calculate_performance(
     update_price_per_share(vault_id, current_price_per_share)
 
     return performance
-
-
-def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
-    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
-
-    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
-    vault_contract = w3.eth.contract(
-        address=vault.contract_address,
-        abi=rockonyx_delta_neutral_vault_abi,
-    )
-    return vault_contract, w3
 
 
 # Main Execution

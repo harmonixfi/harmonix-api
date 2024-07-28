@@ -15,12 +15,14 @@ from models import Vault, UserPortfolio
 from schemas import Position
 from core.config import settings
 from core import constants
+from services.market_data import get_price
 from utils.json_encoder import custom_encoder
 
 router = APIRouter()
 
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
+solv_vault_abi = read_abi("solv")
 
 
 def create_vault_contract(vault: Vault):
@@ -34,6 +36,8 @@ def create_vault_contract(vault: Vault):
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rockonyx_stablecoin_vault_abi
         )
+    elif vault.slug == constants.SOLV_VAULT_SLUG:
+        contract = w3.eth.contract(address=vault.contract_address, abi=solv_vault_abi)
     else:
         raise HTTPException(status_code=400, detail="Invalid vault strategy")
 
@@ -124,6 +128,15 @@ async def get_portfolio_info(
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
+            shares = shares / 10**6
+            price_per_share = price_per_share / 10**6
+        elif vault.slug == constants.SOLV_VAULT_SLUG:
+            price_per_share = vault_contract.functions.pricePerShare().call()
+            shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+            shares = shares / 10**8
+            price_per_share = price_per_share / 10**8
         else:
             # calculate next Friday from today
             position.next_close_round_date = (
@@ -135,9 +148,8 @@ async def get_portfolio_info(
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
-
-        shares = shares / 10**6
-        price_per_share = price_per_share / 10**6
+            shares = shares / 10**6
+            price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
         position.total_balance = (
@@ -153,7 +165,11 @@ async def get_portfolio_info(
         )
         position.apy *= 100
 
-        total_balance += position.total_balance
+        if vault.slug == constants.SOLV_VAULT_SLUG:
+            btc_price = get_price("BTCUSDT")
+            total_balance += position.total_balance * btc_price
+        else:
+            total_balance += position.total_balance
 
         # encode datetime
         position.trade_start_date = custom_encoder(pos.trade_start_date)
@@ -161,7 +177,13 @@ async def get_portfolio_info(
 
         positions.append(position)
 
-    total_deposit = sum(position.init_deposit for position in positions)
+    total_deposit = 0
+    for position in positions:
+        if position.slug == constants.SOLV_VAULT_SLUG:
+            total_deposit += position.init_deposit * get_price("BTCUSDT")
+        else:
+            total_deposit += position.init_deposit
+
     pnl = (total_balance / total_deposit - 1) * 100
 
     portfolio = schemas.Portfolio(
