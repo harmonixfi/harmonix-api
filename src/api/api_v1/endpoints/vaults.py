@@ -244,6 +244,8 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
+    else:
+        pps_history_df["apy"] = pps_history_df["apy_1m"]
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)

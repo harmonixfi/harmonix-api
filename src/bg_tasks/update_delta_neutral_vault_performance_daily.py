@@ -20,6 +20,7 @@ from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
+from log import setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -276,6 +277,9 @@ def calculate_performance(
 @click.option("--chain", default="arbitrum_one", help="Blockchain network to use")
 def main(chain: str):
     try:
+        setup_logging_to_file(
+            f"update_delta_neutral_vault_performance_daily_{chain}", logger=logger
+        )
         # Parse chain to NetworkChain enum
         network_chain = NetworkChain[chain.lower()]
 

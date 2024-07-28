@@ -30,7 +30,9 @@ def parse_hex_to_int(hex_str, is_signed=True):
         return int(hex_str, 16)
 
 
-def get_vault_contract(vault: Vault,abi_name: str="RockOnyxDeltaNeutralVault") -> tuple[Contract, Web3]:
+def get_vault_contract(
+    vault: Vault, abi_name: str = "RockOnyxDeltaNeutralVault"
+) -> tuple[Contract, Web3]:
     w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
     rockonyx_delta_neutral_vault_abi = read_abi(abi_name)
@@ -41,17 +43,12 @@ def get_vault_contract(vault: Vault,abi_name: str="RockOnyxDeltaNeutralVault") -
     return vault_contract, w3
 
 
-def get_current_pps(vault_contract: Contract, decimals: int = 1e6):
+def get_current_pps(vault_contract: Contract, decimals = 1e6):
     pps = vault_contract.functions.pricePerShare().call()
     return pps / decimals
 
 
-def get_current_tvl(vault_contract: Contract, decimals: int = 1e6):
+def get_current_tvl(vault_contract: Contract, decimals = 1e6):
     tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / decimals
-
-def get_total_share(vault_contract: Contract, decimals: int = 1e6):
-    total_share = vault_contract.functions.totalValueLocked().call()
-    return total_share / decimals
-

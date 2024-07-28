@@ -19,7 +19,7 @@ from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from services.market_data import get_price
-from utils.web3_utils import get_total_share, get_vault_contract, get_current_pps, get_current_tvl
+from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 from services import solv_service
 
 # # Initialize logger
@@ -85,6 +85,11 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     session.commit()
 
 
+def get_total_shares(vault_contract: Contract, decimals=1e8):
+    pps = vault_contract.functions.totalShares().call()
+    return pps / decimals
+
+
 def calculate_performance(
     vault_id: uuid.UUID,
     vault_contract: Contract,
@@ -93,12 +98,11 @@ def calculate_performance(
 ):
     current_price = get_price("BTCUSDT")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    current_price_per_share = get_current_pps(vault_contract, decimals= 1e8)
-    total_balance = get_current_tvl(vault_contract, decimals= 1e8)
+    current_price_per_share = get_current_pps(vault_contract, decimals=1e8)
+    total_balance = get_current_tvl(vault_contract, decimals=1e8)
     fee_info = get_fee_info()
-    #vault_state = get_vault_state(vault_contract, owner_address=owner_address)
-    
-    total_share = get_total_share(vault_contract, decimals= 1e8)
+    total_shares = get_total_shares(vault_contract)
+
     # get performance
     df = solv_service.fetch_nav_data()
     if df is None:
@@ -113,9 +117,12 @@ def calculate_performance(
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
-
+    
     benchmark = current_price
-    benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
+    benchmark_percentage = 0
+    if performance_history is not None:
+        benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
+
     apy_1m = apy_1m * 100
     apy_1w = apy_1w * 100
     apy_ytd = apy_ytd * 100
@@ -144,7 +151,7 @@ def calculate_performance(
         vault_id=vault_id,
         risk_factor=risk_factor,
         all_time_high_per_share=all_time_high_per_share,
-        total_shares=total_share,
+        total_shares=total_shares,
         sortino_ratio=sortino,
         downside_risk=downside,
         unique_depositors=count,
@@ -161,20 +168,18 @@ def main():
 
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
-            select(Vault)
-            .where(Vault.slug == "arbitrum-wbtc-vault")
+            select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
             # .where(Vault.is_active == True)
         ).all()
 
         for vault in vaults:
-            vault_contract, _ = get_vault_contract(vault, 'solvvault')
-           #vault_contract = None
+            vault_contract, _ = get_vault_contract(vault, abi_name="solv")
 
             new_performance_rec = calculate_performance(
                 vault.id,
                 vault_contract,
                 vault.owner_wallet_address,
-                update_freq="daily"
+                update_freq="daily",
             )
             # Add the new performance record to the session and commit
             session.add(new_performance_rec)

@@ -52,6 +52,18 @@ def _extract_stablecoin_event(entry):
     return value, shares, from_address
 
 
+def _extract_solv_event(entry):
+    # Decode the data field
+    data = entry["data"].hex()
+    value = int(data[2:66], 16) / 1e8
+    shares = int("0x" + data[66:], 16) / 1e18
+
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+    return value, shares, from_address
+
+
 def _extract_delta_neutral_event(entry):
     # Parse the account parameter from the topics field
     from_address = None
@@ -220,6 +232,9 @@ def handle_event(vault_address: str, entry, event_name):
         value, shares, from_address = _extract_stablecoin_event(entry)
     elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         value, shares, from_address = _extract_delta_neutral_event(entry)
+    elif vault.slug == constants.SOLV_VAULT_SLUG:
+        value, shares, from_address = _extract_solv_event(entry)
+        latest_pps = round(value / shares, 4)
     else:
         raise ValueError("Invalid vault address")
 
@@ -267,6 +282,15 @@ EVENT_FILTERS = {
         "event": "InitiateWithdraw",
     },
     settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: {
+        "event": "Withdrawn",
+    },
+    settings.SOLV_DEPOSIT_EVENT_TOPIC: {
+        "event": "Deposit",
+    },
+    settings.SOLV_INITIATE_WITHDRAW_EVENT_TOPIC: {
+        "event": "InitiateWithdraw",
+    },
+    settings.SOLV_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "event": "Withdrawn",
     },
 }
@@ -344,10 +368,6 @@ async def run(network: str):
     setup_logging_to_file(
         app=f"web3_listener_{network}", level=logging.INFO, logger=logger
     )
-
-    if settings.SEQ_SERVER_URL is not None or settings.SEQ_SERVER_URL != "":
-        print("initializing seqlog")
-        seqlog.configure_from_file("./config/seqlog.yml")
 
     # Parse network to NetworkChain enum
     network_chain = NetworkChain[network.lower()]

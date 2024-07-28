@@ -377,8 +377,9 @@ def seed_vaults(session: Session):
             ytd_apy=0,
             apr=0,
             tvl=0,
-            is_active=False,
             max_drawdown=0,
+            owner_wallet_address="0x75bE1a23160B1b930D4231257A83e1ac317153c8",
+            is_active=False,
             strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
         ),
     ]
