@@ -135,7 +135,7 @@ async def get_portfolio_info(
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
             ).call()
-            shares = shares / 10**8
+            shares = shares / 10**18
             price_per_share = price_per_share / 10**8
         else:
             # calculate next Friday from today
