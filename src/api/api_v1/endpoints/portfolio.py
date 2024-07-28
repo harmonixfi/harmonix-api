@@ -161,7 +161,13 @@ async def get_portfolio_info(
 
         positions.append(position)
 
-    total_deposit = sum(position.init_deposit for position in positions)
+    total_deposit = 0
+    for position in positions:
+        if position.slug == constants.SOLV_VAULT_SLUG:
+            total_deposit += position.init_deposit * get_price("BTCUSDT")
+        else:
+            total_deposit += position.init_deposit
+
     pnl = (total_balance / total_deposit - 1) * 100
 
     portfolio = schemas.Portfolio(

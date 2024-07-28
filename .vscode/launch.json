@@ -109,6 +109,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: update_tvl_for_vaults",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_tvl_for_vaults",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "indexing_user_holding_kelpdao",
             "type": "debugpy",
             "request": "launch",

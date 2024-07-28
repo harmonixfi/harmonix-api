@@ -13,6 +13,7 @@ from api.api_v1.deps import SessionDep
 from models import Vault
 from core.config import settings
 from core import constants
+from services.market_data import get_price
 
 router = APIRouter()
 
@@ -84,20 +85,22 @@ async def get_dashboard_statistics(session: SessionDep):
             grouped_vaults[group_id] = {
                 "total_tvl": 0,
                 "default_vault": None,
-                "vaults": []
+                "vaults": [],
             }
-        
+
         grouped_vaults[group_id]["vaults"].append(vault)
         grouped_vaults[group_id]["total_tvl"] += vault.tvl or 0
 
-        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (not vault.vault_group):
+        if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
+            not vault.vault_group
+        ):
             grouped_vaults[group_id]["default_vault"] = vault
 
     data = []
     for group in grouped_vaults.values():
         default_vault = group["default_vault"]
         total_tvl = group["total_tvl"]
-        
+
         if not default_vault:
             continue  # skip if there's no default vault (shouldn't happen)
 
@@ -129,7 +132,12 @@ async def get_dashboard_statistics(session: SessionDep):
             slug=default_vault.slug,
             id=default_vault.id,
         )
-        tvl_in_all_vaults += total_tvl
+
+        if default_vault.slug == constants.SOLV_VAULT_SLUG:
+            current_price = get_price("BTCUSDT")
+            tvl_in_all_vaults += total_tvl * current_price
+        else:
+            tvl_in_all_vaults += total_tvl
         tvl_composition[default_vault.name] = total_tvl
         data.append(statistic)
 
