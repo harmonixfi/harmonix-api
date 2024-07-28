@@ -93,12 +93,12 @@ def calculate_performance(
 ):
     current_price = get_price("BTCUSDT")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    current_price_per_share = get_current_pps(vault_contract)
-    total_balance = get_current_tvl(vault_contract)
+    current_price_per_share = get_current_pps(vault_contract, decimals= 1e8)
+    total_balance = get_current_tvl(vault_contract, decimals= 1e8)
     fee_info = get_fee_info()
     #vault_state = get_vault_state(vault_contract, owner_address=owner_address)
     
-    total_share = get_total_share(vault_contract)
+    total_share = get_total_share(vault_contract, decimals= 1e8)
     # get performance
     df = solv_service.fetch_nav_data()
     if df is None:
@@ -167,7 +167,7 @@ def main():
         ).all()
 
         for vault in vaults:
-            vault_contract, _ = get_vault_contract(vault)
+            vault_contract, _ = get_vault_contract(vault, 'solvvault')
            #vault_contract = None
 
             new_performance_rec = calculate_performance(
