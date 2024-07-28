@@ -85,7 +85,7 @@ def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
     session.commit()
 
 
-def get_total_shares(vault_contract: Contract, decimals=1e8):
+def get_total_shares(vault_contract: Contract, decimals=1e18):
     pps = vault_contract.functions.totalShares().call()
     return pps / decimals
 
@@ -103,6 +103,8 @@ def calculate_performance(
     fee_info = get_fee_info()
     total_shares = get_total_shares(vault_contract)
 
+    total_balance = total_balance * current_price
+
     # get performance
     df = solv_service.fetch_nav_data()
     if df is None:
@@ -110,7 +112,7 @@ def calculate_performance(
         return
 
     # Calculate the APYs
-    apy_1m = solv_service.get_monthly_apy(df)
+    apy_1m = solv_service.get_monthly_apy(df, column="adjustedNav")
     apy_1w = solv_service.get_weekly_apy(df)
     apy_ytd = 0
 
@@ -185,6 +187,7 @@ def main():
             session.add(new_performance_rec)
 
             # Update the vault with the new information
+            vault.tvl = new_performance_rec.total_locked_value
             vault.ytd_apy = new_performance_rec.apy_ytd
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w

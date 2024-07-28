@@ -10,7 +10,8 @@ def nav_data_to_dataframe(nav_data):
     df = pd.DataFrame(nav_data)
     df["navDate"] = pd.to_datetime(df["navDate"])
     df["nav"] = df["nav"].astype(float) / 1e8  # Adjust for currency decimals
-    return df[["navDate", "nav"]]
+    df["adjustedNav"] = df["adjustedNav"].astype(float) / 1e8  # Adjust for currency decimals
+    return df[["navDate", "nav", "adjustedNav"]]
 
 
 def fetch_nav_data():
@@ -46,20 +47,24 @@ def fetch_nav_data():
     return None
 
 
-def get_monthly_apy(df):
-    now = pd.Timestamp.now(tz='UTC')
+def get_monthly_apy(df, column="nav"):
+    now = pd.Timestamp.now(tz="UTC")
     one_month_ago = now - pd.DateOffset(months=1)
-    recent_nav = df[df["navDate"] <= now.strftime('%Y-%m-%d')].iloc[-1]["nav"]
-    month_ago_nav = df[df["navDate"] <= one_month_ago.strftime('%Y-%m-%d')].iloc[-1]["nav"]
+    recent_nav = df[df["navDate"] <= now.strftime("%Y-%m-%d")].iloc[-1][column]
+    month_ago_nav = df[df["navDate"] <= one_month_ago.strftime("%Y-%m-%d")].iloc[-1][
+        column
+    ]
     days = (now - one_month_ago).days
     return calculate_roi(recent_nav, month_ago_nav, days)
 
 
-def get_weekly_apy(df):
-    now = pd.Timestamp.now(tz='UTC')
+def get_weekly_apy(df, column="nav"):
+    now = pd.Timestamp.now(tz="UTC")
     one_week_ago = now - pd.DateOffset(weeks=1)
-    recent_nav = df[df["navDate"] <= now.strftime('%Y-%m-%d')].iloc[-1]["nav"]
-    week_ago_nav = df[df["navDate"] <= one_week_ago.strftime('%Y-%m-%d')].iloc[-1]["nav"]
+    recent_nav = df[df["navDate"] <= now.strftime("%Y-%m-%d")].iloc[-1][column]
+    week_ago_nav = df[df["navDate"] <= one_week_ago.strftime("%Y-%m-%d")].iloc[-1][
+        column
+    ]
     days = (now - one_week_ago).days
     return calculate_roi(recent_nav, week_ago_nav, days)
 
