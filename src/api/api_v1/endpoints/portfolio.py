@@ -15,6 +15,7 @@ from models import Vault, UserPortfolio
 from schemas import Position
 from core.config import settings
 from core import constants
+from services.market_data import get_price
 from utils.json_encoder import custom_encoder
 
 router = APIRouter()
@@ -148,7 +149,7 @@ async def get_portfolio_info(
                 Web3.to_checksum_address(user_address)
             ).call()
             shares = shares / 10**6
-            price_per_share = price_per_share / 10**6        
+            price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
         position.total_balance = (
@@ -164,7 +165,11 @@ async def get_portfolio_info(
         )
         position.apy *= 100
 
-        total_balance += position.total_balance
+        if vault.slug == constants.SOLV_VAULT_SLUG:
+            btc_price = get_price("BTCUSDT")
+            total_balance += position.total_balance * btc_price
+        else:
+            total_balance += position.total_balance
 
         # encode datetime
         position.trade_start_date = custom_encoder(pos.trade_start_date)

@@ -103,6 +103,8 @@ def calculate_performance(
     fee_info = get_fee_info()
     total_shares = get_total_shares(vault_contract)
 
+    total_balance = total_balance * current_price
+
     # get performance
     df = solv_service.fetch_nav_data()
     if df is None:
