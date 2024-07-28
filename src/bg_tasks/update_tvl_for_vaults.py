@@ -10,6 +10,7 @@ from log import setup_logging_to_file
 from models import Vault
 from core.abi_reader import read_abi
 from core import constants
+from utils.web3_utils import get_current_tvl, get_vault_contract
 
 # Initialize logger
 logger = logging.getLogger("update_vault_tvl")
@@ -19,11 +20,6 @@ session = Session(engine)
 token_abi = read_abi("ERC20")
 
 
-def get_current_tvl(vault_contract: Contract):
-    tvl = vault_contract.functions.totalValueLocked().call()
-    return tvl / 1e6  # Adjust as needed based on your contract's TVL unit
-
-
 def update_tvl(vault_id: uuid.UUID, current_tvl: float):
     vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
     if vault:
@@ -31,29 +27,24 @@ def update_tvl(vault_id: uuid.UUID, current_tvl: float):
         session.commit()
 
 
-def get_vault_contract(vault: Vault) -> tuple[Contract, Web3]:
-    w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
-
-    rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
-    vault_contract = w3.eth.contract(
-        address=vault.contract_address,
-        abi=rockonyx_delta_neutral_vault_abi,
-    )
-    return vault_contract, w3
-
-
 # Main Execution
 def main():
     try:
         # Get the vaults from the Vault table
-        vaults = session.exec(
-            select(Vault)
-            .where(Vault.is_active == True)
-        ).all()
+        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
 
         for vault in vaults:
-            vault_contract, _ = get_vault_contract(vault)
-            current_tvl = get_current_tvl(vault_contract)
+            decimals = 1e6
+            if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+                abi = "RockOnyxDeltaNeutralVault"
+            elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+                abi = "rockonyxstablecoin"
+            else:
+                abi = "solv"
+                decimals = 1e8
+
+            vault_contract, _ = get_vault_contract(vault, abi)
+            current_tvl = get_current_tvl(vault_contract, decimals)
             update_tvl(vault.id, current_tvl)
             logger.info(f"Updated TVL for Vault {vault.name} to {current_tvl}")
 

@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from core.config import settings
 from core.db import engine
 from models.point_distribution_history import PointDistributionHistory
 from models.pps_history import PricePerShareHistory
@@ -89,6 +90,17 @@ def seed_data(db_session: Session):
         strategy_name="delta_neutral_strategy",
         network_chain="arbitrum_one",
         name="Renzo Delta Neutral Strategy",
+        id=uuid.uuid4(),
+    )
+    db_session.add(vault)
+
+    vault = Vault(
+        contract_address="0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6G8",
+        category="real_yield",
+        strategy_name="",
+        network_chain="arbitrum_one",
+        name="Solv",
+        slug="arbitrum-wbtc-vault",
         id=uuid.uuid4(),
     )
     db_session.add(vault)
@@ -301,3 +313,65 @@ def test_handle_event_deposit_then_init_withdraw(
     assert user_portfolio is not None
     assert user_portfolio.total_balance == 0
     assert user_portfolio.status == PositionStatus.CLOSED
+
+
+
+def test_handle_solv_events(event_data, db_session: Session):
+    db_session.query(UserPortfolio).filter(
+        UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+    ).delete()
+    db_session.commit()
+
+    vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6G8"
+    vault = (
+        db_session.query(Vault).filter(Vault.contract_address == vault_address).first()
+    )
+
+    amount = 100000
+    shares = 936810457735051
+    event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
+    handle_event(vault_address, event_data, "Deposit")
+    user_portfolio = (
+        db_session.query(UserPortfolio)
+        .filter(
+            UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+        )
+        .first()
+    )
+    assert user_portfolio is not None
+    assert user_portfolio.total_balance == 0.001
+
+    amount = 200000
+    shares = 1873009926952612
+    event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
+    handle_event(vault_address, event_data, "Deposit")
+    db_session.refresh(user_portfolio)
+    user_portfolio = (
+        db_session.query(UserPortfolio)
+        .filter(
+            UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+        )
+        .first()
+    )
+    assert user_portfolio is not None
+    assert user_portfolio.total_balance == 0.003
+
+    amount = 100000
+    shares = 936810457735051
+    event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
+    handle_event(
+        vault_address, event_data, "InitiateWithdraw"
+    )
+    db_session.commit()
+    user_portfolio = (
+        db_session.query(UserPortfolio)
+        .filter(
+            UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+        )
+        .first()
+    )
+    assert user_portfolio is not None
+    assert user_portfolio.pending_withdrawal == 936810457735051/1e18
+    assert user_portfolio.init_deposit == 0.002
+
+    
