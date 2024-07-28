@@ -364,8 +364,8 @@ def seed_vaults(session: Session):
             strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
         ),
         Vault(
-            name="Solv Vault",
-            vault_capacity=4 * 1e6,
+            name="The Golden Guardian with Solv",
+            vault_capacity=4 * 1e3,
             vault_currency="WBTC",
             contract_address="",
             slug="arbitrum-wbtc-vault",
