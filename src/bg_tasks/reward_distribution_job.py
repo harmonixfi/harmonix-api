@@ -32,7 +32,7 @@ def distribute_referral_101_rewards(current_time):
             return
         logger.info(
             "Starting reward distribution job for campaign: %s", campaign_101.name
-        )
+        )    
 
         unique_referrers = []
         referrals_query = select(Referral).order_by(Referral.created_at)
@@ -58,16 +58,18 @@ def distribute_referral_101_rewards(current_time):
             )
             rewards = session.exec(reward_query).all()
             is_already_in_101_campaign = False
+            
+            if rewards is None:
+                continue
+            
             for reward in rewards:
                 if reward.campaign_name == campaign_101.name:
                     unique_referrers.append(referral.referrer_id)
                     is_already_in_101_campaign = True
                     break
-            last_reward = rewards[-1]
-            if rewards is None:
-                continue
 
             last_reward = rewards[-1]
+            
             if last_reward.campaign_name == campaign_101.name:
                 if (
                     last_reward.end_date is not None
@@ -91,6 +93,7 @@ def distribute_referral_101_rewards(current_time):
                 continue
             if is_already_in_101_campaign:
                 continue
+            
             user_query = select(User).where(User.user_id == referral.referee_id)
             user = session.exec(user_query).first()
             if not user:
@@ -152,6 +155,8 @@ def distribute_kol_and_partner_rewards(current_time):
         )
         rewards = session.exec(reward_query).all()
         
+        if not rewards:
+         continue
         last_reward = rewards[-1]
         if (
             last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value
