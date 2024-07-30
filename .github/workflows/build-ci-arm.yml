@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - develop
+      - devops-main
   workflow_dispatch:
     inputs:
       tag_name:
@@ -40,16 +41,16 @@ jobs:
             IMAGE_PREFIX=sandbox_
             GIT_REF=develop
           elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
-            if [ "${{ github.event.inputs.tag_name }}" == "devops/update_git_ref" ]; then
+            if [ "${{ github.event.inputs.tag_name }}" == "devops-main" ]; then
               IMAGE_PREFIX=prod_
-              GIT_REF="devops/update_git_ref"
+              GIT_REF="devops-main"
             else
               IMAGE_PREFIX=prod_
               GIT_REF="tags/${{ github.event.inputs.tag_name }}"
             fi
           else
-            IMAGE_PREFIX=sandbox_
-            GIT_REF=develop
+            IMAGE_PREFIX=prod_
+            GIT_REF="devops-main"
           fi
           git fetch --tags
           git checkout $GIT_REF
