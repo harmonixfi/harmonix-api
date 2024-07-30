@@ -80,7 +80,6 @@ def distribute_referral_101_rewards(current_time):
                     last_reward.status = constants.Status.CLOSED
                     new_reward = Reward(
                         user_id=referral.referrer_id,
-                        referral_code_id=referral.referral_code_id,
                         reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
                         start_date=current_time,
                         end_date=None,
@@ -111,7 +110,6 @@ def distribute_referral_101_rewards(current_time):
                     last_reward.end_date = current_time
                     high_reward = Reward(
                         user_id=referral.referrer_id,
-                        referral_code_id=referral.referral_code_id,
                         reward_percentage=constants.REWARD_HIGH_PERCENTAGE,
                         start_date=current_time,
                         end_date=current_time
@@ -165,7 +163,6 @@ def distribute_kol_and_partner_rewards(current_time):
                 last_reward.end_date = current_time
                 new_reward = Reward(
                     user_id=user.user_id,
-                    referral_code_id=last_reward.referral_code_id,
                     reward_percentage=reward_percentage,
                     start_date=current_time,
                     end_date=None,
