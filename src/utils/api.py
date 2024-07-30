@@ -31,35 +31,38 @@ def get_user_by_wallet_address(session, wallet_address):
     user = session.exec(statement).first()
     return user
 
+def create_user(user_address, session):
+    if get_user_by_wallet_address(session, user_address):
+        return False
 
-def create_user_with_referral(user_address, referral_code, session):
-    user = get_user_by_wallet_address(session, user_address)
-    if user:
-        return False
-    referral = get_referral_by_code(session, referral_code)
-    if not referral:
-        return False
-    if referral.usage_limit <= 0:
-        return False
-    referral.usage_limit -= 1
     user = User(user_id=uuid.uuid4(), wallet_address=user_address)
     session.add(user)
     create_referral_code(session, user)
+    create_reward(session, user.user_id, constants.REWARD_DEFAULT_PERCENTAGE)
+    
+    session.commit()
+    return True
 
-    new_referral = Referral(
-        referrer_id=referral.user_id,
-        referee_id=user.user_id,
-        referral_code_id=referral.referral_code_id,
-    )
-    session.add(new_referral)
-    new_reward = Reward(
-        user_id=user.user_id,
-        referral_code_id=referral.referral_code_id,
-        reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
-        start_date=datetime.now(timezone.utc),
-        end_date=None,
-    )
-    session.add(new_reward)
+
+def create_user_with_referral(user_address, referral_code, session):
+    if not referral_code:
+        return create_user(user_address, session)
+    
+    if get_user_by_wallet_address(session, user_address):
+        return False
+
+    referral = get_referral_by_code(session, referral_code)
+    if not referral or referral.usage_limit <= 0:
+        return False
+    
+    referral.usage_limit -= 1
+
+    user = User(user_id=uuid.uuid4(), wallet_address=user_address)
+    session.add(user)
+    create_referral_code(session, user)
+    create_referral(session, referral.user_id, user.user_id, referral.referral_code_id)
+    create_reward(session, user.user_id, constants.REWARD_DEFAULT_PERCENTAGE)
+
     session.commit()
     return True
 
@@ -84,3 +87,22 @@ def create_referral_code(session, user):
         return
 
     session.add(new_referral_code)
+    
+    
+def create_reward(session, user_id, reward_percentage):
+    new_reward = Reward(
+        user_id=user_id,
+        reward_percentage=reward_percentage,
+        start_date=datetime.now(timezone.utc),
+        end_date=None,
+    )
+    session.add(new_reward)
+
+
+def create_referral(session, referrer_id, referee_id, referral_code_id):
+    new_referral = Referral(
+        referrer_id=referrer_id,
+        referee_id=referee_id,
+        referral_code_id=referral_code_id,
+    )
+    session.add(new_referral)
