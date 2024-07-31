@@ -64,9 +64,9 @@ def calculate_tvl_last_30_days():
                     pps = get_pps_by_vault(onchain_transaction_history, vaults)
                     if pps is None:
                         continue
-                    amount = onchain_transaction_history.input[10:].lower()
-                    amount = amount[:64]
-                    tokenIn = amount[64:128]
+                    input_data = onchain_transaction_history.input[10:].lower()
+                    amount = input_data[:64]
+                    tokenIn = input_data[64:128]
                     tokenIn = f"0x{tokenIn[24:]}"
                     amount = parse_hex_to_int(amount)
                     if tokenIn == constants.DAI_CONTRACT_ADDRESS:
