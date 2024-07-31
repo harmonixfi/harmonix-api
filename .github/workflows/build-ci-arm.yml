@@ -1,4 +1,4 @@
-name: API_CI_Workflow
+name: API_CI_ARM_Workflow
 
 on:
   push:
