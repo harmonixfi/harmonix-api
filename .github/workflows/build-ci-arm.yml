@@ -1,16 +1,15 @@
 name: API_CI_ARM_Workflow
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Tag to butag production tag image'
+        required: false
   push:
     branches:
       - develop
       - devops-main
-  workflow_dispatch:
-    inputs:
-      tag_name:
-        description: 'Tag to build production image'
-        required: false
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
