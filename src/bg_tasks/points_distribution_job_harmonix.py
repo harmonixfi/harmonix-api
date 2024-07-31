@@ -108,10 +108,11 @@ def harmonix_distribute_points(current_time):
     active_portfolios = session.exec(active_portfolios_query).all()
     active_portfolios.sort(key=lambda x: x.trade_start_date)
     for portfolio in active_portfolios:
-        if portfolio.vault_id not in multiplier_config_dict:
-            continue
+        
+        vault_multiplier = 1
+        if portfolio.vault_id in multiplier_config_dict:
+            vault_multiplier = multiplier_config_dict[portfolio.vault_id]
 
-        vault_multiplier = multiplier_config_dict[portfolio.vault_id]
         referrer_mutiplier = 1
         # get user by wallet address
         user_query = select(User).where(User.wallet_address == portfolio.user_address)
