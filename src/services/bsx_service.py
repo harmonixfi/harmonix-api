@@ -5,6 +5,7 @@ from core.config import settings
 api_key = settings.BSX_API_KEY
 secret = settings.BSX_SECRET
 url = settings.BSX_API_URL
+origin_url = settings.BSX_ORIGIN_URL
 
 def get_points_earned() ->float:
     headers = {
@@ -14,10 +15,10 @@ def get_points_earned() ->float:
         'bsx-key': api_key,
         'bsx-secret': secret,
         'cache-control': 'no-cache',
-        'origin': 'https://www.testnet.bsx.exchange',
+        'origin': origin_url,
         'pragma': 'no-cache',
         'priority': 'u=1, i',
-        'referer': 'https://www.testnet.bsx.exchange/',
+        'referer': origin_url,
         'sec-ch-ua': '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
