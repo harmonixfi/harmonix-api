@@ -141,6 +141,7 @@ class Settings(BaseSettings):
     
     BSX_API_KEY: Optional[str] = None
     BSX_SECRET: Optional[str] = None
+    BSX_API_URL: Optional[str] = None
     
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

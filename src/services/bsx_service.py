@@ -4,9 +4,9 @@ from core.config import settings
 
 api_key = settings.BSX_API_KEY
 secret = settings.BSX_SECRET
+url = settings.BSX_API_URL
 
 def get_points_earned() ->float:
-    url = 'https://api.testnet.bsx.exchange/points/trading'
     headers = {
         'accept': 'application/json',
         'accept-language': 'en-US,en;q=0.9,vi;q=0.8',   
