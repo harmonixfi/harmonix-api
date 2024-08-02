@@ -28,6 +28,7 @@ from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
+from services.bsx_service import get_points_earned
 from services.market_data import get_price
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
@@ -146,7 +147,7 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
 
 # Step 4: Calculate Performance Metrics
 def calculate_performance(
-    vault_id: uuid.UUID,
+    vault: Vault,
     vault_contract: Contract,
     owner_address: str,
     update_freq: str = "daily",
@@ -165,18 +166,39 @@ def calculate_performance(
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
     # Calculate Monthly APY
-    month_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=30)
+    month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
-
+    
+    adjusted_pps =0 
     time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
     days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
-    monthly_apy = calculate_roi(
-        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
-    )
+    
+    if vault.slug == constants.BSX_VAULT_SLUG:
+        points_earned = get_points_earned()
+        
+        # Incorporate BSX Points:
+        # Each point earned can be converted to $0.2.
+        # Points earned over the month need to be calculated.
+        # Total value of points = Total points earned * $0.2
+        # Calculate the value of the points
+        points_value = points_earned * 0.2
+        
+        # Adjust the total balance (TVL)
+        adjusted_tvl = total_balance + points_value
 
-    week_ago_price_per_share = get_before_price_per_shares(session, vault_id, days=7)
+        # Adjust the current PPS
+        adjusted_pps = adjusted_tvl / vault_state.total_share
+        
+        # Calculate Monthly APY using the adjusted PPS
+        monthly_apy = calculate_roi(
+            adjusted_pps, month_ago_price_per_share.price_per_share, days=days)
+    else :
+        monthly_apy = calculate_roi(
+        current_price_per_share, month_ago_price_per_share.price_per_share, days=days)
+
+    week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
@@ -186,7 +208,7 @@ def calculate_performance(
         current_price_per_share, week_ago_price_per_share.price_per_share, days=days
     )
 
-    apy_ytd = calculate_apy_ytd(vault_id, current_price_per_share)
+    apy_ytd = calculate_apy_ytd(vault.id, current_price_per_share)
 
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
@@ -204,7 +226,7 @@ def calculate_performance(
 
         last_6_days = session.exec(
             select(VaultPerformance)
-            .where(VaultPerformance.vault_id == vault_id)
+            .where(VaultPerformance.vault_id == vault.id)
             .where(VaultPerformance.datetime >= last_7_day)
             .order_by(VaultPerformance.datetime.desc())
         ).all()
@@ -237,14 +259,14 @@ def calculate_performance(
             apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
-        session, vault_id
+        session, vault.id
     )
 
     # count all portfolio of vault
     statement = (
         select(func.count())
         .select_from(UserPortfolio)
-        .where(UserPortfolio.vault_id == vault_id)
+        .where(UserPortfolio.vault_id == vault.id)
     )
     count = session.scalar(statement)
 
@@ -257,7 +279,7 @@ def calculate_performance(
         apy_1m=apy_1m,
         apy_1w=apy_1w,
         apy_ytd=apy_ytd,
-        vault_id=vault_id,
+        vault_id=vault.id,
         risk_factor=risk_factor,
         all_time_high_per_share=all_time_high_per_share,
         total_shares=vault_state.total_share,
@@ -267,7 +289,11 @@ def calculate_performance(
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
     )
-    update_price_per_share(vault_id, current_price_per_share)
+    
+    if vault.slug == constants.BSX_VAULT_SLUG:
+        update_price_per_share(vault.id, adjusted_pps)
+    else:
+        update_price_per_share(vault.id, current_price_per_share) 
 
     return performance
 
@@ -295,7 +321,7 @@ def main(chain: str):
             vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
-                vault.id,
+                vault,
                 vault_contract,
                 vault.owner_wallet_address,
                 update_freq=(
