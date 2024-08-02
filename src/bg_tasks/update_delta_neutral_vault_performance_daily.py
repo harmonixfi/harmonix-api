@@ -170,33 +170,29 @@ def calculate_performance(
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
     )
-    
-    adjusted_pps =0 
+
     time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
     days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
-    
+
     if vault.slug == constants.BSX_VAULT_SLUG:
         points_earned = get_points_earned()
-        
+
         # Incorporate BSX Points:
         # Each point earned can be converted to $0.2.
         # Points earned over the month need to be calculated.
         # Total value of points = Total points earned * $0.2
         # Calculate the value of the points
         points_value = points_earned * 0.2
-        
+
         # Adjust the total balance (TVL)
         adjusted_tvl = total_balance + points_value
 
         # Adjust the current PPS
-        adjusted_pps = adjusted_tvl / vault_state.total_share
-        
-        # Calculate Monthly APY using the adjusted PPS
-        monthly_apy = calculate_roi(
-            adjusted_pps, month_ago_price_per_share.price_per_share, days=days)
-    else :
-        monthly_apy = calculate_roi(
-        current_price_per_share, month_ago_price_per_share.price_per_share, days=days)
+        current_price_per_share = adjusted_tvl / vault_state.total_share
+
+    monthly_apy = calculate_roi(
+        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
+    )
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
@@ -289,11 +285,8 @@ def calculate_performance(
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
     )
-    
-    if vault.slug == constants.BSX_VAULT_SLUG:
-        update_price_per_share(vault.id, adjusted_pps)
-    else:
-        update_price_per_share(vault.id, current_price_per_share) 
+
+    update_price_per_share(vault.id, current_price_per_share)
 
     return performance
 
