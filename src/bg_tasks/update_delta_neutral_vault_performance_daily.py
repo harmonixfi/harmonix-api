@@ -165,15 +165,7 @@ def calculate_performance(
     total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
-    # Calculate Monthly APY
-    month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
-    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
-        pendulum.UTC
-    )
-
-    time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
-    days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
-
+    
     if vault.slug == constants.BSX_VAULT_SLUG:
         points_earned = get_points_earned()
 
@@ -190,6 +182,14 @@ def calculate_performance(
         # Adjust the current PPS
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
+    # Calculate Monthly APY
+    month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
+    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
+        pendulum.UTC
+    )
+
+    time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
+    days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
