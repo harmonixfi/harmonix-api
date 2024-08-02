@@ -9,8 +9,7 @@ bsx_base_url = settings.BSX_BASE_API_URL
 def get_points_earned() ->float:
     headers = {
         'accept': 'application/json',
-        'accept-language': 'en-US,en;q=0.9,vi;q=0.8',   
-         
+        'accept-language': 'en-US,en;q=0.9,vi;q=0.8',           
         'bsx-key': api_key,
         'bsx-secret': secret,
         'cache-control': 'no-cache',
