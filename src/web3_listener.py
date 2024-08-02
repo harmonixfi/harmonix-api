@@ -41,13 +41,15 @@ chain_name = None
 session = Session(engine)
 
 
-def update_tvl(vault_id: uuid.UUID, deposit_amount: float):
-    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
-    if vault:
-        if vault.tvl is None:
-            vault.tvl = 0.0
-        vault.tvl += deposit_amount
-        session.commit()
+def update_tvl(vault: Vault, deposit_amount: float):
+    if vault.tvl is None:
+        vault.tvl = 0.0
+
+    vault.tvl += deposit_amount
+    logger.info(f"TVL updated for vault {vault.name} {vault.tvl}")
+    session.add(vault)
+    session.commit()
+
 
 def _extract_stablecoin_event(entry):
     # Decode the data field
@@ -135,10 +137,10 @@ def handle_deposit_event(
             f"User deposit {from_address}, amount = {value}, shares = {value / latest_pps}"
         )
         logger.info(f"User with address {from_address} updated in user_portfolio table")
-    
+
     # Update TVL realtime when user deposit to vault
-    update_tvl(vault.id, float(value))
-    
+    update_tvl(vault, float(value))
+
     return user_portfolio
 
 
