@@ -4,8 +4,7 @@ from core.config import settings
 
 api_key = settings.BSX_API_KEY
 secret = settings.BSX_SECRET
-url = settings.BSX_API_URL
-origin_url = settings.BSX_ORIGIN_URL
+bsx_base_url = settings.BSX_BASE_API_URL
 
 def get_points_earned() ->float:
     headers = {
@@ -15,10 +14,10 @@ def get_points_earned() ->float:
         'bsx-key': api_key,
         'bsx-secret': secret,
         'cache-control': 'no-cache',
-        'origin': origin_url,
+        'origin': bsx_base_url,
         'pragma': 'no-cache',
         'priority': 'u=1, i',
-        'referer': origin_url,
+        'referer': bsx_base_url,
         'sec-ch-ua': '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
         'sec-ch-ua-mobile': '?0',
         'sec-ch-ua-platform': '"Windows"',
@@ -28,7 +27,7 @@ def get_points_earned() ->float:
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0'
     }
     
-    response = requests.get(url, headers=headers)
+    response = requests.get(f'{bsx_base_url}/points/trading', headers=headers)
     
     if response.status_code == 200:
         data = response.json()
