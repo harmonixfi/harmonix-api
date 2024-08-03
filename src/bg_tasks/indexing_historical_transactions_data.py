@@ -4,7 +4,7 @@ import click
 from web3 import Web3
 from sqlmodel import Session, select
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import NetworkChain
 from services import arbiscan_service, etherscan_service
@@ -118,6 +118,7 @@ def historical(chain: NetworkChain):
     "--chain", required=True, help="Blockchain network chain", type=NetworkChain
 )
 def live(address, chain: NetworkChain):
+    setup_logging_to_console()
     setup_logging_to_file(
         f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
     )
