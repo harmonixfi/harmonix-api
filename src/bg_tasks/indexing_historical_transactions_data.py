@@ -13,10 +13,6 @@ from services import arbiscan_service, etherscan_service
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Setup Web3 connection
-
-logger = logging.getLogger(__name__)
-
 MAX_BLOCK_NUMBER = 9999999999
 
 
@@ -51,6 +47,8 @@ def get_latest_block(session: Session, address: str, chain: NetworkChain):
 
 def index_transactions(contract_addresses, chain: NetworkChain):
     try:
+        logger.info("Start indexing transaction %s %s", contract_addresses, chain)
+        
         if chain == NetworkChain.arbitrum_one:
             get_transactions = arbiscan_service.get_transactions
         elif chain == NetworkChain.ethereum:
