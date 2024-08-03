@@ -1,4 +1,5 @@
 import logging
+import sys
 import traceback
 import click
 from web3 import Web3
@@ -123,7 +124,7 @@ def live(address, chain: NetworkChain):
         f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
     )
     index_transactions([address], chain)
-    exit(0)
+    sys.exit(0)
 
 
 if __name__ == "__main__":
