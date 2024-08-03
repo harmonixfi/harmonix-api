@@ -48,7 +48,7 @@ def get_latest_block(session: Session, address: str, chain: NetworkChain):
 def index_transactions(contract_addresses, chain: NetworkChain):
     try:
         logger.info("Start indexing transaction %s %s", contract_addresses, chain)
-        
+
         if chain == NetworkChain.arbitrum_one:
             get_transactions = arbiscan_service.get_transactions
         elif chain == NetworkChain.ethereum:
@@ -76,6 +76,8 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         session.add(new_transaction)
                     session.commit()
                     page += 1
+        
+        logger.info("Stop indexing transaction %s %s", contract_addresses, chain)
     except Exception as e:
         logger.error(f"Error occurred: {e}")
         logger.error(traceback.format_exc())
@@ -121,6 +123,7 @@ def live(address, chain: NetworkChain):
         f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
     )
     index_transactions([address], chain)
+    exit(0)
 
 
 if __name__ == "__main__":

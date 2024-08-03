@@ -32,7 +32,7 @@ RUN mkdir -p /app-logs/
 COPY ./src /app
 ENV PYTHONPATH=/app
 
-# ENTRYPOINT []
+ENTRYPOINT ["uvicorn"]
 
 # Default command
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["main:app", "--host", "0.0.0.0", "--port", "8080"]
