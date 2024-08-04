@@ -331,6 +331,8 @@ class Web3Listener(WebSocketManager):
                     .where(Vault.is_active == True)
                     .where(Vault.network_chain == network)
                 ).all()
+                logger.info("Subcribing to %d vaults...", len(vaults))
+                
                 for vault in vaults:
                     # subscribe to new block headers
                     subscription_id = await self.w3.eth.subscribe(
@@ -378,11 +380,7 @@ class Web3Listener(WebSocketManager):
 
 async def run(network: str):
     global chain_name
-
-    setup_logging_to_console(level=logging.INFO, logger=logger)
-    setup_logging_to_file(
-        app=f"web3_listener_{network}", level=logging.INFO, logger=logger
-    )
+    logger.info("Starting web3 listener for %s", network)
 
     # Parse network to NetworkChain enum
     network_chain = NetworkChain[network.lower()]
@@ -405,6 +403,10 @@ async def run(network: str):
 @click.command()
 @click.option("--network", default="arbitrum_one", help="Blockchain network to use")
 def main(network: str):
+    setup_logging_to_console(level=logging.INFO, logger=logger)
+    setup_logging_to_file(
+        app=f"web3_listener_{network}", level=logging.INFO, logger=logger
+    )
     asyncio.run(run(network))
 
 
