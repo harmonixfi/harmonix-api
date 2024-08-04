@@ -31,9 +31,9 @@ from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
 
-# # Initialize logger
+# Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 chain_name = None
 
@@ -403,7 +403,7 @@ async def run(network: str):
 @click.command()
 @click.option("--network", default="arbitrum_one", help="Blockchain network to use")
 def main(network: str):
-    setup_logging_to_console(level=logging.INFO)
+    setup_logging_to_console()
     setup_logging_to_file(
         app=f"web3_listener_{network}", level=logging.INFO, logger=logger
     )
