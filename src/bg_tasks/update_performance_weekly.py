@@ -19,7 +19,7 @@ from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -29,8 +29,8 @@ from schemas.vault_state import OldVaultState, VaultState
 from services.market_data import get_price
 
 # # Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("options_wheel_update_performance_weekly")
-logger.setLevel(logging.INFO)
 
 # Connect to the Ethereum network
 if settings.ENVIRONMENT_NAME == "Production":
@@ -297,5 +297,6 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("update_performance_weekly", logger=logger)
     main()

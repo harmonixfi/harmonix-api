@@ -18,7 +18,7 @@ from sqlmodel import Session, col, select
 from core import constants
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
@@ -36,6 +36,7 @@ GET_POINTS_SERVICE = {
 
 
 # # Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("restaking_point_calculation")
 logger.setLevel(logging.INFO)
 
@@ -254,6 +255,7 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file(
         app="restaking_point_calculation", level=logging.INFO, logger=logger
     )

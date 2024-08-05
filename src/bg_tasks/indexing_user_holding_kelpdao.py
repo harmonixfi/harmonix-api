@@ -11,14 +11,14 @@ from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_assets_history import UserHoldingAssetHistory
 from models.vaults import Vault
 from schemas.vault_state import OldVaultState, VaultState
 from services.uniswap_pool_service import Uniswap
 
-
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -467,6 +467,7 @@ def cli():
 @click.option("--chain", required=True, help="Blockchain network chain")
 @click.option("--vault-id", required=True, help="Vault ID")
 def live(chain, vault_id):
+    setup_logging_to_console()
     setup_logging_to_file(
         f"indexing_user_holding_kelpdao_{chain}_{vault_id}", logger=logger
     )
