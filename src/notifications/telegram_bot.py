@@ -1,9 +1,9 @@
 import logging
 import traceback
 import aiohttp
+from telegram import Bot
 
 from core.config import settings
-from telegram import Bot
 
 logger = logging.getLogger(__name__)
 

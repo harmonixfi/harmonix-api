@@ -38,7 +38,9 @@ def build_message(fields: List[Tuple[str, str]]) -> str:
     return message
 
 
-def build_error_message(error: Exception, traceback_details: str, strategy_name: str = None) -> str:
+def build_error_message(
+    error: Exception, traceback_details: str, strategy_name: str = None
+) -> str:
     error_message = "Strategy: " + strategy_name if strategy_name else "Error"
     error_message += "\n" + str(error)
 
