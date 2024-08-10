@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import traceback
 import uuid
 from sqlmodel import Session, select
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.referral_points import ReferralPoints
@@ -19,6 +19,8 @@ from models.vaults import Vault
 from core.db import engine
 from core import constants
 from sqlmodel import Session, select
+
+from services.market_data import get_price
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -106,10 +108,11 @@ def harmonix_distribute_points(current_time):
     active_portfolios = session.exec(active_portfolios_query).all()
     active_portfolios.sort(key=lambda x: x.trade_start_date)
     for portfolio in active_portfolios:
-        if portfolio.vault_id not in multiplier_config_dict:
-            continue
+        
+        vault_multiplier = 1
+        if portfolio.vault_id in multiplier_config_dict:
+            vault_multiplier = multiplier_config_dict[portfolio.vault_id]
 
-        vault_multiplier = multiplier_config_dict[portfolio.vault_id]
         referrer_mutiplier = 1
         # get user by wallet address
         user_query = select(User).where(User.wallet_address == portfolio.user_address)
@@ -140,7 +143,9 @@ def harmonix_distribute_points(current_time):
             .where(UserPoints.session_id == reward_session.session_id)
             .where(UserPoints.vault_id == portfolio.vault_id)
         )
-        user_points = session.exec(user_points_query).first()
+        vault = session.exec(select(Vault).where(Vault.id == portfolio.vault_id)).first()
+        
+        user_points = session.exec(user_points_query).first()         
         # if  user points is none then insert user points
         if not user_points:
             # Calculate points to be distributed
@@ -151,8 +156,15 @@ def harmonix_distribute_points(current_time):
                     portfolio.trade_start_date.replace(tzinfo=timezone.utc),
                 )
             ).total_seconds() / 3600
+            
+            
+            converted_balance =  portfolio.total_balance
+            if vault.vault_currency == "WBTC":
+                converted_balance = portfolio.total_balance * get_price('BTCUSDT')
+            
+            
             points = (
-                (portfolio.total_balance / POINT_PER_DOLLAR)
+                (converted_balance / POINT_PER_DOLLAR)
                 * duration_hours
                 * vault_multiplier
                 * referrer_mutiplier
@@ -200,6 +212,11 @@ def harmonix_distribute_points(current_time):
                 current_time
                 - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
+            
+            converted_balance =  portfolio.total_balance
+            if vault.vault_currency == "WBTC":
+                converted_balance = portfolio.total_balance * get_price('BTCUSDT')
+                
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
@@ -392,6 +409,7 @@ def update_vault_points(current_time):
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("points_distribution_job_harmonix", logger=logger)
     current_time = datetime.now(tz=timezone.utc)
     harmonix_distribute_points(current_time)

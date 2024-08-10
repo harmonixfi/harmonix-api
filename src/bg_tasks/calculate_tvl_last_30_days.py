@@ -4,6 +4,7 @@ import uuid
 from sqlmodel import Session, select
 
 from bg_tasks.indexing_user_holding_kelpdao import get_pps
+from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
@@ -64,9 +65,9 @@ def calculate_tvl_last_30_days():
                     pps = get_pps_by_vault(onchain_transaction_history, vaults)
                     if pps is None:
                         continue
-                    amount = onchain_transaction_history.input[10:].lower()
-                    amount = amount[:64]
-                    tokenIn = amount[64:128]
+                    input_data = onchain_transaction_history.input[10:].lower()
+                    amount = input_data[:64]
+                    tokenIn = input_data[64:128]
                     tokenIn = f"0x{tokenIn[24:]}"
                     amount = parse_hex_to_int(amount)
                     if tokenIn == constants.DAI_CONTRACT_ADDRESS:
@@ -119,4 +120,8 @@ def get_pps_by_vault(onchain_transaction_historie, vaults):
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
+    setup_logging_to_file(
+        f"calculate_tvl_last_30_days", logger=logger
+    )
     calculate_tvl_last_30_days()

@@ -1,20 +1,17 @@
 import logging
+import sys
 import traceback
 import click
 from web3 import Web3
 from sqlmodel import Session, select
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import NetworkChain
 from services import arbiscan_service, etherscan_service
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-# Setup Web3 connection
-
 logger = logging.getLogger(__name__)
 
 MAX_BLOCK_NUMBER = 9999999999
@@ -51,6 +48,8 @@ def get_latest_block(session: Session, address: str, chain: NetworkChain):
 
 def index_transactions(contract_addresses, chain: NetworkChain):
     try:
+        logger.info("Start indexing transaction %s %s", contract_addresses, chain)
+
         if chain == NetworkChain.arbitrum_one:
             get_transactions = arbiscan_service.get_transactions
         elif chain == NetworkChain.ethereum:
@@ -78,6 +77,8 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         session.add(new_transaction)
                     session.commit()
                     page += 1
+        
+        logger.info("Stop indexing transaction %s %s", contract_addresses, chain)
     except Exception as e:
         logger.error(f"Error occurred: {e}")
         logger.error(traceback.format_exc())
@@ -101,6 +102,7 @@ def historical(chain: NetworkChain):
             Web3.to_checksum_address("0x4a10C31b642866d3A3Df2268cEcD2c5B14600523"),
             Web3.to_checksum_address("0x316CDbBEd9342A1109D967543F81FA6288eBC47D"),
             Web3.to_checksum_address("0xd531d9212cB1f9d27F9239345186A6e9712D8876"),
+            Web3.to_checksum_address("0x9d95527A298c68526Ad5227fe241B75329D3b91F"),
         ]
     elif chain == NetworkChain.ethereum:
         contract_addresses = [
@@ -118,10 +120,12 @@ def historical(chain: NetworkChain):
     "--chain", required=True, help="Blockchain network chain", type=NetworkChain
 )
 def live(address, chain: NetworkChain):
+    setup_logging_to_console()
     setup_logging_to_file(
         f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
     )
     index_transactions([address], chain)
+    sys.exit(0)
 
 
 if __name__ == "__main__":

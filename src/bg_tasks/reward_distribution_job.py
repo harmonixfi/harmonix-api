@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from core import constants
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.campaigns import Campaign
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
@@ -82,7 +82,6 @@ def distribute_referral_101_rewards(current_time):
                     last_reward.status = constants.Status.CLOSED
                     new_reward = Reward(
                         user_id=referral.referrer_id,
-                        referral_code_id=referral.referral_code_id,
                         reward_percentage=constants.REWARD_DEFAULT_PERCENTAGE,
                         start_date=current_time,
                         end_date=None,
@@ -114,7 +113,6 @@ def distribute_referral_101_rewards(current_time):
                     last_reward.end_date = current_time
                     high_reward = Reward(
                         user_id=referral.referrer_id,
-                        referral_code_id=referral.referral_code_id,
                         reward_percentage=constants.REWARD_HIGH_PERCENTAGE,
                         start_date=current_time,
                         end_date=current_time
@@ -170,7 +168,6 @@ def distribute_kol_and_partner_rewards(current_time):
                 last_reward.end_date = current_time
                 new_reward = Reward(
                     user_id=user.user_id,
-                    referral_code_id=last_reward.referral_code_id,
                     reward_percentage=reward_percentage,
                     start_date=current_time,
                     end_date=None,
@@ -198,6 +195,7 @@ def get_reward_percentage_by_user_tvl(rewards_thresholds, user):
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("reward_distribution_job", logger=logger, level=logging.DEBUG)
     current_time = datetime.now(timezone.utc)
     logger.info("Job started at %s", current_time)

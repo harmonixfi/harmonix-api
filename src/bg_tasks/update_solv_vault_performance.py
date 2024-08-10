@@ -12,6 +12,7 @@ from web3.contract import Contract
 from bg_tasks.utils import sortino_ratio, downside_risk, calculate_risk_factor
 from core import constants
 from core.db import engine
+from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -23,8 +24,8 @@ from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tv
 from services import solv_service
 
 # # Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
-logger.setLevel(logging.INFO)
 
 
 session = Session(engine)
@@ -117,7 +118,7 @@ def calculate_performance(
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
-    
+
     benchmark = current_price
     benchmark_percentage = 0
     if performance_history is not None:
@@ -171,6 +172,7 @@ def main():
             select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
             # .where(Vault.is_active == True)
         ).all()
+        logger.info("Start updating solv performance...")
 
         for vault in vaults:
             vault_contract, _ = get_vault_contract(vault, abi_name="solv")
@@ -201,4 +203,6 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console(logger=logger)
+    setup_logging_to_file(f"update_solv_vault_performance", logger=logger)
     main()

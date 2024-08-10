@@ -82,7 +82,7 @@ async def get_portfolio_info(
         .where(UserPortfolio.status == PositionStatus.ACTIVE)
     )
     if vault_id:
-        statement.where(UserPortfolio.vault_id == vault_id)
+        statement = statement.where(UserPortfolio.vault_id == vault_id)
 
     user_positions = session.exec(statement).all()
 

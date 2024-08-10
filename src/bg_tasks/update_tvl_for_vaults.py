@@ -6,15 +6,15 @@ from web3 import Web3
 from web3.contract import Contract
 
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core.abi_reader import read_abi
 from core import constants
 from utils.web3_utils import get_current_tvl, get_vault_contract
 
 # Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("update_vault_tvl")
-logger.setLevel(logging.INFO)
 
 session = Session(engine)
 token_abi = read_abi("ERC20")
@@ -30,6 +30,7 @@ def update_tvl(vault_id: uuid.UUID, current_tvl: float):
 # Main Execution
 def main():
     try:
+        logger.info("Start updating TVL for vaults...")
         # Get the vaults from the Vault table
         vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
 
@@ -57,5 +58,6 @@ def main():
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("update_vault_tvl", logger=logger)
     main()
