@@ -359,9 +359,9 @@ class Web3Listener(WebSocketManager):
             except (ConnectionClosedError, ConnectionClosedOK) as e:
                 self.logger.error("Websocket connection close", exc_info=True)
                 self.logger.error(traceback.format_exc())
-                # await self.reconnect()
-                # await asyncio.sleep(10)
-                raise e
+                await asyncio.sleep(2)
+                await self.reconnect()
+                # raise e
             except Exception as e:
                 logger.error(f"Error: {e}")
                 logger.error(traceback.format_exc())
