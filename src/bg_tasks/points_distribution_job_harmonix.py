@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 import traceback
 import uuid
 from sqlmodel import Session, select
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.referral_points import ReferralPoints
@@ -409,6 +409,7 @@ def update_vault_points(current_time):
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("points_distribution_job_harmonix", logger=logger)
     current_time = datetime.now(tz=timezone.utc)
     harmonix_distribute_points(current_time)

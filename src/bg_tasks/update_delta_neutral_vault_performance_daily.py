@@ -20,7 +20,7 @@ from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
@@ -33,8 +33,8 @@ from services.market_data import get_price
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
-logger.setLevel(logging.INFO)
 
 session = Session(engine)
 token_abi = read_abi("ERC20")
@@ -296,6 +296,7 @@ def calculate_performance(
 @click.option("--chain", default="arbitrum_one", help="Blockchain network to use")
 def main(chain: str):
     try:
+        setup_logging_to_console()
         setup_logging_to_file(
             f"update_delta_neutral_vault_performance_daily_{chain}", logger=logger
         )

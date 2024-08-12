@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from sqlmodel import Session, select
 from core import constants
-from log import setup_logging_to_file
+from log import setup_logging_to_console, setup_logging_to_file
 from models.campaigns import Campaign
 from models.referralcodes import ReferralCode
 from models.referrals import Referral
@@ -151,7 +151,7 @@ def distribute_kol_and_partner_rewards(current_time):
             .order_by(Reward.start_date)
         )
         rewards = session.exec(reward_query).all()
-        
+
         last_reward = rewards[-1]
         if (
             last_reward.campaign_name == constants.Campaign.KOL_AND_PARTNER.value
@@ -192,6 +192,7 @@ def get_reward_percentage_by_user_tvl(rewards_thresholds, user):
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     setup_logging_to_file("reward_distribution_job", logger=logger, level=logging.DEBUG)
     current_time = datetime.now(timezone.utc)
     logger.info("Job started at %s", current_time)

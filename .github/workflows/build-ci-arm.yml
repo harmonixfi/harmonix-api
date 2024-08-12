@@ -1,15 +1,15 @@
-name: API_CI_Workflow
+name: API_CI_ARM_Workflow
 
 on:
-  push:
-    branches:
-      - develop
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Tag to build production image'
+        description: 'Tag to butag production tag image'
         required: false
-
+  push:
+    branches:
+      - develop
+      - devops-main
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -38,18 +38,26 @@ jobs:
         run: |
           if [ "${{ github.ref }}" == "refs/heads/develop" ]; then
             IMAGE_PREFIX=sandbox_
+            GIT_REF=develop
           elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
-            IMAGE_PREFIX=prod_
-            git fetch --tags
-            git checkout tags/${{ github.event.inputs.tag_name }}
+            if [ "${{ github.event.inputs.tag_name }}" == "devops-main" ]; then
+              IMAGE_PREFIX=prod_
+              GIT_REF="devops-main"
+            else
+              IMAGE_PREFIX=prod_
+              GIT_REF="tags/${{ github.event.inputs.tag_name }}"
+            fi
           else
-            IMAGE_PREFIX=sandbox_
+            IMAGE_PREFIX=prod_
+            GIT_REF="devops-main"
           fi
+          git fetch --tags
+          git checkout $GIT_REF
           echo "IMAGE_PREFIX=${IMAGE_PREFIX}" >> $GITHUB_ENV
           echo "::set-output name=image_prefix::${IMAGE_PREFIX}"
 
       - name: Build and Push Image ARM
-        if: github.event.inputs.tag_name == ''
+        if: github.ref == 'refs/heads/develop' && github.event.inputs.tag_name == '' 
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -60,8 +68,9 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPOSITORY_NAME }}:latest
           platforms: linux/arm64
 
+
       - name: Build and Push Image ARM (Prod)
-        if: github.event.inputs.tag_name != ''
+        if: github.event.inputs.tag_name == 'devops-main' || github.ref == 'refs/heads/devops-main'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -73,7 +82,7 @@ jobs:
           platforms: linux/arm64
 
   update-helm:
-    if: github.event.inputs.tag_name == ''
+    if: github.ref == 'refs/heads/develop' && github.event.inputs.tag_name == ''
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
@@ -104,7 +113,7 @@ jobs:
           git push
 
   update-production-helm:
-    if: github.event.inputs.tag_name != ''
+    if: github.event.inputs.tag_name == 'devops-main' || github.ref == 'refs/heads/devops-main'
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:
