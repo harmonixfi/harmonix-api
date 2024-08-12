@@ -36,13 +36,14 @@ def calculate_tvl_last_30_days():
     now = datetime.now().timestamp()
     last_30_days_timestamp = now - 30 * 24 * 60 * 60
     users = session.exec(select(User)).all()
-    vaults = session.exec(select(Vault)).all()
+    vaults = session.exec(select(Vault).where(Vault.is_active)).all()
 
     for user in users:
         statement = select(Referral).where(Referral.referrer_id == user.user_id)
         referrals = session.exec(statement).all()
         if len(referrals) == 0:
             continue
+
         shares_deposited = 0
         balance_deposited = 0
         shares_withdraw = 0
@@ -54,9 +55,11 @@ def calculate_tvl_last_30_days():
                 .where(OnchainTransactionHistory.timestamp >= last_30_days_timestamp)
                 .where(OnchainTransactionHistory.from_address == referee.wallet_address)
             )
+
             onchain_transaction_histories = session.exec(statement).all()
             if len(onchain_transaction_histories) == 0:
                 continue
+
             for onchain_transaction_history in onchain_transaction_histories:
                 if (
                     onchain_transaction_history.method_id
@@ -83,6 +86,7 @@ def calculate_tvl_last_30_days():
                     amount = parse_hex_to_int(onchain_transaction_history.input[10:])
                     withdraw = amount / 1e6
                     shares_withdraw += withdraw
+
         if balance_deposited == 0:
             user_last_30_days_tvl = UserLast30DaysTVL(
                 user_id=user.user_id,
@@ -94,11 +98,13 @@ def calculate_tvl_last_30_days():
             session.add(user_last_30_days_tvl)
             session.commit()
             continue
+
         avg_entry_price = balance_deposited / shares_deposited
         balance_withdraw = shares_withdraw * avg_entry_price
         tvl = balance_deposited - balance_withdraw
         if tvl < 0:
             tvl = 0
+
         user_last_30_days_tvl = UserLast30DaysTVL(
             user_id=user.user_id,
             avg_entry_price=avg_entry_price,
@@ -108,20 +114,19 @@ def calculate_tvl_last_30_days():
         )
         session.add(user_last_30_days_tvl)
         session.commit()
+
     logger.info("Calculate TVL last 30 days job completed.")
 
 
-def get_pps_by_vault(onchain_transaction_historie, vaults):
+def get_pps_by_vault(onchain_tx: OnchainTransactionHistory, vaults: list[Vault]):
     for vault in vaults:
-        if vault.contract_address.lower() == onchain_transaction_historie.to_address:
-            vault_contract, w3 = get_vault_contract(vault)
-            pps = get_pps(vault_contract, onchain_transaction_historie.block_number)
+        if vault.contract_address.lower() == onchain_tx.to_address:
+            vault_contract, _ = get_vault_contract(vault)
+            pps = get_pps(vault_contract, onchain_tx.block_number)
             return pps
 
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file(
-        f"calculate_tvl_last_30_days", logger=logger
-    )
+    setup_logging_to_file(f"calculate_tvl_last_30_days", logger=logger)
     calculate_tvl_last_30_days()
