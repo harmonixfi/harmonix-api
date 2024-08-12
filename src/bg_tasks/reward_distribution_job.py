@@ -57,12 +57,16 @@ def distribute_referral_101_rewards(current_time):
                 .order_by(Reward.start_date)
             )
             rewards = session.exec(reward_query).all()
+            if len(rewards) == 0:
+                continue
+
             is_already_in_101_campaign = False
             for reward in rewards:
                 if reward.campaign_name == campaign_101.name:
                     unique_referrers.append(referral.referrer_id)
                     is_already_in_101_campaign = True
                     break
+
             last_reward = rewards[-1]
             if rewards is None:
                 continue
@@ -88,8 +92,10 @@ def distribute_referral_101_rewards(current_time):
                     session.add(new_reward)
                     session.commit()
                 continue
+
             if is_already_in_101_campaign:
                 continue
+
             user_query = select(User).where(User.user_id == referral.referee_id)
             user = session.exec(user_query).first()
             if not user:
