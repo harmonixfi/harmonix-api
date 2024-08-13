@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import json
 from typing import List
 
@@ -5,6 +6,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import distinct, func
 from sqlmodel import select
 from models.pps_history import PricePerShareHistory
+from models.user import User
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 import schemas
@@ -194,3 +196,65 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/{days}/deposit-amount")
+async def get_deposit(session: SessionDep, days: int):
+    statement = (
+        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    )
+    
+    vaults = session.exec(statement).all()
+    
+    total_locked_value_sum = 0
+    days_ago = datetime.now() - timedelta(days=int(days))
+    for vault in vaults:
+        total_locked_value = session.exec(
+            select(func.sum(VaultPerformance.total_locked_value))
+            .where(VaultPerformance.vault_id == vault.id)
+            .where(VaultPerformance.datetime >= days_ago)  
+        ).first()
+        
+        if total_locked_value is not None:
+            total_locked_value_sum += total_locked_value
+  
+    return total_locked_value_sum
+
+
+@router.get("/{days}/total-user")
+async def get_total_user(session: SessionDep, days: int):
+    days_ago = datetime.now() - timedelta(days=int(days))
+    statement = (
+        select(func.count(User.user_id)).where(VaultPerformance.datetime >= days_ago)
+    )
+    
+    total_user = session.exec(statement).first()
+    
+    return total_user
+
+@router.get("/{days}/tvl/chart")
+async def get_tvl__chart(session: SessionDep, days: int):
+    days_ago = datetime.now() - timedelta(days=int(days))
+    statement = (
+        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    ) 
+    vaults = session.exec(statement).all()
+    
+    results = []
+    for vault in vaults:
+        vault_performance = session.exec(
+            select(VaultPerformance)
+            .where(VaultPerformance.vault_id == vault.id)
+            .where(VaultPerformance.datetime >= days_ago)  
+            .order_by(VaultPerformance.datetime.desc())
+        ).first()
+        
+        if vault_performance is not None:
+            results.append({ 
+                "vault_id": vault_performance.vault_id,           
+                "total_locked_value": vault_performance.total_locked_value,
+                "datetime": vault_performance.datetime
+            })
+    df = pd.DataFrame(results, columns=["datetime", "vault_id", "total_locked_value"])
+     
+    return df.to_dict(orient="records")
