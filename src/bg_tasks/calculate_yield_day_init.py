@@ -4,7 +4,6 @@ import uuid
 from sqlalchemy import func
 from sqlmodel import Session, select
 
-from bg_tasks.indexing_user_holding_kelpdao import get_pps
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vault_performance import VaultPerformance
@@ -14,7 +13,6 @@ from core.db import engine
 from core import constants
 from sqlmodel import Session, select
 
-from utils.web3_utils import get_vault_contract, parse_hex_to_int
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -54,12 +52,12 @@ def get_vault_performances(vault_id, datetime: datetime):
     return session.exec(
         select(VaultPerformance)
         .where(VaultPerformance.vault_id == vault_id)
-        .where(VaultPerformance.datetime.date() == datetime.date())
+        .where(VaultPerformance.datetime == datetime)
         .order_by(VaultPerformance.datetime.asc())
     ).all()
 
 
-def process_vault_performance(vault, datetime: datetime):
+def process_vault_performance(vault, datetime: datetime) -> float:
     """Process performance for a given vault."""
     vault_performances = get_vault_performances(vault.id, datetime)
     current_tvl = sum(float(v.total_locked_value) for v in vault_performances)
@@ -71,7 +69,10 @@ def process_vault_performance(vault, datetime: datetime):
         float(v.total_locked_value) for v in previous_vault_performances
     )
 
+    tvl_change = current_tvl - previous_vault_performances_tvl
+
     total_deposit = calculate_total_deposit(datetime.date())
+    return tvl_change - total_deposit
 
 
 def calculate_total_deposit(vault_performance_date):
@@ -85,6 +86,16 @@ def calculate_total_deposit(vault_performance_date):
     return sum(float(tx.value) for tx in deposits)
 
 
+def insert_vault_performance_history(
+    yield_data: float, vault_id: uuid.UUID, datetime: datetime
+):
+    vault_performance_history = VaultPerformanceHistory(
+        datetime=datetime, total_locked_value=yield_data, vault_id=vault_id
+    )
+    session.add(vault_performance_history)
+    session.commit()
+
+
 def calculate_yield_init():
     logger.info("Starting calculate Yield init...")
 
@@ -92,11 +103,20 @@ def calculate_yield_init():
     vault_performance_dates = get_vault_performance_dates()
 
     for vault in vaults:
+        # print('-----------------------valut------------------')
         for vault_performance_date in vault_performance_dates:
-            process_vault_performance(vault, vault_performance_date)
+            yield_data = process_vault_performance(vault, vault_performance_date)
+            # if yield_data < 0:
+            #     print('sai meo r----------------------------')
+            insert_vault_performance_history(
+                yield_data=yield_data,
+                vault_id=vault.id,
+                datetime=vault_performance_date,
+            )
+        # print('***********************end----valut------------------')
 
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file(f"calculate_yeild_day_init", logger=logger)
+    setup_logging_to_file(f"calculate_yield_day_init", logger=logger)
     calculate_yield_init()

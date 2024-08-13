@@ -179,10 +179,10 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "calculate_yeild_day_init",
+            "name": "calculate_yield_day_init",
             "type": "debugpy",
             "request": "launch",
-            "module": "bg_tasks.calculate_yeild_day_init",
+            "module": "bg_tasks.calculate_yield_day_init",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
