@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from typing import List
 import uuid
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -24,29 +25,6 @@ def get_active_vaults():
     return session.exec(select(Vault).where(Vault.is_active)).all()
 
 
-def get_vault_performance_dates():
-    """Retrieve all vault performance dates based on the subquery."""
-    subquery = (
-        select(
-            VaultPerformance.vault_id,
-            func.date_trunc("day", VaultPerformance.datetime).label("day"),
-            func.min(VaultPerformance.datetime).label("min_datetime"),
-        )
-        .group_by(VaultPerformance.vault_id, "day")
-        .subquery()
-    )
-
-    vault_performance_query = (
-        select(VaultPerformance.datetime)
-        .join(
-            subquery,
-            VaultPerformance.datetime == subquery.c.min_datetime,
-        )
-        .order_by(VaultPerformance.datetime.asc())
-    )
-
-    return session.exec(vault_performance_query).all()
-
 
 def get_vault_performances(vault_id, datetime: datetime):
     return session.exec(
@@ -65,14 +43,15 @@ def process_vault_performance(vault, datetime: datetime) -> float:
     previous_vault_performances = get_vault_performances(
         vault.id, datetime - timedelta(days=1)
     )
+    
     previous_vault_performances_tvl = sum(
         float(v.total_locked_value) for v in previous_vault_performances
-    )
-
+         )
+    
     tvl_change = current_tvl - previous_vault_performances_tvl
-
+    
     total_deposit = calculate_total_deposit(datetime.date())
-    return tvl_change - total_deposit
+    return abs(tvl_change) - total_deposit
 
 
 def calculate_total_deposit(vault_performance_date):
@@ -95,6 +74,19 @@ def insert_vault_performance_history(
     session.add(vault_performance_history)
     session.commit()
 
+
+def get_vault_performance_dates() -> List[datetime]:
+    start_date = datetime(2024, 3, 1)
+    end_date = datetime.now() - timedelta(days=1)
+
+    date_list = []
+    current_date = start_date
+
+    while current_date <= end_date:
+        date_list.append(current_date)
+        current_date += timedelta(days=1)
+
+    return date_list   
 
 def calculate_yield_init():
     logger.info("Starting calculate Yield init...")
