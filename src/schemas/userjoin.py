@@ -4,5 +4,5 @@ from datetime import datetime
 
 class UserJoin(BaseModel):
     user_address: str
-    referral_code: str
+    referral_code: Optional[str] = None
     
