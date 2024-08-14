@@ -25,7 +25,8 @@ logger = logging.getLogger(__name__)
 rockonyx_delta_neutral_vault_abi = read_abi("rockonyxrestakingdeltaneutralvault")
 erc20_abi = read_abi("erc20")
 
-STATE_FILE_PATH = "/api-data/kelpdao/{0}_state.json"
+STATE_ROOT_PATH = "/api-data/kelpdao"
+STATE_FILE_PATH = STATE_ROOT_PATH + "/{0}_state.json"
 
 
 def save_state(vault_address, user_positions, cumulative_deployment_fund, latest_block):
@@ -37,7 +38,12 @@ def save_state(vault_address, user_positions, cumulative_deployment_fund, latest
 
     filename = STATE_FILE_PATH.format(vault_address)
 
-    backup_path = f"/api-data/kelpdao/{vault_address}_state_{latest_block}.json"
+    backup_path = f"{STATE_ROOT_PATH}/{vault_address}_state_{latest_block}.json"
+    if not os.path.exists(STATE_ROOT_PATH):
+        # Create the path
+        os.makedirs(STATE_ROOT_PATH)
+        logger.info(f"Directory {STATE_ROOT_PATH} created.")
+
     # copy filename to backup_path
     if os.path.exists(filename):
         os.system(f"cp {filename} {backup_path}")
@@ -204,7 +210,9 @@ def calculate_rseth_holding(
                 pending_deployment_fund = (
                     sum(x["deposit_amount"] for x in user_positions.values()) * 0.5
                 )  # we use 50% of the deposit amount to buy spot, 50% to buy perpetual which is not considered here
-                logger.info(f"Pending deployment fund = {pending_deployment_fund:.2f} USDC")
+                logger.info(
+                    f"Pending deployment fund = {pending_deployment_fund:.2f} USDC"
+                )
                 logger.info("\n")
 
                 # if cumulative_deployment_fund > 95% of pending deployment fund, then we consider that the fund is fully deployed
@@ -446,7 +454,9 @@ def import_live_data(chain, vault_id: str):
             .order_by(OnchainTransactionHistory.block_number.asc())
         ).all()
 
-        tx_history.append((vault_contract, vault_address, vault.owner_wallet_address, transactions))
+        tx_history.append(
+            (vault_contract, vault_address, vault.owner_wallet_address, transactions)
+        )
 
         calculate_rseth_holding(
             session,
