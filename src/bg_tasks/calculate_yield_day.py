@@ -23,11 +23,13 @@ session = Session(engine)
 def get_active_vaults():
     return session.exec(select(Vault).where(Vault.is_active)).all()
 
+
 def calculate_tvl_change(vault_id, last_24h_timestamp) -> float:
     """Calculate the change in TVL for a given vault over the last 24 hours."""
     previous_tvl = get_previous_tvl(vault_id, last_24h_timestamp)
     current_tvl = get_current_tvl(vault_id)
     return (current_tvl or 0) - (previous_tvl or 0)
+
 
 def get_previous_tvl(vault_id, last_24h_timestamp) -> float:
     """Get the total locked value (TVL) for a vault 24 hours ago."""
@@ -46,6 +48,7 @@ def get_previous_tvl(vault_id, last_24h_timestamp) -> float:
     )
     return session.exec(previous_tvl_query).first()
 
+
 def get_current_tvl(vault_id) -> float:
     """Get the current total locked value (TVL) for a vault."""
     subquery = (
@@ -62,19 +65,20 @@ def get_current_tvl(vault_id) -> float:
     )
     return session.exec(current_tvl_query).first()
 
-def process_vault_performance(vault,datetime:datetime) -> float:
+
+def process_vault_performance(vault, datetime: datetime) -> float:
     """Process performance for a given vault."""
-    
-    now_timestamp = int(datetime.timestamp()) 
+
+    now_timestamp = int(datetime.timestamp())
     last_24h_timestamp = now_timestamp - 24 * 3600
-    
+
     total_deposit = calculate_total_deposit(last_24h_timestamp)
     tvl_change = calculate_tvl_change(vault.id, last_24h_timestamp)
-    
+
     return tvl_change - total_deposit
 
 
-def calculate_total_deposit(last_24h_timestamp:int):
+def calculate_total_deposit(last_24h_timestamp: int):
     """Calculate the total deposits for a specific date."""
     deposit_query = (
         select(OnchainTransactionHistory)
@@ -99,16 +103,16 @@ def calculate_yield_day():
     logger.info("Starting calculate day...")
 
     vaults = get_active_vaults()
-    
+
     now = datetime.now()
     for vault in vaults:
         # print('-----------------------valut------------------')
-        yield_data = process_vault_performance(vault,now)
+        yield_data = process_vault_performance(vault, now)
         insert_vault_performance_history(
-                    yield_data=yield_data,
-                    vault_id=vault.id,
-                    datetime=now,
-            )
+            yield_data=yield_data,
+            vault_id=vault.id,
+            datetime=now,
+        )
         # print('***********************end----valut------------------')
 
 

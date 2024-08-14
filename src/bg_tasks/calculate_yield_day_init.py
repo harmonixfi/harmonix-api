@@ -35,9 +35,11 @@ def get_vault_performances(vault_id: uuid.UUID, date: datetime):
     ).all()
     return data
 
-def get_tvl(vault_id: uuid.UUID, datetime: datetime)->float:
+
+def get_tvl(vault_id: uuid.UUID, datetime: datetime) -> float:
     vault_performances = get_vault_performances(vault_id, datetime)
     return sum(float(v.total_locked_value) for v in vault_performances)
+
 
 def process_vault_performance(vault, datetime: datetime) -> float:
     """Process performance for a given vault."""
@@ -49,19 +51,19 @@ def process_vault_performance(vault, datetime: datetime) -> float:
         if datetime.weekday() == 4:
             friday_this_week = datetime
             friday_last_week = friday_this_week - timedelta(days=7)
-            
-            current_tvl = get_tvl(vault.id,friday_this_week)
+
+            current_tvl = get_tvl(vault.id, friday_this_week)
             previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)
         else:
             days_since_friday = (datetime.weekday() - 4) % 7
             friday_this_week = datetime - timedelta(days=days_since_friday)
             friday_last_week = friday_this_week - timedelta(days=7)
-            
-            current_tvl = get_tvl(vault.id,friday_this_week)
-            previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)   
-            
+
+            current_tvl = get_tvl(vault.id, friday_this_week)
+            previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)
+
     else:
-        current_tvl = get_tvl(vault.id,datetime)
+        current_tvl = get_tvl(vault.id, datetime)
         previous_vault_performances_tvl = get_tvl(
             vault.id, datetime - timedelta(days=1)
         )
