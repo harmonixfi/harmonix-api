@@ -36,38 +36,44 @@ def get_vault_performances(vault_id: uuid.UUID, date: datetime):
     return data
 
 
-def process_vault_performance_V2(vault, datetime: datetime) -> float:
+def process_vault_performance(vault, datetime: datetime) -> float:
     """Process performance for a given vault."""
 
     current_tvl = 0
     previous_vault_performances_tvl = 0
     if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
         # Friday of weelky
-        friday_this_week = datetime - timedelta(days=(datetime.weekday() - 4))
+        if datetime.weekday() == 4:
+            friday_this_week = datetime
+            friday_last_week = friday_this_week - timedelta(days=7)
+            previous_vault_performances = get_vault_performances(vault.id, friday_last_week)
+            previous_vault_performances_tvl = sum(
+            float(v.total_locked_value) for v in previous_vault_performances
+            )
+        else:
+            days_since_friday = (datetime.weekday() - 4) % 7
+            friday_this_week = datetime - timedelta(days=days_since_friday)
+            previous_vault_performances_tvl = 0
+
         vault_performances = get_vault_performances(vault.id, friday_this_week)
         current_tvl = sum(float(v.total_locked_value) for v in vault_performances)
-        if datetime.weekday() == 4:
-            friday_last_week = friday_this_week - timedelta(days=7)
-            previous_vault_performances = get_vault_performances(
-                vault.id, friday_last_week
-            )
-            previous_vault_performances_tvl = sum(
-                float(v.total_locked_value) for v in previous_vault_performances
-            )
+
+        
+
     else:
         vault_performances = get_vault_performances(vault.id, datetime)
         current_tvl = sum(float(v.total_locked_value) for v in vault_performances)
 
         previous_vault_performances = get_vault_performances(
-        vault.id, datetime - timedelta(days=1)
+            vault.id, datetime - timedelta(days=1)
         )
 
         previous_vault_performances_tvl = sum(
-        float(v.total_locked_value) for v in previous_vault_performances
-         )
+            float(v.total_locked_value) for v in previous_vault_performances
+        )
 
     tvl_change = current_tvl - previous_vault_performances_tvl
-        
+
     tvl_change = current_tvl - previous_vault_performances_tvl
 
     total_deposit = calculate_total_deposit(datetime.date())
@@ -96,7 +102,7 @@ def insert_vault_performance_history(
 
 
 def get_vault_performance_dates() -> List[datetime]:
-    start_date = datetime(2024, 3, 1)
+    start_date = datetime(2024, 6, 7)
     end_date = datetime.now() - timedelta(days=1)
 
     date_list = []
@@ -119,7 +125,7 @@ def calculate_yield_init():
         # print('-----------------------valut------------------')
         if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
             for vault_performance_date in vault_performance_dates:
-                yield_data = process_vault_performance_V2(vault, vault_performance_date)
+                yield_data = process_vault_performance(vault, vault_performance_date)
                 insert_vault_performance_history(
                     yield_data=yield_data,
                     vault_id=vault.id,
