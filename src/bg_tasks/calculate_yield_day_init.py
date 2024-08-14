@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timedelta, timezone
+from operator import iand
 from typing import List
 import uuid
 from sqlalchemy import and_, func
@@ -13,6 +14,8 @@ from models.vaults import Vault
 from core.db import engine
 from core import constants
 from sqlmodel import Session, select
+
+from utils.web3_utils import parse_hex_to_int
 
 
 logging.basicConfig(level=logging.INFO)
@@ -51,14 +54,6 @@ def process_vault_performance(vault, datetime: datetime) -> float:
         if datetime.weekday() == 4:
             friday_this_week = datetime
             friday_last_week = friday_this_week - timedelta(days=7)
-
-            current_tvl = get_tvl(vault.id, friday_this_week)
-            previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)
-        else:
-            days_since_friday = (datetime.weekday() - 4) % 7
-            friday_this_week = datetime - timedelta(days=days_since_friday)
-            friday_last_week = friday_this_week - timedelta(days=7)
-
             current_tvl = get_tvl(vault.id, friday_this_week)
             previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)
 
@@ -70,21 +65,41 @@ def process_vault_performance(vault, datetime: datetime) -> float:
 
     tvl_change = current_tvl - previous_vault_performances_tvl
 
-    total_deposit = calculate_total_deposit(datetime.date())
+    total_deposit = calculate_total_deposit(datetime,vault=vault)
     return tvl_change - total_deposit
 
+def to_tx_aumount(input_data : str) :
+    input_data = input_data[10:].lower()
+    amount = input_data[:64]
+    return float(parse_hex_to_int(amount)/1e6)
 
-def calculate_total_deposit(vault_performance_date):
+def calculate_total_deposit(vault_performance_date, vault:Vault):
+    
     """Calculate the total deposits for a specific date."""
+    end_date = int(vault_performance_date.timestamp())
+    start_date = int((vault_performance_date - timedelta(hours=24)).timestamp())
+    
     deposits_query = select(OnchainTransactionHistory).where(
-        OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT,
-        func.date(func.to_timestamp(OnchainTransactionHistory.timestamp))
-        == vault_performance_date,
-    )
+        OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT.value
+    ).where(OnchainTransactionHistory.to_address == vault.contract_address.lower()).where(
+        OnchainTransactionHistory.timestamp <= end_date).where(
+        OnchainTransactionHistory.timestamp >= start_date)
+    
     deposits = session.exec(deposits_query).all()
-    return sum(float(tx.value) for tx in deposits)
+    
+    withdraw_query = select(OnchainTransactionHistory).where(
+        OnchainTransactionHistory.method_id == constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+    ).where(OnchainTransactionHistory.to_address == vault.contract_address.lower()).where(
+        OnchainTransactionHistory.timestamp <= end_date).where(
+        OnchainTransactionHistory.timestamp >= start_date)
+    
+    
+    withdraw = session.exec(withdraw_query).all()
+     
+    return sum(to_tx_aumount(tx.input) for tx in deposits) - sum(to_tx_aumount(tx.input) for tx in withdraw) 
 
 
+    
 def insert_vault_performance_history(
     yield_data: float, vault_id: uuid.UUID, datetime: datetime
 ):
@@ -96,7 +111,7 @@ def insert_vault_performance_history(
 
 
 def get_vault_performance_dates() -> List[datetime]:
-    start_date = datetime(2024, 6, 7)
+    start_date = datetime(2024, 7, 30)
     end_date = datetime.now() - timedelta(days=1)
 
     date_list = []
@@ -116,8 +131,18 @@ def calculate_yield_init():
     vault_performance_dates = get_vault_performance_dates()
 
     for vault in vaults:
-        # print('-----------------------valut------------------')
         if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
+            for vault_performance_date in vault_performance_dates:
+                if vault_performance_date.weekday() == 4:
+                    yield_data = process_vault_performance(vault, vault_performance_date)
+                    insert_vault_performance_history(
+                    yield_data=yield_data,
+                    vault_id=vault.id,
+                    datetime=vault_performance_date,
+                    )
+                else:
+                    continue              
+        else:
             for vault_performance_date in vault_performance_dates:
                 yield_data = process_vault_performance(vault, vault_performance_date)
                 insert_vault_performance_history(
@@ -125,19 +150,7 @@ def calculate_yield_init():
                     vault_id=vault.id,
                     datetime=vault_performance_date,
                 )
-        else:
-            # for vault_performance_date in vault_performance_dates:
-            #     yield_data = process_vault_performance(vault, vault_performance_date)
-            #     # if yield_data < 0:
-            #     #     print('sai meo r----------------------------')
-            #     insert_vault_performance_history(
-            #         yield_data=yield_data,
-            #         vault_id=vault.id,
-            #         datetime=vault_performance_date,
-            #     )
             continue
-            # print('***********************end----valut------------------')
-
 
 if __name__ == "__main__":
     setup_logging_to_console()
