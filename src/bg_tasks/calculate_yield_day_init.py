@@ -65,41 +65,49 @@ def process_vault_performance(vault, datetime: datetime) -> float:
 
     tvl_change = current_tvl - previous_vault_performances_tvl
 
-    total_deposit = calculate_total_deposit(datetime,vault=vault)
+    total_deposit = calculate_total_deposit(datetime, vault=vault)
     return tvl_change - total_deposit
 
-def to_tx_aumount(input_data : str) :
+
+def to_tx_aumount(input_data: str):
     input_data = input_data[10:].lower()
     amount = input_data[:64]
-    return float(parse_hex_to_int(amount)/1e6)
+    return float(parse_hex_to_int(amount) / 1e6)
 
-def calculate_total_deposit(vault_performance_date, vault:Vault):
-    
+
+def calculate_total_deposit(vault_performance_date, vault: Vault):
     """Calculate the total deposits for a specific date."""
     end_date = int(vault_performance_date.timestamp())
     start_date = int((vault_performance_date - timedelta(hours=24)).timestamp())
-    
-    deposits_query = select(OnchainTransactionHistory).where(
-        OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT.value
-    ).where(OnchainTransactionHistory.to_address == vault.contract_address.lower()).where(
-        OnchainTransactionHistory.timestamp <= end_date).where(
-        OnchainTransactionHistory.timestamp >= start_date)
-    
+
+    deposits_query = (
+        select(OnchainTransactionHistory)
+        .where(OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT.value)
+        .where(OnchainTransactionHistory.to_address == vault.contract_address.lower())
+        .where(OnchainTransactionHistory.timestamp <= end_date)
+        .where(OnchainTransactionHistory.timestamp >= start_date)
+    )
+
     deposits = session.exec(deposits_query).all()
-    
-    withdraw_query = select(OnchainTransactionHistory).where(
-        OnchainTransactionHistory.method_id == constants.MethodID.COMPPLETE_WITHDRAWAL.value,
-    ).where(OnchainTransactionHistory.to_address == vault.contract_address.lower()).where(
-        OnchainTransactionHistory.timestamp <= end_date).where(
-        OnchainTransactionHistory.timestamp >= start_date)
-    
-    
+
+    withdraw_query = (
+        select(OnchainTransactionHistory)
+        .where(
+            OnchainTransactionHistory.method_id
+            == constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+        )
+        .where(OnchainTransactionHistory.to_address == vault.contract_address.lower())
+        .where(OnchainTransactionHistory.timestamp <= end_date)
+        .where(OnchainTransactionHistory.timestamp >= start_date)
+    )
+
     withdraw = session.exec(withdraw_query).all()
-     
-    return sum(to_tx_aumount(tx.input) for tx in deposits) - sum(to_tx_aumount(tx.input) for tx in withdraw) 
+
+    return sum(to_tx_aumount(tx.input) for tx in deposits) - sum(
+        to_tx_aumount(tx.input) for tx in withdraw
+    )
 
 
-    
 def insert_vault_performance_history(
     yield_data: float, vault_id: uuid.UUID, datetime: datetime
 ):
@@ -134,14 +142,16 @@ def calculate_yield_init():
         if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
             for vault_performance_date in vault_performance_dates:
                 if vault_performance_date.weekday() == 4:
-                    yield_data = process_vault_performance(vault, vault_performance_date)
+                    yield_data = process_vault_performance(
+                        vault, vault_performance_date
+                    )
                     insert_vault_performance_history(
-                    yield_data=yield_data,
-                    vault_id=vault.id,
-                    datetime=vault_performance_date,
+                        yield_data=yield_data,
+                        vault_id=vault.id,
+                        datetime=vault_performance_date,
                     )
                 else:
-                    continue              
+                    continue
         else:
             for vault_performance_date in vault_performance_dates:
                 yield_data = process_vault_performance(vault, vault_performance_date)
@@ -151,6 +161,7 @@ def calculate_yield_init():
                     datetime=vault_performance_date,
                 )
             continue
+
 
 if __name__ == "__main__":
     setup_logging_to_console()
