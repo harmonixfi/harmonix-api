@@ -40,16 +40,16 @@ jobs:
             IMAGE_PREFIX=sandbox_
             GIT_REF=develop
           elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
-            if [ "${{ github.event.inputs.tag_name }}" == "devops-main" ]; then
+            if [ "${{ github.event.inputs.tag_name }}" == "main" ]; then
               IMAGE_PREFIX=prod_
-              GIT_REF="devops-main"
+              GIT_REF="main"
             else
               IMAGE_PREFIX=prod_
               GIT_REF="tags/${{ github.event.inputs.tag_name }}"
             fi
           else
             IMAGE_PREFIX=prod_
-            GIT_REF="devops-main"
+            GIT_REF="main"
           fi
           git fetch --tags
           git checkout $GIT_REF
