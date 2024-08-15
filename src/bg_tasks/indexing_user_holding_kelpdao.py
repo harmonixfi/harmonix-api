@@ -14,6 +14,7 @@ from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_assets_history import UserHoldingAssetHistory
+from models.user_holding_job_state import UserHoldingJobState
 from models.vaults import Vault
 from schemas.vault_state import OldVaultState, VaultState
 from services.uniswap_pool_service import Uniswap
@@ -29,41 +30,37 @@ STATE_ROOT_PATH = "/api-data/kelpdao"
 STATE_FILE_PATH = STATE_ROOT_PATH + "/{0}_state.json"
 
 
-def save_state(vault_address, user_positions, cumulative_deployment_fund, latest_block):
-    state = {
-        "user_positions": user_positions,
-        "cumulative_deployment_fund": cumulative_deployment_fund,
-        "latest_block": latest_block,
-    }
-
-    filename = STATE_FILE_PATH.format(vault_address)
-
-    backup_path = f"{STATE_ROOT_PATH}/{vault_address}_state_{latest_block}.json"
-    if not os.path.exists(STATE_ROOT_PATH):
-        # Create the path
-        os.makedirs(STATE_ROOT_PATH)
-        logger.info(f"Directory {STATE_ROOT_PATH} created.")
-
-    # copy filename to backup_path
-    if os.path.exists(filename):
-        os.system(f"cp {filename} {backup_path}")
-
-    with open(filename, "w") as f:
-        json.dump(state, f)
+def save_state(
+    session: Session,
+    vault_address,
+    user_positions,
+    cumulative_deployment_fund,
+    latest_block,
+):
+    state = UserHoldingJobState(
+        vault_address=vault_address,
+        user_positions=json.dumps(user_positions),
+        cumulative_deployment_fund=cumulative_deployment_fund,
+        latest_block=latest_block,
+    )
+    session.add(state)
+    session.commit()
 
 
-def load_state(vault_address: str):
-    filename = STATE_FILE_PATH.format(vault_address)
-    if not os.path.exists(filename):
+def load_state(session: Session, vault_address: str):
+    state = session.exec(
+        select(UserHoldingJobState)
+        .where(UserHoldingJobState.vault_address == vault_address)
+        .order_by(UserHoldingJobState.timestamp.desc())
+    ).first()
+
+    if not state:
         return {}, 0, 0
 
-    with open(filename, "r") as f:
-        state = json.load(f)
-
     return (
-        state["user_positions"],
-        state["cumulative_deployment_fund"],
-        state["latest_block"],
+        json.loads(state.user_positions),
+        state.cumulative_deployment_fund,
+        state.latest_block,
     )
 
 
@@ -309,7 +306,11 @@ def calculate_rseth_holding(
             # Save state after processing each transaction
             latest_block = tx.block_number
             save_state(
-                vault_address, user_positions, cumulative_deployment_fund, latest_block
+                session,
+                vault_address,
+                user_positions,
+                cumulative_deployment_fund,
+                latest_block,
             )
 
 
@@ -437,7 +438,7 @@ def import_live_data(chain, vault_id: str):
         vault_contract = _create_vault_contract(vault_address, chain)
 
         user_positions, cumulative_deployment_fund, latest_block = load_state(
-            vault.contract_address
+            session, vault.contract_address
         )
         if latest_block != 0:
             logger.info(
