@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 import uuid
 from sqlalchemy import and_, func
 from sqlmodel import Session, select
@@ -13,6 +13,8 @@ from core.db import engine
 from core import constants
 from sqlmodel import Session, select
 
+from utils.web3_utils import parse_hex_to_int
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -24,69 +26,84 @@ def get_active_vaults():
     return session.exec(select(Vault).where(Vault.is_active)).all()
 
 
-def calculate_tvl_change(vault_id, last_24h_timestamp) -> float:
-    """Calculate the change in TVL for a given vault over the last 24 hours."""
-    previous_tvl = get_previous_tvl(vault_id, last_24h_timestamp)
-    current_tvl = get_current_tvl(vault_id)
-    return (current_tvl or 0) - (previous_tvl or 0)
-
-
-def get_previous_tvl(vault_id, last_24h_timestamp) -> float:
-    """Get the total locked value (TVL) for a vault 24 hours ago."""
-    subquery = (
-        select(VaultPerformance.datetime)
-        .where(VaultPerformance.datetime <= datetime.fromtimestamp(last_24h_timestamp))
+def get_vault_performances(vault_id: uuid.UUID, date: datetime):
+    date_query = date.date()
+    data = session.exec(
+        select(VaultPerformance)
         .where(VaultPerformance.vault_id == vault_id)
-        .order_by(VaultPerformance.datetime.desc())
-        .limit(1)
-    ).subquery()
-
-    previous_tvl_query = (
-        select(func.sum(VaultPerformance.total_locked_value))
-        .where(VaultPerformance.datetime == subquery.c.datetime)
-        .where(VaultPerformance.vault_id == vault_id)
-    )
-    return session.exec(previous_tvl_query).first()
+        .where(func.date(VaultPerformance.datetime) == date_query)
+        .order_by(VaultPerformance.datetime.asc())
+    ).all()
+    return data
 
 
-def get_current_tvl(vault_id) -> float:
-    """Get the current total locked value (TVL) for a vault."""
-    subquery = (
-        select(VaultPerformance.datetime)
-        .where(VaultPerformance.vault_id == vault_id)
-        .order_by(VaultPerformance.datetime.desc())
-        .limit(1)
-    ).subquery()
-
-    current_tvl_query = (
-        select(func.sum(VaultPerformance.total_locked_value))
-        .where(VaultPerformance.datetime == subquery.c.datetime)
-        .where(VaultPerformance.vault_id == vault_id)
-    )
-    return session.exec(current_tvl_query).first()
+def get_tvl(vault_id: uuid.UUID, datetime: datetime) -> float:
+    vault_performances = get_vault_performances(vault_id, datetime)
+    return sum(float(v.total_locked_value) for v in vault_performances)
 
 
 def process_vault_performance(vault, datetime: datetime) -> float:
     """Process performance for a given vault."""
 
-    now_timestamp = int(datetime.timestamp())
-    last_24h_timestamp = now_timestamp - 24 * 3600
+    current_tvl = 0
+    previous_vault_performances_tvl = 0
+    if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
+        # Friday of weelky
+        if datetime.weekday() == 4:
+            friday_this_week = datetime
+            friday_last_week = friday_this_week - timedelta(days=7)
+            current_tvl = get_tvl(vault.id, friday_this_week)
+            previous_vault_performances_tvl = get_tvl(vault.id, friday_last_week)
 
-    total_deposit = calculate_total_deposit(last_24h_timestamp)
-    tvl_change = calculate_tvl_change(vault.id, last_24h_timestamp)
+    else:
+        current_tvl = get_tvl(vault.id, datetime)
+        previous_vault_performances_tvl = get_tvl(
+            vault.id, datetime - timedelta(days=1)
+        )
 
+    tvl_change = current_tvl - previous_vault_performances_tvl
+
+    total_deposit = calculate_total_deposit(datetime, vault=vault)
     return tvl_change - total_deposit
 
 
-def calculate_total_deposit(last_24h_timestamp: int):
+def to_tx_aumount(input_data: str):
+    input_data = input_data[10:].lower()
+    amount = input_data[:64]
+    return float(parse_hex_to_int(amount) / 1e6)
+
+
+def calculate_total_deposit(datetime: datetime, vault: Vault):
     """Calculate the total deposits for a specific date."""
-    deposit_query = (
+    end_date = int(datetime.timestamp())
+    start_date = int((datetime - timedelta(hours=24)).timestamp())
+
+    deposits_query = (
         select(OnchainTransactionHistory)
-        .where(OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT)
-        .where(OnchainTransactionHistory.timestamp >= last_24h_timestamp)
+        .where(OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT.value)
+        .where(OnchainTransactionHistory.to_address == vault.contract_address.lower())
+        .where(OnchainTransactionHistory.timestamp <= end_date)
+        .where(OnchainTransactionHistory.timestamp >= start_date)
     )
-    deposits = session.exec(deposit_query).all()
-    return sum(float(tx.value) for tx in deposits)
+
+    deposits = session.exec(deposits_query).all()
+
+    withdraw_query = (
+        select(OnchainTransactionHistory)
+        .where(
+            OnchainTransactionHistory.method_id
+            == constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+        )
+        .where(OnchainTransactionHistory.to_address == vault.contract_address.lower())
+        .where(OnchainTransactionHistory.timestamp <= end_date)
+        .where(OnchainTransactionHistory.timestamp >= start_date)
+    )
+
+    withdraw = session.exec(withdraw_query).all()
+
+    return sum(to_tx_aumount(tx.input) for tx in deposits) - sum(
+        to_tx_aumount(tx.input) for tx in withdraw
+    )
 
 
 def insert_vault_performance_history(
@@ -106,14 +123,23 @@ def calculate_yield_day():
 
     now = datetime.now()
     for vault in vaults:
-        # print('-----------------------valut------------------')
-        yield_data = process_vault_performance(vault, now)
-        insert_vault_performance_history(
-            yield_data=yield_data,
-            vault_id=vault.id,
-            datetime=now,
-        )
-        # print('***********************end----valut------------------')
+        if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
+            if now.weekday() == 4:
+                yield_data = process_vault_performance(vault, now)
+                insert_vault_performance_history(
+                    yield_data=yield_data,
+                    vault_id=vault.id,
+                    datetime=now,
+                )
+            else:
+                continue
+        else:
+            yield_data = process_vault_performance(vault, now)
+            insert_vault_performance_history(
+                yield_data=yield_data,
+                vault_id=vault.id,
+                datetime=now,
+            )
 
 
 if __name__ == "__main__":
