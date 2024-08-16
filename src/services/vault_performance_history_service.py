@@ -99,3 +99,15 @@ class VaultPerformanceHistoryService:
         input_data = input_data[10:].lower()
         amount = input_data[:64]
         return float(parse_hex_to_int(amount) / 1e6)
+
+    def get_by(
+        self, vault_id: str, start_date: datetime, end_date: datetime
+    ) -> List[VaultPerformanceHistory]:
+        query = (
+            select(VaultPerformanceHistory)
+            .where(VaultPerformanceHistory.vault_id == vault_id)
+            .where(VaultPerformanceHistory.datetime <= end_date)
+            .where(VaultPerformanceHistory.datetime >= start_date)
+        )
+
+        return self.session.exec(query).all()

@@ -17,6 +17,7 @@ from core.config import settings
 from core import constants
 from services.deposit_service import DepositService
 from services.market_data import get_price
+from services.vault_performance_history_service import VaultPerformanceHistoryService
 
 router = APIRouter()
 
@@ -257,3 +258,22 @@ async def get_tvl__chart(session: SessionDep, days: int):
     df = pd.DataFrame(results, columns=["datetime", "vault_id", "total_locked_value"])
 
     return df.to_dict(orient="records")
+
+
+@router.get("/yield/query")
+async def get_deposit(session: SessionDep, days):
+    statement = (
+        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    )
+    vaults = session.exec(statement).all()
+
+    service = VaultPerformanceHistoryService(session)
+    result = 0
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=int(days))
+    for vault in vaults:
+        vault_performance_histories = service.get_by(vault.id, start_date, end_date)
+        yield_data = sum(tx.total_locked_value for tx in vault_performance_histories)
+        result += float(yield_data)
+
+    return result
