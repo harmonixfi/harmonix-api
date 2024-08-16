@@ -201,8 +201,8 @@ async def get_vault_performance(
     if isWeekly:
         # Resample the data to weekly sum
         pps_history_df.set_index("date", inplace=True)
-        pps_history_df = pps_history_df.resample("W").sum()
-        # Resample by week and calculate the sum
+        # Resample by week and calculate by lasted
+        pps_history_df = pps_history_df.resample("W").last()
         pps_history_df.reset_index(inplace=True)
 
     # Convert the date column to string format for the response
