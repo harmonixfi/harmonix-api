@@ -5,7 +5,7 @@ from datetime import datetime
 from core import constants
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import Vault
-from utils.web3_utils import parse_hex_to_int
+from utils.extension_utils import to_tx_aumount
 
 
 class DepositService:
@@ -32,11 +32,5 @@ class DepositService:
 
     def get_total_deposits(self, vault: Vault, start_date: int, end_date: int) -> float:
         deposits = self.get_deposits(vault.contract_address, start_date, end_date)
-        total_deposit = sum(self.to_tx_aumount(tx.input) for tx in deposits)
+        total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
         return total_deposit
-
-    @staticmethod
-    def to_tx_aumount(input_data: str):
-        input_data = input_data[10:].lower()
-        amount = input_data[:64]
-        return float(parse_hex_to_int(amount) / 1e6)

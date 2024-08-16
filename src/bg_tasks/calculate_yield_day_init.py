@@ -8,6 +8,7 @@ from core.db import engine
 from core import constants
 
 from services.vault_performance_history_service import VaultPerformanceHistoryService
+from utils.extension_utils import get_init_dates
 
 
 logging.basicConfig(level=logging.INFO)
@@ -16,27 +17,13 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-def get_vault_performance_dates() -> List[datetime]:
-    start_date = datetime(2024, 3, 1)
-    end_date = datetime.now() - timedelta(days=1)
-
-    date_list = []
-    current_date = start_date
-
-    while current_date <= end_date:
-        date_list.append(current_date)
-        current_date += timedelta(days=1)
-
-    return date_list
-
-
 def calculate_yield_init():
     logger.info("Starting calculate Yield init...")
 
     service = VaultPerformanceHistoryService(session)
     vaults = service.get_active_vaults()
 
-    vault_performance_dates = get_vault_performance_dates()
+    vault_performance_dates = get_init_dates()
 
     for vault in vaults:
         for vault_performance_date in vault_performance_dates:

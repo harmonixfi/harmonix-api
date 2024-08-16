@@ -9,7 +9,7 @@ from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vault_performance import VaultPerformance
 from models.vault_performance_history import VaultPerformanceHistory
 from models.vaults import Vault
-from utils.web3_utils import parse_hex_to_int
+from utils.extension_utils import to_tx_aumount
 
 
 class VaultPerformanceHistoryService:
@@ -89,16 +89,10 @@ class VaultPerformanceHistoryService:
 
         withdraw = self.session.exec(withdraw_query).all()
 
-        total_deposit = sum(self.to_tx_aumount(tx.input) for tx in deposits)
-        total_withdraw = sum(self.to_tx_aumount(tx.input) for tx in withdraw)
+        total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
+        total_withdraw = sum(to_tx_aumount(tx.input) for tx in withdraw)
 
         return total_deposit - total_withdraw
-
-    @staticmethod
-    def to_tx_aumount(input_data: str):
-        input_data = input_data[10:].lower()
-        amount = input_data[:64]
-        return float(parse_hex_to_int(amount) / 1e6)
 
     def get_by(
         self, vault_id: str, start_date: datetime, end_date: datetime
