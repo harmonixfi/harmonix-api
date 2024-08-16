@@ -166,7 +166,9 @@ async def get_dashboard_statistics(session: SessionDep):
 
 
 @router.get("/{vault_id}/tvl-history")
-async def get_vault_performance(session: SessionDep, vault_id: str):
+async def get_vault_performance(
+    session: SessionDep, vault_id: str, isWeekly: bool = False
+):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.id == vault_id)
     vault = session.exec(statement).first()
@@ -181,6 +183,7 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
         .where(VaultPerformance.vault_id == vault.id)
         .order_by(VaultPerformance.datetime.asc())
     ).all()
+
     if len(perf_hist) == 0:
         return {"date": [], "tvl": []}
 
@@ -192,7 +195,17 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
 
     pps_history_df["tvl"] = pps_history_df["total_locked_value"]
 
-    # Convert the date column to string format
+    pps_history_df = pps_history_df[["date", "tvl"]]
+    # Convert the date column to datetime format for resampling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    if isWeekly:
+        # Resample the data to weekly sum
+        pps_history_df.set_index("date", inplace=True)
+        pps_history_df = pps_history_df.resample("W").sum()
+        # Resample by week and calculate the sum
+        pps_history_df.reset_index(inplace=True)
+
+    # Convert the date column to string format for the response
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
 
@@ -228,36 +241,6 @@ async def get_total_user(session: SessionDep, days: int):
     total_user = session.exec(statement).first()
 
     return total_user
-
-
-@router.get("/{days}/tvl/chart")
-async def get_tvl__chart(session: SessionDep, days: int):
-    days_ago = datetime.now() - timedelta(days=int(days))
-    statement = (
-        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
-    )
-    vaults = session.exec(statement).all()
-
-    results = []
-    for vault in vaults:
-        vault_performance = session.exec(
-            select(VaultPerformance)
-            .where(VaultPerformance.vault_id == vault.id)
-            .where(VaultPerformance.datetime >= days_ago)
-            .order_by(VaultPerformance.datetime.desc())
-        ).first()
-
-        if vault_performance is not None:
-            results.append(
-                {
-                    "vault_id": vault_performance.vault_id,
-                    "total_locked_value": vault_performance.total_locked_value,
-                    "datetime": vault_performance.datetime,
-                }
-            )
-    df = pd.DataFrame(results, columns=["datetime", "vault_id", "total_locked_value"])
-
-    return df.to_dict(orient="records")
 
 
 @router.get("/yield/query")
