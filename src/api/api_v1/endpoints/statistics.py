@@ -378,3 +378,57 @@ async def get_yield_daily_chart(session: SessionDep):
 
     df = pd.DataFrame(daily_totals)
     return df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/cumulative/daily-chart")
+async def get_yield_cumulative_chart(session: SessionDep):
+    statement = (
+        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+    )
+    vaults = session.exec(statement).all()
+
+    vault_performance_dates = get_init_dates()
+
+    daily_totals = []
+
+    for date in vault_performance_dates:
+        total_locked_value_for_day = 0
+
+        for vault in vaults:
+            if vault.network_chain == constants.CHAIN_ETHER_MAINNET:
+                if date.weekday() == 4:
+                    record = session.exec(
+                        select(VaultPerformanceHistory)
+                        .where(VaultPerformanceHistory.vault_id == vault.id)
+                        .where(VaultPerformanceHistory.datetime == date)
+                        .order_by(VaultPerformanceHistory.datetime.desc())
+                    ).first()
+
+                else:
+                    prev_friday = date - timedelta(days=(date.weekday() - 4) % 7)
+                    record = session.exec(
+                        select(VaultPerformanceHistory)
+                        .where(VaultPerformanceHistory.vault_id == vault.id)
+                        .where(VaultPerformanceHistory.datetime == prev_friday)
+                        .order_by(VaultPerformanceHistory.datetime.desc())
+                    ).first()
+
+            else:
+                record = session.exec(
+                    select(VaultPerformanceHistory)
+                    .where(VaultPerformanceHistory.vault_id == vault.id)
+                    .where(VaultPerformanceHistory.datetime == date)
+                    .order_by(VaultPerformanceHistory.datetime.desc())
+                ).first()
+
+            if record:
+                total_locked_value_for_day += record.total_locked_value
+        daily_totals.append({"date": date, "tvl": total_locked_value_for_day})
+
+    df = pd.DataFrame(daily_totals)
+    df["date"] = pd.to_datetime(df["date"])
+    df.set_index("date", inplace=True)
+    df["tvl"] = df["tvl"].cumsum()
+    df.reset_index(inplace=True)
+    df["date"] = df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    return df[["date", "tvl"]].to_dict(orient="list")
