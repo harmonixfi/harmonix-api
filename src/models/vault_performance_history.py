@@ -1,11 +1,13 @@
-from datetime import datetime
+from datetime import datetime as dt, timezone
 import uuid
 import sqlmodel
 
+
 class VaultPerformanceHistoryBase(sqlmodel.SQLModel):
-    datetime: datetime
+    datetime: dt = sqlmodel.Field(default=dt.now(timezone.utc), index=True)
     total_locked_value: float
-    
+
+
 class VaultPerformanceHistory(VaultPerformanceHistoryBase, table=True):
     __tablename__ = "vault_performance_history"
 

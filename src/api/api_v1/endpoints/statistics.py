@@ -15,6 +15,7 @@ from api.api_v1.deps import SessionDep
 from models import Vault
 from core.config import settings
 from core import constants
+from services.deposit_service import DepositService
 from services.market_data import get_price
 
 router = APIRouter()
@@ -198,63 +199,61 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
 
 
-@router.get("/{days}/deposit-amount")
+@router.get("/deposit/total-amount")
 async def get_deposit(session: SessionDep, days: int):
     statement = (
         select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
     )
-    
+
     vaults = session.exec(statement).all()
-    
+
     total_locked_value_sum = 0
-    days_ago = datetime.now() - timedelta(days=int(days))
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=int(days))
+    service = DepositService(session)
     for vault in vaults:
-        total_locked_value = session.exec(
-            select(func.sum(VaultPerformance.total_locked_value))
-            .where(VaultPerformance.vault_id == vault.id)
-            .where(VaultPerformance.datetime >= days_ago)  
-        ).first()
-        
-        if total_locked_value is not None:
-            total_locked_value_sum += total_locked_value
-  
+        total_locked_value_sum += service.get_total_deposits(
+            vault, start_date.timestamp(), end_date.timestamp()
+        )
+
     return total_locked_value_sum
 
 
 @router.get("/{days}/total-user")
 async def get_total_user(session: SessionDep, days: int):
     days_ago = datetime.now() - timedelta(days=int(days))
-    statement = (
-        select(func.count(User.user_id)).where(VaultPerformance.datetime >= days_ago)
-    )
-    
+    statement = select(func.count(User.user_id)).where(User.created_at >= days_ago)
+
     total_user = session.exec(statement).first()
-    
+
     return total_user
+
 
 @router.get("/{days}/tvl/chart")
 async def get_tvl__chart(session: SessionDep, days: int):
     days_ago = datetime.now() - timedelta(days=int(days))
     statement = (
         select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
-    ) 
+    )
     vaults = session.exec(statement).all()
-    
+
     results = []
     for vault in vaults:
         vault_performance = session.exec(
             select(VaultPerformance)
             .where(VaultPerformance.vault_id == vault.id)
-            .where(VaultPerformance.datetime >= days_ago)  
+            .where(VaultPerformance.datetime >= days_ago)
             .order_by(VaultPerformance.datetime.desc())
         ).first()
-        
+
         if vault_performance is not None:
-            results.append({ 
-                "vault_id": vault_performance.vault_id,           
-                "total_locked_value": vault_performance.total_locked_value,
-                "datetime": vault_performance.datetime
-            })
+            results.append(
+                {
+                    "vault_id": vault_performance.vault_id,
+                    "total_locked_value": vault_performance.total_locked_value,
+                    "datetime": vault_performance.datetime,
+                }
+            )
     df = pd.DataFrame(results, columns=["datetime", "vault_id", "total_locked_value"])
-     
+
     return df.to_dict(orient="records")
