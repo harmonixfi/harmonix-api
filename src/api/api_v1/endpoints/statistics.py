@@ -9,6 +9,7 @@ from models.pps_history import PricePerShareHistory
 from models.user import User
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
+from models.vault_performance_history import VaultPerformanceHistory
 import schemas
 import pandas as pd
 from api.api_v1.deps import SessionDep
@@ -260,3 +261,106 @@ async def get_deposit(session: SessionDep, days):
         result += float(yield_data)
 
     return result
+
+
+@router.get("/weekly/new-users")
+async def get_weekly_user(session: SessionDep):
+    users = session.exec(select(User).order_by(User.created_at.asc())).all()
+
+    if len(users) == 0:
+        return {"date": [], "total": []}
+
+    user_df = pd.DataFrame([vars(rec) for rec in users])
+
+    user_df.rename(columns={"created_at": "date"}, inplace=True)
+    user_df = user_df[["date", "wallet_address"]]
+    user_df["date"] = pd.to_datetime(user_df["date"])
+
+    user_df.set_index("date", inplace=True)
+
+    user_df = user_df.resample("W").count()
+
+    user_df.reset_index(inplace=True)
+
+    user_df.rename(columns={"wallet_address": "total"}, inplace=True)
+
+    user_df["date"] = user_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    return user_df[["date", "total"]].to_dict(orient="list")
+
+
+@router.get("/cumulative/new-users")
+async def get_cumulative_user(session: SessionDep):
+    # Get all users ordered by creation date
+    users = session.exec(select(User).order_by(User.created_at.asc())).all()
+
+    if len(users) == 0:
+        return {"date": [], "total": []}
+
+    # Convert list of User objects to DataFrame
+    user_df = pd.DataFrame([vars(rec) for rec in users])
+
+    # Rename 'created_at' to 'date'
+    user_df.rename(columns={"created_at": "date"}, inplace=True)
+
+    # Select 'date' and 'wallet_address' columns
+    user_df = user_df[["date", "wallet_address"]]
+
+    # Convert 'date' to datetime format
+    user_df["date"] = pd.to_datetime(user_df["date"])
+
+    # Set 'date' as index
+    user_df.set_index("date", inplace=True)
+
+    # Resample by day and count the number of users per day
+    user_df = user_df.resample("D").count()
+
+    # Calculate cumulative sum of users
+    user_df["total"] = user_df["wallet_address"].cumsum()
+
+    # Reset the index to make 'date' a column again
+    user_df.reset_index(inplace=True)
+
+    # Rename 'wallet_address' to 'daily_count' for clarity
+    user_df.rename(columns={"wallet_address": "daily_count"}, inplace=True)
+
+    # Convert 'date' column to string format
+    user_df["date"] = user_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Return the result as a dictionary
+    return user_df[["date", "total"]].to_dict(orient="list")
+
+
+@router.get("/{vault_id}/yield/daily-chart")
+async def get_yield_daily_chart(session: SessionDep, vault_id: str):
+    statement = select(Vault).where(Vault.id == vault_id)
+    vault = session.exec(statement).first()
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+    # Get all users ordered by creation date
+    vault_performance_histories = session.exec(
+        select(VaultPerformanceHistory)
+        .where(VaultPerformanceHistory.vault_id == vault.id)
+        .order_by(VaultPerformanceHistory.datetime.asc())
+    ).all()
+
+    if len(vault_performance_histories) == 0:
+        return {"date": [], "tvl": []}
+    df = pd.DataFrame([vars(rec) for rec in vault_performance_histories])
+
+    # Rename the datetime column to date
+    df.rename(columns={"datetime": "date"}, inplace=True)
+
+    df["tvl"] = df["total_locked_value"]
+
+    df = df[["date", "tvl"]]
+
+    # Convert the date column to string format for the response
+    df["date"] = df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    df.fillna(0, inplace=True)
+
+    # Convert the DataFrame to a dictionary and return it
+    return df[["date", "tvl"]].to_dict(orient="list")
