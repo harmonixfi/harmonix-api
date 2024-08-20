@@ -169,7 +169,7 @@ async def get_dashboard_statistics(session: SessionDep):
 
 @router.get("/{vault_id}/tvl-history")
 async def get_vault_performance(
-    session: SessionDep, vault_id: str, isWeekly: bool = False
+    session: SessionDep, vault_id: str, is_weekly: bool = False
 ):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.id == vault_id)
@@ -200,7 +200,7 @@ async def get_vault_performance(
     pps_history_df = pps_history_df[["date", "tvl"]]
     # Convert the date column to datetime format for resampling
     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-    if isWeekly:
+    if is_weekly:
         # Resample the data to weekly sum
         pps_history_df.set_index("date", inplace=True)
         # Resample by week and calculate by lasted
@@ -215,53 +215,66 @@ async def get_vault_performance(
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
 
 
-@router.get("/deposit/total-amount")
-async def get_deposit(session: SessionDep, days: int):
-    statement = (
-        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+@router.get("/users/total")
+async def get_total_user(session: SessionDep):
+    # Define the SQL query to get the total user count for 1 day, 7 days, and 30 days
+    raw_query = text(
+        """
+        SELECT
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days') THEN 1 ELSE 0 END) AS total_7d,
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '30 days') THEN 1 ELSE 0 END) AS total_30d
+        FROM
+            users;
+        """
     )
 
-    vaults = session.exec(statement).all()
+    result = session.exec(raw_query).one()
 
-    total_locked_value_sum = 0
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=int(days))
-    service = DepositService(session)
-    for vault in vaults:
-        total_locked_value_sum += service.get_total_deposits(
-            vault, start_date.timestamp(), end_date.timestamp()
-        )
-
-    return total_locked_value_sum
-
-
-@router.get("/{days}/total-user")
-async def get_total_user(session: SessionDep, days: int):
-    days_ago = datetime.now() - timedelta(days=int(days))
-    statement = select(func.count(User.user_id)).where(User.created_at >= days_ago)
-
-    total_user = session.exec(statement).first()
-
-    return total_user
+    # Return the results for 1 day, 7 days, and 30 days
+    return {
+        "total_user_7_days": result.total_7d,
+        "total_user_30_days": result.total_30d,
+    }
 
 
 @router.get("/yield/query")
-async def get_deposit(session: SessionDep, days):
-    statement = (
-        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+async def get_yield(session: SessionDep):
+    raw_query = text(
+        """
+         WITH vault_performance AS (
+            SELECT
+                v.id AS vault_id,
+                v.strategy_name,
+                v.is_active,
+                p.total_locked_value,
+                p.datetime
+            FROM
+                public.vaults v
+            INNER JOIN
+                public.vault_performance_history p ON v.id = p.vault_id
+            WHERE
+                v.strategy_name IS NOT NULL
+                AND v.is_active = TRUE
+                AND p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP
+        )
+        SELECT
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '1 day') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_1d,
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '7 days') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_7d,
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_30d
+        FROM
+            vault_performance p;
+        """
     )
-    vaults = session.exec(statement).all()
 
-    service = VaultPerformanceHistoryService(session)
-    result = 0
-    end_date = datetime.now()
-    start_date = end_date - timedelta(days=int(days))
-    for vault in vaults:
-        vault_performance_histories = service.get_by(vault.id, start_date, end_date)
-        yield_data = sum(tx.total_locked_value for tx in vault_performance_histories)
-        result += float(yield_data)
+    # Execute the query and retrieve the result
+    result = session.exec(raw_query).one()
 
-    return result
+    # Return the results for 1 day, 7 days, and 30 days
+    return {
+        "yield_1_day": result.total_1d,
+        "yield_7_days": result.total_7d,
+        "yield_30_days": result.total_30d,
+    }
 
 
 @router.get("/weekly/new-users")
@@ -330,20 +343,6 @@ async def get_cumulative_user(session: SessionDep):
     return cumulative_users
 
 
-def get_vault_performance_dates() -> List[datetime]:
-    start_date = datetime(2024, 3, 1)
-    end_date = datetime.now() - timedelta(days=1)
-
-    date_list = []
-    current_date = start_date
-
-    while current_date <= end_date:
-        date_list.append(current_date)
-        current_date += timedelta(days=1)
-
-    return date_list
-
-
 @router.get("/{vault_id}/yield/daily-chart")
 async def get_yield_daily_chart(session: SessionDep, vault_id: str):
     statement = select(Vault).where(Vault.id == vault_id)
@@ -363,8 +362,11 @@ async def get_yield_daily_chart(session: SessionDep, vault_id: str):
     if len(records) == 0:
         return {"date": [], "tvl": []}
 
-    df = pd.DataFrame(records)
+    df = pd.DataFrame([vars(rec) for rec in records])
     df.rename(columns={"datetime": "date"}, inplace=True)
+    df.rename(columns={"total_locked_value": "tvl"}, inplace=True)
+    df = df[["date", "tvl"]]
+
     return df[["date", "tvl"]].to_dict(orient="list")
 
 
@@ -388,8 +390,11 @@ async def get_yield_cumulative_chart(session: SessionDep, vault_id: str):
     if len(records) == 0:
         return {"date": [], "tvl": []}
 
-    df = pd.DataFrame(records)
+    df = pd.DataFrame([vars(rec) for rec in records])
     df.rename(columns={"datetime": "date"}, inplace=True)
+    df.rename(columns={"total_locked_value": "tvl"}, inplace=True)
+    df = df[["date", "tvl"]]
+
     df["date"] = pd.to_datetime(df["date"])
     df.set_index("date", inplace=True)
     df["tvl"] = df["tvl"].cumsum()
