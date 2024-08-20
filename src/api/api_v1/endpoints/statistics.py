@@ -217,12 +217,12 @@ async def get_vault_performance(
 
 @router.get("/users/total")
 async def get_total_user(session: SessionDep):
-    # Define the SQL query to get the total user count for 1 day, 7 days, and 30 days
+    # Define the SQL query to get the total user count for 7 days, and 30 days
     raw_query = text(
         """
         SELECT
-            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days') THEN 1 ELSE 0 END) AS total_7d,
-            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '30 days') THEN 1 ELSE 0 END) AS total_30d
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days') THEN 1 ELSE 0 END) AS total_user_7_days,
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '30 days') THEN 1 ELSE 0 END) AS total_user_30_days
         FROM
             users;
         """
@@ -230,10 +230,10 @@ async def get_total_user(session: SessionDep):
 
     result = session.exec(raw_query).one()
 
-    # Return the results for 1 day, 7 days, and 30 days
+    # Return the results for 7 days, and 30 days
     return {
-        "total_user_7_days": result.total_7d,
-        "total_user_30_days": result.total_30d,
+        "total_user_7_days": result.total_user_7_days,
+        "total_user_30_days": result.total_user_30_days,
     }
 
 
