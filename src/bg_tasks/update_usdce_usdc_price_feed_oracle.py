@@ -109,6 +109,7 @@ async def main():
         logger.error(
             "An error occurred while updating the latest price: %s", e, exc_info=True
         )
+        raise e
 
 
 if __name__ == "__main__":
