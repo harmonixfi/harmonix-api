@@ -22,4 +22,6 @@ from .reward_thresholds import RewardThresholds
 from .onchain_transaction_history import OnchainTransactionHistory
 from .user_assets_history import UserHoldingAssetHistory
 from .user_last_30_days_tvl import UserLast30DaysTVL
+from .user_holding_job_state import UserHoldingJobState
+
 from .vault_performance_history import VaultPerformanceHistory

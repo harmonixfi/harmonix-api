@@ -9,7 +9,7 @@ on:
   push:
     branches:
       - develop
-      - devops-main
+      - main
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -40,16 +40,16 @@ jobs:
             IMAGE_PREFIX=sandbox_
             GIT_REF=develop
           elif [ "${{ github.event.inputs.tag_name }}" != "" ]; then
-            if [ "${{ github.event.inputs.tag_name }}" == "devops-main" ]; then
+            if [ "${{ github.event.inputs.tag_name }}" == "main" ]; then
               IMAGE_PREFIX=prod_
-              GIT_REF="devops-main"
+              GIT_REF="main"
             else
               IMAGE_PREFIX=prod_
               GIT_REF="tags/${{ github.event.inputs.tag_name }}"
             fi
           else
             IMAGE_PREFIX=prod_
-            GIT_REF="devops-main"
+            GIT_REF="main"
           fi
           git fetch --tags
           git checkout $GIT_REF
@@ -70,7 +70,7 @@ jobs:
 
 
       - name: Build and Push Image ARM (Prod)
-        if: github.event.inputs.tag_name == 'devops-main' || github.ref == 'refs/heads/devops-main'
+        if: github.event.inputs.tag_name == 'main' || github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v2
         with:
           context: .
@@ -113,7 +113,7 @@ jobs:
           git push
 
   update-production-helm:
-    if: github.event.inputs.tag_name == 'devops-main' || github.ref == 'refs/heads/devops-main'
+    if: github.event.inputs.tag_name == 'main' || github.ref == 'refs/heads/main'
     needs: build-and-deploy
     runs-on: ubuntu-latest
     steps:

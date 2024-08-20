@@ -15,7 +15,7 @@ from models.user import User
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault, VaultGroup
 
-engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI))
+engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI), pool_pre_ping=True)
 
 
 # make sure all SQLModel models are imported (models) before initializing DB
@@ -451,8 +451,6 @@ def init_db(session: Session) -> None:
     init_new_vault(session, kelpdao_vault1)
 
     solv_vault1 = session.exec(
-        select(Vault).where(
-            Vault.slug == "arbitrum-wbtc-vault"
-        )
+        select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
     ).first()
     init_new_vault(session, solv_vault1)

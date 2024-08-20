@@ -110,7 +110,7 @@ async def handle_event(vault_address: str, entry, event_name):
         build_message(
             fields=[
                 ["Event", event_name_send_bot],
-                ["Strategy", vault.strategy_name],
+                ["Strategy", vault.name],
                 ["Contract", vault_address],
                 ["Value", value],
             ]

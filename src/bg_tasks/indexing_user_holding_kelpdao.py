@@ -14,6 +14,7 @@ from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_assets_history import UserHoldingAssetHistory
+from models.user_holding_job_state import UserHoldingJobState
 from models.vaults import Vault
 from schemas.vault_state import OldVaultState, VaultState
 from services.uniswap_pool_service import Uniswap
@@ -25,39 +26,41 @@ logger = logging.getLogger(__name__)
 rockonyx_delta_neutral_vault_abi = read_abi("rockonyxrestakingdeltaneutralvault")
 erc20_abi = read_abi("erc20")
 
-STATE_FILE_PATH = "/api-data/kelpdao/{0}_state.json"
+STATE_ROOT_PATH = "/api-data/kelpdao"
+STATE_FILE_PATH = STATE_ROOT_PATH + "/{0}_state.json"
 
 
-def save_state(vault_address, user_positions, cumulative_deployment_fund, latest_block):
-    state = {
-        "user_positions": user_positions,
-        "cumulative_deployment_fund": cumulative_deployment_fund,
-        "latest_block": latest_block,
-    }
+def save_state(
+    session: Session,
+    vault_address,
+    user_positions,
+    cumulative_deployment_fund,
+    latest_block,
+):
+    state = UserHoldingJobState(
+        vault_address=vault_address,
+        user_positions=json.dumps(user_positions),
+        cumulative_deployment_fund=cumulative_deployment_fund,
+        latest_block=latest_block,
+    )
+    session.add(state)
+    session.commit()
 
-    filename = STATE_FILE_PATH.format(vault_address)
 
-    backup_path = f"/api-data/kelpdao/{vault_address}_state_{latest_block}.json"
-    # copy filename to backup_path
-    if os.path.exists(filename):
-        os.system(f"cp {filename} {backup_path}")
+def load_state(session: Session, vault_address: str):
+    state = session.exec(
+        select(UserHoldingJobState)
+        .where(UserHoldingJobState.vault_address == vault_address)
+        .order_by(UserHoldingJobState.timestamp.desc())
+    ).first()
 
-    with open(filename, "w") as f:
-        json.dump(state, f)
-
-
-def load_state(vault_address: str):
-    filename = STATE_FILE_PATH.format(vault_address)
-    if not os.path.exists(filename):
+    if not state:
         return {}, 0, 0
 
-    with open(filename, "r") as f:
-        state = json.load(f)
-
     return (
-        state["user_positions"],
-        state["cumulative_deployment_fund"],
-        state["latest_block"],
+        json.loads(state.user_positions),
+        state.cumulative_deployment_fund,
+        state.latest_block,
     )
 
 
@@ -204,7 +207,9 @@ def calculate_rseth_holding(
                 pending_deployment_fund = (
                     sum(x["deposit_amount"] for x in user_positions.values()) * 0.5
                 )  # we use 50% of the deposit amount to buy spot, 50% to buy perpetual which is not considered here
-                logger.info(f"Pending deployment fund = {pending_deployment_fund:.2f} USDC")
+                logger.info(
+                    f"Pending deployment fund = {pending_deployment_fund:.2f} USDC"
+                )
                 logger.info("\n")
 
                 # if cumulative_deployment_fund > 95% of pending deployment fund, then we consider that the fund is fully deployed
@@ -301,7 +306,11 @@ def calculate_rseth_holding(
             # Save state after processing each transaction
             latest_block = tx.block_number
             save_state(
-                vault_address, user_positions, cumulative_deployment_fund, latest_block
+                session,
+                vault_address,
+                user_positions,
+                cumulative_deployment_fund,
+                latest_block,
             )
 
 
@@ -429,7 +438,7 @@ def import_live_data(chain, vault_id: str):
         vault_contract = _create_vault_contract(vault_address, chain)
 
         user_positions, cumulative_deployment_fund, latest_block = load_state(
-            vault.contract_address
+            session, vault.contract_address
         )
         if latest_block != 0:
             logger.info(
@@ -446,7 +455,9 @@ def import_live_data(chain, vault_id: str):
             .order_by(OnchainTransactionHistory.block_number.asc())
         ).all()
 
-        tx_history.append((vault_contract, vault_address, vault.owner_wallet_address, transactions))
+        tx_history.append(
+            (vault_contract, vault_address, vault.owner_wallet_address, transactions)
+        )
 
         calculate_rseth_holding(
             session,
