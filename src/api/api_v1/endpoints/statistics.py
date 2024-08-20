@@ -215,7 +215,7 @@ async def get_vault_performance(
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
 
 
-@router.get("/users/total")
+@router.get("/users/recent")
 async def get_total_user(session: SessionDep):
     # Define the SQL query to get the total user count for 7 days, and 30 days
     raw_query = text(
@@ -237,7 +237,7 @@ async def get_total_user(session: SessionDep):
     }
 
 
-@router.get("/yield/query")
+@router.get("/yield/summary")
 async def get_yield(session: SessionDep):
     raw_query = text(
         """
@@ -277,7 +277,7 @@ async def get_yield(session: SessionDep):
     }
 
 
-@router.get("/weekly/new-users")
+@router.get("/users/weekly-summary")
 async def get_weekly_user(session: SessionDep):
     # Define the SQL query to calculate cumulative users by creation date
     raw_query = text(
@@ -308,7 +308,7 @@ async def get_weekly_user(session: SessionDep):
     return users
 
 
-@router.get("/cumulative/new-users")
+@router.get("/users/cumulative-summary")
 async def get_cumulative_user(session: SessionDep):
     # Define the SQL query to calculate cumulative users by creation date
     raw_query = text(
