@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-def calculate_yield_day():
+def daily_yield_calculation():
     logger.info("Starting calculate day...")
 
     service = VaultPerformanceHistoryService(session)
@@ -38,4 +38,4 @@ def calculate_yield_day():
 if __name__ == "__main__":
     setup_logging_to_console()
     setup_logging_to_file(f"calculate_yield_day", logger=logger)
-    calculate_yield_day()
+    daily_yield_calculation()
