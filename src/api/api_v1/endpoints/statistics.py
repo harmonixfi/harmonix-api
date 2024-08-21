@@ -400,3 +400,88 @@ async def get_yield_cumulative_chart(session: SessionDep, vault_id: str):
     df.reset_index(inplace=True)
     df["date"] = df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     return df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/tvl/weekly-chart")
+async def get_vault_performance(session: SessionDep):
+    # Define the SQL query to sum tvl values for the same date and group by date
+     # Define the SQL query to sum tvl values by week
+    raw_query = text(
+        """
+        SELECT 
+            DATE_TRUNC('week', vp.datetime) AS date, 
+            SUM(vp.total_locked_value) AS tvl
+        FROM 
+            vault_performance_history vp
+        INNER JOIN 
+            vaults v ON v.id = vp.vault_id
+        WHERE 
+            v.is_active = TRUE
+        GROUP BY 
+            date
+        ORDER BY 
+            date ASC;
+        """
+    )
+
+    # Execute the query
+    result = session.exec(raw_query).all()
+
+    if len(result) == 0:
+        return {"date": [], "tvl": []}
+
+    # Convert the query result to a DataFrame
+    pps_history_df = pd.DataFrame(result, columns=["date", "tvl"])
+
+    # Convert the date column to string format for the response
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "tvl"]].to_dict(orient="list")
+
+@router.get("/tvl/cumulative-chart")
+async def get_cumulative_vault_performance(session: SessionDep):
+    # Define the SQL query to sum tvl values by day
+    raw_query = text(
+        """
+        SELECT 
+            DATE(vp.datetime) AS date, 
+            SUM(vp.total_locked_value) AS tvl
+        FROM 
+            vault_performance vp
+        INNER JOIN 
+            vaults v ON v.id = vp.vault_id
+        WHERE 
+            v.is_active = TRUE
+        GROUP BY 
+            DATE(vp.datetime)
+        ORDER BY 
+            date ASC;
+        """
+    )
+
+    # Execute the query
+    result = session.exec(raw_query).all()
+
+    if len(result) == 0:
+        return {"date": [], "cumulative_tvl": []}
+
+    # Convert the query result to a DataFrame
+    pps_history_df = pd.DataFrame(result, columns=["date", "tvl"])
+
+    # Convert the date column to datetime format for sorting and proper handling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+
+    # Sort by date to ensure proper cumulative calculation
+    pps_history_df = pps_history_df.sort_values(by="date")
+
+    # Calculate the cumulative sum for the tvl column
+    pps_history_df["cumulative_tvl"] = pps_history_df["tvl"].cumsum()
+
+    # Convert the date column to string format for the response
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "cumulative_tvl"]].to_dict(orient="list")
+
+
