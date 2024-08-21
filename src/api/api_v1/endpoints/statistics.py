@@ -147,11 +147,6 @@ async def get_dashboard_statistics(session: SessionDep):
         tvl_composition[default_vault.name] = total_tvl
         data.append(statistic)
 
-    for key in tvl_composition:
-        tvl_composition[key] = (
-            tvl_composition[key] / tvl_in_all_vaults if tvl_in_all_vaults > 0 else 0
-        )
-
     # count all portfolio of vault
     statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(
         UserPortfolio
