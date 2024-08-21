@@ -227,8 +227,12 @@ async def get_total_user(session: SessionDep):
 
     # Return the results for 7 days, and 30 days
     return {
-        "total_user_7_days": result.total_user_7_days,
-        "total_user_30_days": result.total_user_30_days,
+        "total_user_7_days": (
+            0 if result.total_user_7_days is None else result.total_user_7_days
+        ),
+        "total_user_30_days": (
+            0 if result.total_user_30_days is None else result.total_user_30_days
+        ),
     }
 
 
@@ -266,9 +270,9 @@ async def get_yield(session: SessionDep):
 
     # Return the results for 1 day, 7 days, and 30 days
     return {
-        "yield_1_day": result.total_1d,
-        "yield_7_days": result.total_7d,
-        "yield_30_days": result.total_30d,
+        "yield_1_day": 0 if result.total_1d is None else result.total_1d,
+        "yield_7_days": 0 if result.total_7d is None else result.total_7d,
+        "yield_30_days": 0 if result.total_30d is None else result.total_30d,
     }
 
 
