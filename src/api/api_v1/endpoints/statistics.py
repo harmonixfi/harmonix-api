@@ -528,5 +528,36 @@ async def get_desposit_summary(session: SessionDep):
         "deposit_30_day": 0 if deposit_30_day is None else deposit_30_day,
         "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day
     }
+    
+
+@router.get("/api/yield-data-chart")
+async def get_yield_chart_data(session: SessionDep):
+    raw_query = text(
+        """
+        SELECT 
+            DATE_TRUNC('week', vph.datetime) AS week_start,
+            SUM(vph.total_locked_value) AS weekly_total_locked_value,
+            SUM(SUM(vph.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vph.datetime)) AS cumulative_total_locked_value
+        FROM
+            vault_performance_history vph
+        INNER JOIN
+            vaults v ON v.id = vph.vault_id
+        WHERE
+            v.is_active = TRUE
+        GROUP BY
+            week_start
+        ORDER BY
+            week_start ASC;
+        """
+    )
+
+    result = session.exec(raw_query)
+    
+    yield_data = [
+        {"date": row[0], "weekly_total_locked_value": row[1], "cumulative_total_locked_value": row[2]}
+        for row in result.all()
+    ]
+
+    return yield_data
 
 
