@@ -554,7 +554,7 @@ async def get_yield_chart_data(session: SessionDep):
     result = session.exec(raw_query)
     
     yield_data = [
-        {"date": row[0], "weekly_total_locked_value": row[1], "cumulative_total_locked_value": row[2]}
+        {"date": row[0], "weekly_yield": row[1], "cumulative_yield": row[2]}
         for row in result.all()
     ]
 
@@ -585,7 +585,7 @@ async def get_tvl_chart_data(session: SessionDep):
     result = session.exec(raw_query)
     
     yield_data = [
-        {"date": row[0], "weekly_total_locked_value": row[1], "cumulative_total_locked_value": row[2]}
+        {"date": row[0], "weekly_tvl": row[1], "cumulative_tvl": row[2]}
         for row in result.all()
     ]
 
