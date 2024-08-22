@@ -411,7 +411,7 @@ async def get_vault_performance(session: SessionDep):
             DATE_TRUNC('week', vp.datetime) AS date, 
             SUM(vp.total_locked_value) AS tvl
         FROM 
-            vault_performance_history vp
+            vault_performance vp
         INNER JOIN 
             vaults v ON v.id = vp.vault_id
         WHERE 
@@ -560,4 +560,68 @@ async def get_yield_chart_data(session: SessionDep):
 
     return yield_data
 
+
+@router.get("/api/tvl-data-chart")
+async def get_tvl_chart_data(session: SessionDep):
+    raw_query = text(
+        """
+        SELECT 
+            DATE_TRUNC('week', vp.datetime) AS date, 
+            SUM(vp.total_locked_value) AS tvl,
+			SUM(SUM(vp.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vp.datetime)) AS cumulative_total_locked_value
+        FROM 
+            vault_performance vp
+        INNER JOIN 
+            vaults v ON v.id = vp.vault_id
+        WHERE 
+            v.is_active = TRUE
+        GROUP BY 
+            date
+        ORDER BY 
+            date ASC;
+        """
+    )
+
+    result = session.exec(raw_query)
+    
+    yield_data = [
+        {"date": row[0], "weekly_total_locked_value": row[1], "cumulative_total_locked_value": row[2]}
+        for row in result.all()
+    ]
+
+    return yield_data
+
+
+@router.get("/api/user-data-chart")
+async def get_user_chart_data(session: SessionDep):
+    raw_query = text(
+        """
+        WITH user_stats AS (
+            SELECT
+                DATE(created_at) AS creation_date,
+                COUNT(user_id) AS new_users
+            FROM
+                users
+            GROUP BY
+                DATE(created_at)
+        )
+        SELECT
+            creation_date AS date,
+            new_users,
+            SUM(new_users) OVER (ORDER BY creation_date) AS cumulative_users
+        FROM
+            user_stats
+        ORDER BY
+            creation_date ASC
+        """
+    )
+
+    result = session.exec(raw_query)
+
+    yield_data = [
+        {"date": row[0], "new_users": row[1], "cumulative_users": row[2]}
+        for row in result.all()
+    ]
+
+    return yield_data
 
