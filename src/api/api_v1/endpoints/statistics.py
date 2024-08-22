@@ -535,7 +535,7 @@ async def get_yield_chart_data(session: SessionDep):
     raw_query = text(
         """
         SELECT 
-            DATE_TRUNC('week', vph.datetime) AS week_start,
+            DATE_TRUNC('week', vph.datetime) AS date,
             SUM(vph.total_locked_value) AS weekly_total_locked_value,
             SUM(SUM(vph.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vph.datetime)) AS cumulative_total_locked_value
         FROM
@@ -545,9 +545,9 @@ async def get_yield_chart_data(session: SessionDep):
         WHERE
             v.is_active = TRUE
         GROUP BY
-            week_start
+            date
         ORDER BY
-            week_start ASC;
+            date ASC;
         """
     )
 
