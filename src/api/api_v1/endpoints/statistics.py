@@ -603,9 +603,7 @@ async def get_user_chart_data(session: SessionDep):
             FROM
                 users
             GROUP BY
-                DATE(created_at),
-                EXTRACT(YEAR FROM created_at),
-                EXTRACT(WEEK FROM created_at)
+                DATE(created_at)
         )
         SELECT
             creation_date AS date,
