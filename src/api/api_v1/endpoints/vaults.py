@@ -254,3 +254,74 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "apy"]].to_dict(orient="list")
+
+
+@router.get("/apy/performance/chart")
+async def get_vault_performance(session: SessionDep):
+    # Get the VaultPerformance records for the given vault_id
+    vaults = session.exec(select(Vault).where(Vault.is_active)).all()
+
+    perf_hist = session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id.in_([vault.id for vault in vaults]))
+        .order_by(VaultPerformance.datetime.asc())
+    ).all()
+    if len(perf_hist) == 0:
+        return []
+
+    # Convert the list of VaultPerformance objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
+
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
+    result = []
+    result_df = []
+    for vault in vaults:
+        # Filter for this vault's performance history
+        vault_df = pps_history_df[pps_history_df["vault_id"] == vault.id].copy()
+
+        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            vault_df["apy"] = vault_df["apy_1m"]
+
+            if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+                vault_df = vault_df[["date", "apy"]].copy()
+
+                # Resample to daily frequency
+                vault_df["date"] = pd.to_datetime(vault_df["date"])
+                vault_df.set_index("date", inplace=True)
+                vault_df = vault_df.resample("D").mean()
+                vault_df.ffill(inplace=True)
+
+                # Ensure enough data for plotting and calculate a 7-day rolling average
+                if len(vault_df) >= 7 * 2:
+                    vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
+
+        elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+            vault_df["apy"] = vault_df["apy_ytd"]
+        else:
+            vault_df["apy"] = vault_df["apy_1m"]
+
+        if "vault_id" not in vault_df.columns:
+            vault_df["vault_id"] = vault.id
+
+        # Convert date column to string format
+        vault_df.reset_index(inplace=True)
+        vault_df["date"] = vault_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+        vault_df.fillna(0, inplace=True)
+        result_df.append(vault_df)
+
+        # Group by date and aggregate apy and vault_id
+    group_df = pd.concat(result_df)
+    grouped_results = (
+        group_df.groupby("date")
+        .apply(lambda x: x[["apy", "vault_id"]].to_dict(orient="records"))
+        .reset_index(name="values")
+    )
+    # Append each vault's result to the final result list
+    if "date" in grouped_results.columns and "values" in grouped_results.columns:
+        if len(grouped_results["date"]) == len(grouped_results["values"]):
+            # Append each vault's result to the final result list
+            for date, values in zip(grouped_results["date"], grouped_results["values"]):
+                result.append({"date": date, "values": values})
+
+    return result

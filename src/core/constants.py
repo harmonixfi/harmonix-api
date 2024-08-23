@@ -126,3 +126,7 @@ class MethodID(str, Enum):
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
     
+class UpdateFrequency(str, Enum):
+    daily = "daily"
+    weekly = "weekly"
+    

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from sqlalchemy import func
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
@@ -29,17 +29,28 @@ class VaultPerformanceHistoryService:
             .order_by(VaultPerformance.datetime.asc())
         ).all()
 
-    def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> float:
+    def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> Tuple[float, bool]:
         vault_performances = self.get_vault_performances(vault_id, date)
-        return sum(float(v.total_locked_value) for v in vault_performances)
+        if vault_performances:
+            total_value = float(vault_performances[-1].total_locked_value)  
+            has_data = True
+        else:
+            total_value = 0.0
+            has_data = False
+        
+        return total_value, has_data
 
     def process_vault_performance(self, vault, date: datetime) -> float:
-        if vault.network_chain == constants.CHAIN_ETHER_MAINNET and date.weekday() == 4:
-            current_tvl = self.get_tvl(vault.id, date)
-            previous_tvl = self.get_tvl(vault.id, date - timedelta(days=7))
+        if vault.update_frequency == constants.UpdateFrequency.weekly.value and date.weekday() == 4:
+            current_tvl, has_data  = self.get_tvl(vault.id, date)       
+            previous_tvl,_ = self.get_tvl(vault.id, date - timedelta(days=7))
+            if has_data is False:
+                current_tvl = previous_tvl
         else:
-            current_tvl = self.get_tvl(vault.id, date)
-            previous_tvl = self.get_tvl(vault.id, date - timedelta(days=1))
+            current_tvl,has_data = self.get_tvl(vault.id, date)
+            previous_tvl,_ = self.get_tvl(vault.id, date - timedelta(days=1))
+            if has_data is False:
+                current_tvl = previous_tvl
 
         tvl_change = current_tvl - previous_tvl
         total_deposit = self.calculate_total_deposit(date, vault=vault)

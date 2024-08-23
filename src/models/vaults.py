@@ -5,6 +5,7 @@ import uuid
 
 import sqlmodel
 
+
 # create vault categry enum: Yield, Restaking
 class VaultCategory(str, enum.Enum):
     real_yield = "real_yield"
@@ -72,6 +73,9 @@ class VaultBase(sqlmodel.SQLModel):
 # Database model, database table inferred from class name
 class Vault(VaultBase, table=True):
     __tablename__ = "vaults"
-    
-    group_id: uuid.UUID | None = sqlmodel.Field(default=None, foreign_key="vault_groups.id")
+
+    group_id: uuid.UUID | None = sqlmodel.Field(
+        default=None, foreign_key="vault_groups.id"
+    )
     vault_group: VaultGroup | None = sqlmodel.Relationship(back_populates="vaults")
+    update_frequency: str | None = sqlmodel.Field(default="daily")
