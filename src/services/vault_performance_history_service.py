@@ -32,12 +32,12 @@ class VaultPerformanceHistoryService:
     def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> Tuple[float, bool]:
         vault_performances = self.get_vault_performances(vault_id, date)
 
-        start_date = date
-        end_date = start_date - timedelta(days=1)
+        end_date = date
+        start_date = end_date - timedelta(days=1)
         if vault_performances:
             total_value = float(vault_performances[0].total_locked_value)
-            start_date = vault_performances[0].datetime
-            end_date = start_date - timedelta(days=1)
+            end_date = vault_performances[0].datetime
+            start_date = end_date - timedelta(days=1)
         else:
             total_value = 0.0
 
@@ -45,8 +45,8 @@ class VaultPerformanceHistoryService:
 
     def process_vault_performance(self, vault, date: datetime) -> float:
 
-        start_date = date
-        end_date = start_date - timedelta(days=1)
+        end_date = date
+        start_date = end_date - timedelta(days=1)
         if (
             vault.update_frequency == constants.UpdateFrequency.weekly.value
             and date.weekday() == 4
