@@ -19,6 +19,7 @@ def to_tx_aumount(input_data: str):
 
 
 def get_init_dates() -> List[datetime]:
+    # start_date = datetime(2024, 7, 22)
     start_date = datetime(2024, 3, 1)
     end_date = datetime.now() - timedelta(days=0)
 

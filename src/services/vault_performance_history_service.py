@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Tuple
 from sqlalchemy import func
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
@@ -29,20 +29,38 @@ class VaultPerformanceHistoryService:
             .order_by(VaultPerformance.datetime.asc())
         ).all()
 
-    def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> float:
+    def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> Tuple[float, bool]:
         vault_performances = self.get_vault_performances(vault_id, date)
-        return sum(float(v.total_locked_value) for v in vault_performances)
+
+        start_date = date
+        end_date = start_date - timedelta(days=1)
+        if vault_performances:
+            total_value = float(vault_performances[0].total_locked_value)
+            start_date = vault_performances[0].datetime
+            end_date = start_date - timedelta(days=1)
+        else:
+            total_value = 0.0
+
+        return total_value, start_date, end_date
 
     def process_vault_performance(self, vault, date: datetime) -> float:
-        if vault.network_chain == constants.CHAIN_ETHER_MAINNET and date.weekday() == 4:
-            current_tvl = self.get_tvl(vault.id, date)
-            previous_tvl = self.get_tvl(vault.id, date - timedelta(days=7))
+
+        start_date = date
+        end_date = start_date - timedelta(days=1)
+        if (
+            vault.update_frequency == constants.UpdateFrequency.weekly.value
+            and date.weekday() == 4
+        ):
+            current_tvl, start_date, end_date = self.get_tvl(vault.id, date)
+            previous_tvl, _, _ = self.get_tvl(vault.id, date - timedelta(days=7))
         else:
-            current_tvl = self.get_tvl(vault.id, date)
-            previous_tvl = self.get_tvl(vault.id, date - timedelta(days=1))
+            current_tvl, start_date, end_date = self.get_tvl(vault.id, date)
+            previous_tvl, _, _ = self.get_tvl(vault.id, date - timedelta(days=1))
 
         tvl_change = current_tvl - previous_tvl
-        total_deposit = self.calculate_total_deposit(date, vault=vault)
+        start_date = start_date.replace(second=0)
+        end_date = end_date.replace(second=0)
+        total_deposit = self.calculate_total_deposit(start_date, end_date, vault=vault)
 
         return tvl_change - total_deposit
 
@@ -55,10 +73,15 @@ class VaultPerformanceHistoryService:
         self.session.add(vault_performance_history)
         self.session.commit()
 
-    def calculate_total_deposit(self, vault_performance_date: datetime, vault: Vault):
+    def calculate_total_deposit(
+        self,
+        vault_performance_start_date: datetime,
+        vault_performance_end_date: datetime,
+        vault: Vault,
+    ):
         """Calculate the total deposits for a specific date."""
-        end_date = int(vault_performance_date.timestamp())
-        start_date = int((vault_performance_date - timedelta(hours=24)).timestamp())
+        end_date = int(vault_performance_end_date.timestamp())
+        start_date = int(vault_performance_start_date.timestamp())
 
         deposits_query = (
             select(OnchainTransactionHistory)

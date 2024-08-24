@@ -29,14 +29,14 @@ def initialize_yield_calculation():
         yield_eth = {}
         for vault_performance_date in vault_performance_dates:
             
-            if vault.network_chain == constants.CHAIN_ETHER_MAINNET and vault_performance_date.weekday() == 4 :
+            if vault.update_frequency == constants.UpdateFrequency.weekly.value and vault_performance_date.weekday() == 4 :
                 yield_data = service.process_vault_performance(
                     vault, vault_performance_date
                 )
                 
                 yield_eth['yield'] = yield_data
                 
-            elif vault.network_chain == constants.CHAIN_ETHER_MAINNET and vault_performance_date.weekday() != 4:
+            elif vault.update_frequency == constants.UpdateFrequency.weekly.value and vault_performance_date.weekday() != 4:
                 yield_data = yield_eth['yield']
             
             else:
