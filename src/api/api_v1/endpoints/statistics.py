@@ -20,7 +20,7 @@ from core import constants
 from services.deposit_service import DepositService
 from services.market_data import get_price
 from services.vault_performance_history_service import VaultPerformanceHistoryService
-from utils.extension_utils import get_init_dates, to_tx_aumount
+from utils.extension_utils import to_tx_aumount
 
 router = APIRouter()
 
@@ -438,6 +438,7 @@ async def get_vault_performance(session: SessionDep):
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
 
+
 @router.get("/tvl/cumulative-chart")
 async def get_cumulative_vault_performance(session: SessionDep):
     # Define the SQL query to sum tvl values by day
@@ -484,7 +485,6 @@ async def get_cumulative_vault_performance(session: SessionDep):
     return pps_history_df[["date", "cumulative_tvl"]].to_dict(orient="list")
 
 
-
 @router.get("/deposits/summary")
 async def get_desposit_summary(session: SessionDep):
     # Define the SQL query to sum tvl values by day
@@ -505,30 +505,32 @@ async def get_desposit_summary(session: SessionDep):
     )
 
     # Execute the query
-    result = session.exec(raw_query.bindparams(method_id=constants.MethodID.DEPOSIT.value)).all()
+    result = session.exec(
+        raw_query.bindparams(method_id=constants.MethodID.DEPOSIT.value)
+    ).all()
 
     if len(result) == 0:
         return {"date": [], "input": []}
 
     # Convert the query result to a DataFrame
     df = pd.DataFrame(result, columns=["input", "date"])
-    
-    df['input'] = df['input'].astype(str)
-    df['tvl'] = df['input'].apply(to_tx_aumount)
-    df["date"] = pd.to_datetime(df["date"])
-    
-    deposit_30_day = df['tvl'].astype(float).sum()
-    
-    # Calculate total deposit over 7 days
-    seven_days_ago = (datetime.now(pytz.UTC) - timedelta(days=7))
-    df_7_day = df[df['date'] >= seven_days_ago]
-    deposit_7_day = df_7_day['tvl'].astype(float).sum()
 
-    return  {
+    df["input"] = df["input"].astype(str)
+    df["tvl"] = df["input"].apply(to_tx_aumount)
+    df["date"] = pd.to_datetime(df["date"])
+
+    deposit_30_day = df["tvl"].astype(float).sum()
+
+    # Calculate total deposit over 7 days
+    seven_days_ago = datetime.now(pytz.UTC) - timedelta(days=7)
+    df_7_day = df[df["date"] >= seven_days_ago]
+    deposit_7_day = df_7_day["tvl"].astype(float).sum()
+
+    return {
         "deposit_30_day": 0 if deposit_30_day is None else deposit_30_day,
-        "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day
+        "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day,
     }
-    
+
 
 @router.get("/api/yield-data-chart")
 async def get_yield_chart_data(session: SessionDep):
@@ -552,7 +554,7 @@ async def get_yield_chart_data(session: SessionDep):
     )
 
     result = session.exec(raw_query)
-    
+
     yield_data = [
         {"date": row[0], "weekly_yield": row[1], "cumulative_yield": row[2]}
         for row in result.all()
@@ -583,7 +585,7 @@ async def get_tvl_chart_data(session: SessionDep):
     )
 
     result = session.exec(raw_query)
-    
+
     yield_data = [
         {"date": row[0], "weekly_tvl": row[1], "cumulative_tvl": row[2]}
         for row in result.all()
@@ -624,4 +626,3 @@ async def get_user_chart_data(session: SessionDep):
     ]
 
     return yield_data
-
