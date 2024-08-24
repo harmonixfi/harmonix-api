@@ -26,13 +26,21 @@ def daily_yield_calculation():
     datetimeNow = datetime.now()
     for vault in vaults:
         if (
-            vault.network_chain == constants.CHAIN_ETHER_MAINNET
+            vault.update_frequency == constants.UpdateFrequency.weekly.value
+            and datetimeNow.weekday() == 4
+        ):
+            yield_data = service.process_vault_performance(vault, datetimeNow)
+
+        elif (
+            vault.update_frequency == constants.UpdateFrequency.weekly.value
             and datetimeNow.weekday() != 4
         ):
-            continue
+            yield_data = 0
+
         else:
             yield_data = service.process_vault_performance(vault, datetimeNow)
-            service.insert_vault_performance_history(yield_data, vault.id, datetimeNow)
+
+        service.insert_vault_performance_history(yield_data, vault.id, datetimeNow)
 
 
 if __name__ == "__main__":
