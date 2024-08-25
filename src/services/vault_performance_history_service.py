@@ -105,6 +105,8 @@ class VaultPerformanceHistoryService:
             return [
                 vault.contract_address,
                 "0x0bD37D11e3A25B5BB0df366878b5D3f018c1B24c",
+                "0x18994527E6FfE7e91F1873eCA53e900CE0D0f276",
+                "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5",
             ]
 
         return [vault.contract_address]
