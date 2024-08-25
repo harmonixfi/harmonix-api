@@ -29,15 +29,18 @@ class VaultPerformanceHistoryService:
             .order_by(VaultPerformance.datetime.asc())
         ).all()
 
-    def get_tvl(self, vault_id: uuid.UUID, date: datetime) -> Tuple[float, bool]:
-        vault_performances = self.get_vault_performances(vault_id, date)
+    def get_tvl(self, vault: Vault, date: datetime) -> Tuple[float, bool]:
+        vault_performances = self.get_vault_performances(vault.id, date)
 
         end_date = date
         start_date = end_date - timedelta(days=1)
         if vault_performances:
             total_value = float(vault_performances[0].total_locked_value)
             end_date = vault_performances[0].datetime
-            start_date = end_date - timedelta(days=1)
+            if vault.update_frequency == constants.UpdateFrequency.weekly.value:
+                start_date = end_date - timedelta(days=7)
+            else:
+                start_date = end_date - timedelta(days=1)
         else:
             total_value = 0.0
 
@@ -51,11 +54,11 @@ class VaultPerformanceHistoryService:
             vault.update_frequency == constants.UpdateFrequency.weekly.value
             and date.weekday() == 4
         ):
-            current_tvl, start_date, end_date = self.get_tvl(vault.id, date)
-            previous_tvl, _, _ = self.get_tvl(vault.id, date - timedelta(days=7))
+            current_tvl, start_date, end_date = self.get_tvl(vault, date)
+            previous_tvl, _, _ = self.get_tvl(vault, date - timedelta(days=7))
         else:
-            current_tvl, start_date, end_date = self.get_tvl(vault.id, date)
-            previous_tvl, _, _ = self.get_tvl(vault.id, date - timedelta(days=1))
+            current_tvl, start_date, end_date = self.get_tvl(vault, date)
+            previous_tvl, _, _ = self.get_tvl(vault, date - timedelta(days=1))
 
         tvl_change = current_tvl - previous_tvl
         start_date = start_date.replace(second=0)
@@ -122,7 +125,12 @@ class VaultPerformanceHistoryService:
         deposits_query = (
             select(OnchainTransactionHistory)
             .where(
-                OnchainTransactionHistory.method_id == constants.MethodID.DEPOSIT.value
+                OnchainTransactionHistory.method_id.in_(
+                    [
+                        constants.MethodID.DEPOSIT2.value,
+                        constants.MethodID.DEPOSIT.value,
+                    ]
+                )
             )
             .where(OnchainTransactionHistory.to_address.in_(contract_address))
             .where(OnchainTransactionHistory.timestamp <= end_date)

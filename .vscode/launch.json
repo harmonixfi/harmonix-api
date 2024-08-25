@@ -196,6 +196,19 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "base historical tx data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_historical_transactions_data",
+            "args": [
+                "historical",
+                "--chain",
+                "base"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "calculate_tvl_last_30_days",
             "type": "debugpy",
             "request": "launch",
