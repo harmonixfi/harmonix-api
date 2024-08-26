@@ -256,6 +256,7 @@ async def get_yield(session: SessionDep):
                 v.strategy_name IS NOT NULL
                 AND v.is_active = TRUE
                 AND p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP
+                and v.id <> 'd89eec0e-0850-4baf-ab24-53039ab47d0a'
         )
         SELECT
             SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '1 day') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_1d,
