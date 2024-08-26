@@ -32,7 +32,7 @@ def get_init_dates(vault: Vault) -> List[datetime]:
     result = session.exec(raw_query.bindparams(vault_id=vault.id)).one()
     min_date = result.datetime
     # min_date = datetime(2024, 6, 13)
-    end_date = datetime.now()
+    end_date = datetime.now() - timedelta(days=1)
 
     date_list = []
     add_date = 1
