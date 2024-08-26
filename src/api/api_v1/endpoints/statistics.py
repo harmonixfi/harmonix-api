@@ -569,6 +569,10 @@ async def get_tvl_chart_data(session: SessionDep):
     statement = select(Vault).where(Vault.is_active)
     vaults = session.exec(statement).all()
     vault_ids = [vault.id for vault in vaults]
+
+    vaults_SOLV = [
+        vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
+    ]
     # Fetch the performance history for all vaults
     perf_hist = session.exec(
         select(VaultPerformance)
@@ -578,6 +582,11 @@ async def get_tvl_chart_data(session: SessionDep):
 
     if len(perf_hist) == 0:
         return []
+
+    current_price = get_price("BTCUSDT")
+    for perf in perf_hist:
+        if perf.vault_id in vaults_SOLV:
+            perf.total_locked_value += perf.total_locked_value * current_price
 
     # Convert the list of VaultPerformance objects to a DataFrame
     pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
@@ -589,24 +598,32 @@ async def get_tvl_chart_data(session: SessionDep):
     pps_history_df["tvl"] = pps_history_df["total_locked_value"]
 
     # Select only the necessary columns for the final output
-    pps_history_df = pps_history_df[["date", "tvl"]]
+    pps_history_df = pps_history_df[["date", "tvl", "vault_id"]]
 
     # Convert the date column to datetime format for resampling
     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
 
     pps_history_df.set_index("date", inplace=True)
-    pps_history_df = pps_history_df.resample("W").last()
-    pps_history_df.reset_index(inplace=True)
+    pps_history_df = (
+        pps_history_df.groupby([pd.Grouper(freq="W"), "vault_id"])["tvl"]
+        .last()
+        .reset_index()
+    )
+    # Sum the last TVL values for each vault per week
+    weekly_tvl_df = pps_history_df.groupby("date")["tvl"].sum().reset_index()
 
-    pps_history_df["weekly_tvl"] = pps_history_df["tvl"] - pps_history_df["tvl"].shift()
+    # Calculate the cumulative TVL
+    weekly_tvl_df["weekly_tvl"] = weekly_tvl_df["tvl"] - weekly_tvl_df["tvl"].shift()
 
     # Convert the date column to string format for the response
-    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
-    pps_history_df.fillna(0, inplace=True)
+    weekly_tvl_df["date"] = weekly_tvl_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    weekly_tvl_df.fillna(0, inplace=True)
 
-    pps_history_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
+    # Rename 'tvl' to 'weekly_tvl' for clarity
+    weekly_tvl_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
+
     # Convert the DataFrame to a dictionary and return it
-    return pps_history_df[["date", "weekly_tvl", "cumulative_tvl"]].to_dict(
+    return weekly_tvl_df[["date", "weekly_tvl", "cumulative_tvl"]].to_dict(
         orient="records"
     )
 
