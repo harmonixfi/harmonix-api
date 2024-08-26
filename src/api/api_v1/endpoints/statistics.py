@@ -566,33 +566,49 @@ async def get_yield_chart_data(session: SessionDep):
 
 @router.get("/api/tvl-data-chart")
 async def get_tvl_chart_data(session: SessionDep):
-    raw_query = text(
-        """
-        SELECT 
-            DATE_TRUNC('week', vp.datetime) AS date, 
-            SUM(vp.total_locked_value) AS tvl,
-			SUM(SUM(vp.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vp.datetime)) AS cumulative_total_locked_value
-        FROM 
-            vault_performance vp
-        INNER JOIN 
-            vaults v ON v.id = vp.vault_id
-        WHERE 
-            v.is_active = TRUE
-        GROUP BY 
-            date
-        ORDER BY 
-            date ASC;
-        """
+    statement = select(Vault).where(Vault.is_active)
+    vaults = session.exec(statement).all()
+    vault_ids = [vault.id for vault in vaults]
+    # Fetch the performance history for all vaults
+    perf_hist = session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id.in_(vault_ids))
+        .order_by(VaultPerformance.datetime.asc())
+    ).all()
+
+    if len(perf_hist) == 0:
+        return []
+
+    # Convert the list of VaultPerformance objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
+
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
+
+    # Assume 'tvl' is based on 'total_locked_value' in VaultPerformance
+    pps_history_df["tvl"] = pps_history_df["total_locked_value"]
+
+    # Select only the necessary columns for the final output
+    pps_history_df = pps_history_df[["date", "tvl"]]
+
+    # Convert the date column to datetime format for resampling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+
+    pps_history_df.set_index("date", inplace=True)
+    pps_history_df = pps_history_df.resample("W").last()
+    pps_history_df.reset_index(inplace=True)
+
+    pps_history_df["weekly_tvl"] = pps_history_df["tvl"] - pps_history_df["tvl"].shift()
+
+    # Convert the date column to string format for the response
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    pps_history_df.fillna(0, inplace=True)
+
+    pps_history_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "weekly_tvl", "cumulative_tvl"]].to_dict(
+        orient="records"
     )
-
-    result = session.exec(raw_query)
-
-    yield_data = [
-        {"date": row[0], "weekly_tvl": row[1], "cumulative_tvl": row[2]}
-        for row in result.all()
-    ]
-
-    return yield_data
 
 
 @router.get("/api/user-data-chart")
