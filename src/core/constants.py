@@ -97,6 +97,7 @@ UNISWAP_POOLS = {
 
 DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
 
+
 class Status(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"
@@ -121,12 +122,14 @@ class Campaign(str, Enum):
     REFERRAL_101 = "referral_101"
     KOL_AND_PARTNER = "kol_and_partner"
 
+
 class MethodID(str, Enum):
     DEPOSIT = "0x2e2d2984"
+    DEPOSIT2 = "0xb6b55f25"
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
-    
+
+
 class UpdateFrequency(str, Enum):
     daily = "daily"
     weekly = "weekly"
-    

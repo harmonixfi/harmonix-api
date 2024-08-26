@@ -256,6 +256,7 @@ async def get_yield(session: SessionDep):
                 v.strategy_name IS NOT NULL
                 AND v.is_active = TRUE
                 AND p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP
+                and v.id <> 'd89eec0e-0850-4baf-ab24-53039ab47d0a'
         )
         SELECT
             SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '1 day') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_1d,
@@ -536,7 +537,7 @@ async def get_desposit_summary(session: SessionDep):
 async def get_yield_chart_data(session: SessionDep):
     raw_query = text(
         """
-        SELECT 
+          SELECT 
             DATE_TRUNC('week', vph.datetime) AS date,
             SUM(vph.total_locked_value) AS weekly_total_locked_value,
             SUM(SUM(vph.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vph.datetime)) AS cumulative_total_locked_value
@@ -545,7 +546,7 @@ async def get_yield_chart_data(session: SessionDep):
         INNER JOIN
             vaults v ON v.id = vph.vault_id
         WHERE
-            v.is_active = TRUE
+            v.is_active = TRUE and v.id <> 'd89eec0e-0850-4baf-ab24-53039ab47d0a'
         GROUP BY
             date
         ORDER BY

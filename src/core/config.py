@@ -135,19 +135,24 @@ class Settings(BaseSettings):
     )
 
     ETHERSCAN_API_KEY: str
-    ETHERSCAN_GET_TRANSACTIONS_URL: str = "https://api.etherscan.io/api?module=account&action=txlist"
+    ETHERSCAN_GET_TRANSACTIONS_URL: str = (
+        "https://api.etherscan.io/api?module=account&action=txlist"
+    )
 
+    BASESCAN_API_KEY: str
+    BASESCAN_GET_TRANSACTIONS_URL: str = (
+        "https://api.basescan.org/api?module=account&action=txlist"
+    )
     SOLV_API_KEY: str
-    
+
     BSX_API_KEY: Optional[str] = None
     BSX_SECRET: Optional[str] = None
     BSX_BASE_API_URL: Optional[str] = None
-    
+
     TRANSACTION_ALERTS_GROUP_CHATID: Optional[str] = None
     SYSTEM_ERROR_ALERTS_GROUP_CHATID: Optional[str] = None
     TELEGRAM_TOKEN: Optional[str] = None
-    
-    
+
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
         if isinstance(v, str):
