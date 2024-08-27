@@ -196,10 +196,39 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "base historical tx data",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.indexing_historical_transactions_data",
+            "args": [
+                "historical",
+                "--chain",
+                "base"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "calculate_tvl_last_30_days",
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.calculate_tvl_last_30_days",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "initialize_yield_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.initialize_yield_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+          {
+            "name": "daily_yield_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.daily_yield_calculation",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

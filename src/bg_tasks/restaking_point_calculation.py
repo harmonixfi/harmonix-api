@@ -200,7 +200,7 @@ def calculate_point_distributions(vault: Vault):
                 "Vault %s, partner: %s, Previous point distribution: %s",
                 vault.name,
                 constants.EIGENLAYER,
-                prev_point,
+                prev_eigen_point,
             )
 
             total_earned_points.eigen_layer_points = (

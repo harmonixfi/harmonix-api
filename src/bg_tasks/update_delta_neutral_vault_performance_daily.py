@@ -313,6 +313,7 @@ def main(chain: str):
         ).all()
 
         for vault in vaults:
+            logger.info("Updating performance for %s...", vault.name)
             vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
@@ -333,6 +334,9 @@ def main(chain: str):
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
             vault.next_close_round_date = None
+            logger.info(
+                "Vault %s: tvl = %s, apy %s", vault.name, vault.tvl, vault.monthly_apy
+            )
 
             session.commit()
     except Exception as e:
@@ -341,6 +345,7 @@ def main(chain: str):
             e,
             exc_info=True,
         )
+        raise e
 
 
 if __name__ == "__main__":

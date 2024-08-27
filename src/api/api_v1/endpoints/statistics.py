@@ -1,19 +1,26 @@
+from datetime import datetime, timedelta
 import json
 from typing import List
 
 from fastapi import APIRouter, HTTPException
-from sqlalchemy import distinct, func
+import pytz
+from sqlalchemy import distinct, func, text
 from sqlmodel import select
 from models.pps_history import PricePerShareHistory
+from models.user import User
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
+from models.vault_performance_history import VaultPerformanceHistory
 import schemas
 import pandas as pd
 from api.api_v1.deps import SessionDep
 from models import Vault
 from core.config import settings
 from core import constants
+from services.deposit_service import DepositService
 from services.market_data import get_price
+from services.vault_performance_history_service import VaultPerformanceHistoryService
+from utils.extension_utils import to_tx_aumount
 
 router = APIRouter()
 
@@ -141,11 +148,6 @@ async def get_dashboard_statistics(session: SessionDep):
         tvl_composition[default_vault.name] = total_tvl
         data.append(statistic)
 
-    for key in tvl_composition:
-        tvl_composition[key] = (
-            tvl_composition[key] / tvl_in_all_vaults if tvl_in_all_vaults > 0 else 0
-        )
-
     # count all portfolio of vault
     statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(
         UserPortfolio
@@ -162,7 +164,9 @@ async def get_dashboard_statistics(session: SessionDep):
 
 
 @router.get("/{vault_id}/tvl-history")
-async def get_vault_performance(session: SessionDep, vault_id: str):
+async def get_vault_performance(
+    session: SessionDep, vault_id: str, is_weekly: bool = False
+):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.id == vault_id)
     vault = session.exec(statement).first()
@@ -177,6 +181,7 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
         .where(VaultPerformance.vault_id == vault.id)
         .order_by(VaultPerformance.datetime.asc())
     ).all()
+
     if len(perf_hist) == 0:
         return {"date": [], "tvl": []}
 
@@ -188,9 +193,470 @@ async def get_vault_performance(session: SessionDep, vault_id: str):
 
     pps_history_df["tvl"] = pps_history_df["total_locked_value"]
 
-    # Convert the date column to string format
+    pps_history_df = pps_history_df[["date", "tvl"]]
+    # Convert the date column to datetime format for resampling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    if is_weekly:
+        # Resample the data to weekly sum
+        pps_history_df.set_index("date", inplace=True)
+        # Resample by week and calculate by lasted
+        pps_history_df = pps_history_df.resample("W").last()
+        pps_history_df.reset_index(inplace=True)
+
+    # Convert the date column to string format for the response
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/users/recent")
+async def get_total_user(session: SessionDep):
+    # Define the SQL query to get the total user count for 7 days, and 30 days
+    raw_query = text(
+        """
+        SELECT
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '7 days') THEN 1 ELSE 0 END) AS total_user_7_days,
+            SUM(CASE WHEN created_at >= (CURRENT_TIMESTAMP - INTERVAL '30 days') THEN 1 ELSE 0 END) AS total_user_30_days
+        FROM
+            users;
+        """
+    )
+
+    result = session.exec(raw_query).one()
+
+    # Return the results for 7 days, and 30 days
+    return {
+        "total_user_7_days": (
+            0 if result.total_user_7_days is None else result.total_user_7_days
+        ),
+        "total_user_30_days": (
+            0 if result.total_user_30_days is None else result.total_user_30_days
+        ),
+    }
+
+
+@router.get("/yield/summary")
+async def get_yield(session: SessionDep):
+    raw_query = text(
+        """
+         WITH vault_performance AS (
+            SELECT
+                v.id AS vault_id,
+                v.strategy_name,
+                v.is_active,
+                p.total_locked_value,
+                p.datetime
+            FROM
+                public.vaults v
+            INNER JOIN
+                public.vault_performance_history p ON v.id = p.vault_id
+            WHERE
+                v.strategy_name IS NOT NULL
+                AND v.is_active = TRUE
+                AND p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP
+                and v.id <> 'd89eec0e-0850-4baf-ab24-53039ab47d0a'
+        )
+        SELECT
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '1 day') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_1d,
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '7 days') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_7d,
+            SUM(CASE WHEN p.datetime BETWEEN (CURRENT_TIMESTAMP - INTERVAL '30 days') AND CURRENT_TIMESTAMP THEN p.total_locked_value ELSE 0 END) AS total_30d
+        FROM
+            vault_performance p;
+        """
+    )
+
+    # Execute the query and retrieve the result
+    result = session.exec(raw_query).one()
+
+    # Return the results for 1 day, 7 days, and 30 days
+    return {
+        "yield_1_day": 0 if result.total_1d is None else result.total_1d,
+        "yield_7_days": 0 if result.total_7d is None else result.total_7d,
+        "yield_30_days": 0 if result.total_30d is None else result.total_30d,
+    }
+
+
+@router.get("/users/weekly-summary")
+async def get_weekly_user(session: SessionDep):
+    # Define the SQL query to calculate cumulative users by creation date
+    raw_query = text(
+        """
+        SELECT
+            EXTRACT(YEAR FROM created_at) AS year,
+            EXTRACT(WEEK FROM created_at) AS week,
+            COUNT(user_id) AS new_users
+        FROM
+            users
+        GROUP BY
+            EXTRACT(YEAR FROM created_at),
+            EXTRACT(WEEK FROM created_at)
+        ORDER BY
+            year ASC,
+            week ASC;
+        """
+    )
+
+    # Execute the raw SQL query
+    result = session.exec(raw_query)
+
+    # Fetch all results as a list of dictionaries
+    users = [
+        {"year": row[0], "week": row[1], "new_users": row[2]} for row in result.all()
+    ]
+
+    return users
+
+
+@router.get("/users/cumulative-summary")
+async def get_cumulative_user(session: SessionDep):
+    # Define the SQL query to calculate cumulative users by creation date
+    raw_query = text(
+        """
+        WITH daily_users AS (
+            SELECT
+                DATE(created_at) AS creation_date,
+                COUNT(user_id) AS new_users
+            FROM
+                users
+            GROUP BY
+                DATE(created_at)
+            ORDER BY
+                creation_date
+        )
+        SELECT
+            creation_date as date,
+            SUM(new_users) OVER (ORDER BY creation_date) AS cumulative_users
+        FROM
+            daily_users;
+        """
+    )
+
+    # Execute the raw SQL query
+    result = session.exec(raw_query)
+
+    # Fetch all results as a list of dictionaries
+    cumulative_users = [
+        {"date": row[0], "cumulative_users": row[1]} for row in result.all()
+    ]
+
+    return cumulative_users
+
+
+@router.get("/{vault_id}/yield/daily-chart")
+async def get_yield_daily_chart(session: SessionDep, vault_id: str):
+    statement = select(Vault).where(Vault.id == vault_id)
+    vault = session.exec(statement).first()
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+
+    records = session.exec(
+        select(VaultPerformanceHistory)
+        .where(VaultPerformanceHistory.vault_id == vault.id)
+        .order_by(VaultPerformanceHistory.datetime.desc())
+    ).all()
+
+    if len(records) == 0:
+        return {"date": [], "tvl": []}
+
+    df = pd.DataFrame([vars(rec) for rec in records])
+    df.rename(columns={"datetime": "date"}, inplace=True)
+    df.rename(columns={"total_locked_value": "tvl"}, inplace=True)
+    df = df[["date", "tvl"]]
+
+    return df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/{vault_id}/cumulative/daily-chart")
+async def get_yield_cumulative_chart(session: SessionDep, vault_id: str):
+
+    statement = select(Vault).where(Vault.id == vault_id)
+    vault = session.exec(statement).first()
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+
+    records = session.exec(
+        select(VaultPerformanceHistory)
+        .where(VaultPerformanceHistory.vault_id == vault.id)
+        .order_by(VaultPerformanceHistory.datetime.desc())
+    ).all()
+
+    if len(records) == 0:
+        return {"date": [], "tvl": []}
+
+    df = pd.DataFrame([vars(rec) for rec in records])
+    df.rename(columns={"datetime": "date"}, inplace=True)
+    df.rename(columns={"total_locked_value": "tvl"}, inplace=True)
+    df = df[["date", "tvl"]]
+
+    df["date"] = pd.to_datetime(df["date"])
+    df.set_index("date", inplace=True)
+    df["tvl"] = df["tvl"].cumsum()
+    df.reset_index(inplace=True)
+    df["date"] = df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    return df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/tvl/weekly-chart")
+async def get_vault_performance(session: SessionDep):
+    raw_query = text(
+        """
+        SELECT 
+            DATE_TRUNC('week', vp.datetime) AS date, 
+            SUM(vp.total_locked_value) AS tvl
+        FROM 
+            vault_performance vp
+        INNER JOIN 
+            vaults v ON v.id = vp.vault_id
+        WHERE 
+            v.is_active = TRUE
+        GROUP BY 
+            date
+        ORDER BY 
+            date ASC;
+        """
+    )
+
+    # Execute the query
+    result = session.exec(raw_query).all()
+
+    if len(result) == 0:
+        return {"date": [], "tvl": []}
+
+    # Convert the query result to a DataFrame
+    pps_history_df = pd.DataFrame(result, columns=["date", "tvl"])
+
+    # Convert the date column to string format for the response
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "tvl"]].to_dict(orient="list")
+
+
+@router.get("/tvl/cumulative-chart")
+async def get_cumulative_vault_performance(session: SessionDep):
+    # Define the SQL query to sum tvl values by day
+    raw_query = text(
+        """
+        SELECT 
+            DATE(vp.datetime) AS date, 
+            SUM(vp.total_locked_value) AS tvl
+        FROM 
+            vault_performance vp
+        INNER JOIN 
+            vaults v ON v.id = vp.vault_id
+        WHERE 
+            v.is_active = TRUE
+        GROUP BY 
+            DATE(vp.datetime)
+        ORDER BY 
+            date ASC;
+        """
+    )
+
+    # Execute the query
+    result = session.exec(raw_query).all()
+
+    if len(result) == 0:
+        return {"date": [], "cumulative_tvl": []}
+
+    # Convert the query result to a DataFrame
+    pps_history_df = pd.DataFrame(result, columns=["date", "tvl"])
+
+    # Convert the date column to datetime format for sorting and proper handling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+
+    # Sort by date to ensure proper cumulative calculation
+    pps_history_df = pps_history_df.sort_values(by="date")
+
+    # Calculate the cumulative sum for the tvl column
+    pps_history_df["cumulative_tvl"] = pps_history_df["tvl"].cumsum()
+
+    # Convert the date column to string format for the response
+    pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+
+    # Convert the DataFrame to a dictionary and return it
+    return pps_history_df[["date", "cumulative_tvl"]].to_dict(orient="list")
+
+
+@router.get("/deposits/summary")
+async def get_desposit_summary(session: SessionDep):
+    # Define the SQL query to sum tvl values by day
+    raw_query = text(
+        """
+        SELECT
+           oth.input,
+           TO_TIMESTAMP(oth.timestamp) AS date
+        FROM
+            public.onchain_transaction_history oth
+        INNER JOIN
+            vaults v ON LOWER(v.contract_address) = LOWER(oth.to_address)
+        WHERE
+            oth.method_id = :method_id
+            AND TO_TIMESTAMP(oth.timestamp) >= (CURRENT_TIMESTAMP - INTERVAL '30 days')
+            AND v.is_active = TRUE
+        """
+    )
+
+    # Execute the query
+    result = session.exec(
+        raw_query.bindparams(method_id=constants.MethodID.DEPOSIT.value)
+    ).all()
+
+    if len(result) == 0:
+        return {"date": [], "input": []}
+
+    # Convert the query result to a DataFrame
+    df = pd.DataFrame(result, columns=["input", "date"])
+
+    df["input"] = df["input"].astype(str)
+    df["tvl"] = df["input"].apply(to_tx_aumount)
+    df["date"] = pd.to_datetime(df["date"])
+
+    deposit_30_day = df["tvl"].astype(float).sum()
+
+    # Calculate total deposit over 7 days
+    seven_days_ago = datetime.now(pytz.UTC) - timedelta(days=7)
+    df_7_day = df[df["date"] >= seven_days_ago]
+    deposit_7_day = df_7_day["tvl"].astype(float).sum()
+
+    return {
+        "deposit_30_day": 0 if deposit_30_day is None else deposit_30_day,
+        "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day,
+    }
+
+
+@router.get("/api/yield-data-chart")
+async def get_yield_chart_data(session: SessionDep):
+    raw_query = text(
+        """
+          SELECT 
+            DATE_TRUNC('week', vph.datetime) AS date,
+            SUM(vph.total_locked_value) AS weekly_total_locked_value,
+            SUM(SUM(vph.total_locked_value)) OVER (ORDER BY DATE_TRUNC('week', vph.datetime)) AS cumulative_total_locked_value
+        FROM
+            vault_performance_history vph
+        INNER JOIN
+            vaults v ON v.id = vph.vault_id
+        WHERE
+            v.is_active = TRUE and v.id <> 'd89eec0e-0850-4baf-ab24-53039ab47d0a'
+        GROUP BY
+            date
+        ORDER BY
+            date ASC;
+        """
+    )
+
+    result = session.exec(raw_query)
+
+    yield_data = [
+        {"date": row[0], "weekly_yield": row[1], "cumulative_yield": row[2]}
+        for row in result.all()
+    ]
+
+    return yield_data
+
+
+@router.get("/api/tvl-data-chart")
+async def get_tvl_chart_data(session: SessionDep):
+    statement = select(Vault).where(Vault.is_active)
+    vaults = session.exec(statement).all()
+    vault_ids = [vault.id for vault in vaults]
+
+    vaults_SOLV = [
+        vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
+    ]
+    # Fetch the performance history for all vaults
+    perf_hist = session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id.in_(vault_ids))
+        .order_by(VaultPerformance.datetime.asc())
+    ).all()
+
+    if len(perf_hist) == 0:
+        return []
+
+    current_price = get_price("BTCUSDT")
+    for perf in perf_hist:
+        if perf.vault_id in vaults_SOLV:
+            perf.total_locked_value += perf.total_locked_value * current_price
+
+    # Convert the list of VaultPerformance objects to a DataFrame
+    pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
+
+    # Rename the datetime column to date
+    pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
+
+    # Assume 'tvl' is based on 'total_locked_value' in VaultPerformance
+    pps_history_df["tvl"] = pps_history_df["total_locked_value"]
+
+    # Select only the necessary columns for the final output
+    pps_history_df = pps_history_df[["date", "tvl", "vault_id"]]
+
+    # Convert the date column to datetime format for resampling
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+
+    pps_history_df.set_index("date", inplace=True)
+    pps_history_df = (
+        pps_history_df.groupby([pd.Grouper(freq="W"), "vault_id"])["tvl"]
+        .last()
+        .reset_index()
+    )
+    # Sum the last TVL values for each vault per week
+    weekly_tvl_df = pps_history_df.groupby("date")["tvl"].sum().reset_index()
+
+    # Calculate the cumulative TVL
+    weekly_tvl_df["weekly_tvl"] = weekly_tvl_df["tvl"] - weekly_tvl_df["tvl"].shift()
+
+    # Convert the date column to string format for the response
+    weekly_tvl_df["date"] = weekly_tvl_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
+    weekly_tvl_df.fillna(0, inplace=True)
+
+    # Rename 'tvl' to 'weekly_tvl' for clarity
+    weekly_tvl_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
+
+    # Convert the DataFrame to a dictionary and return it
+    return weekly_tvl_df[["date", "weekly_tvl", "cumulative_tvl"]].to_dict(
+        orient="records"
+    )
+
+
+@router.get("/api/user-data-chart")
+async def get_user_chart_data(session: SessionDep):
+    raw_query = text(
+        """
+        WITH user_stats AS (
+            SELECT
+                DATE(created_at) AS creation_date,
+                COUNT(user_id) AS new_users
+            FROM
+                users
+            GROUP BY
+                DATE(created_at)
+        )
+        SELECT
+            creation_date AS date,
+            new_users,
+            SUM(new_users) OVER (ORDER BY creation_date) AS cumulative_users
+        FROM
+            user_stats
+        ORDER BY
+            creation_date ASC
+        """
+    )
+
+    result = session.exec(raw_query)
+
+    yield_data = [
+        {"date": row[0], "new_users": row[1], "cumulative_users": row[2]}
+        for row in result.all()
+    ]
+
+    return yield_data
