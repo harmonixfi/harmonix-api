@@ -67,6 +67,8 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                     transactions = get_transactions(
                         address, latest_block + 1, MAX_BLOCK_NUMBER, page, offset=100
                     )
+                    logger.info("Get list transactions %s", transactions)
+
                     if not transactions:
                         break
 
