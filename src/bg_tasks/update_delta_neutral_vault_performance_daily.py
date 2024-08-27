@@ -229,30 +229,31 @@ def calculate_performance(
 
         # convert last 6 days apy to dataframe
         last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
-        last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
+        if len(last_6_days_df) > 0:
+            last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
 
-        # append latest apy
-        new_row = pd.DataFrame(
-            [
-                {
-                    "datetime": today,
-                    "apy_1m": apy_1m,
-                    "apy_1w": apy_1w,
-                }
-            ]
-        )
-        new_row["datetime"] = pd.to_datetime(new_row["datetime"])
-        last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
+            # append latest apy
+            new_row = pd.DataFrame(
+                [
+                    {
+                        "datetime": today,
+                        "apy_1m": apy_1m,
+                        "apy_1w": apy_1w,
+                    }
+                ]
+            )
+            new_row["datetime"] = pd.to_datetime(new_row["datetime"])
+            last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
 
-        # resample last_6_days_df to daily frequency
-        last_6_days_df["datetime"] = pd.to_datetime(last_6_days_df["datetime"])
-        last_6_days_df.set_index("datetime", inplace=True)
-        last_6_days_df = last_6_days_df.resample("D").mean()
+            # resample last_6_days_df to daily frequency
+            last_6_days_df["datetime"] = pd.to_datetime(last_6_days_df["datetime"])
+            last_6_days_df.set_index("datetime", inplace=True)
+            last_6_days_df = last_6_days_df.resample("D").mean()
 
-        if len(last_6_days_df) >= 7:
-            # calculate average 7 days apy_1m included today
-            apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
-            apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
+            if len(last_6_days_df) >= 7:
+                # calculate average 7 days apy_1m included today
+                apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
+                apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault.id
