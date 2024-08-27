@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import json
 from typing import List
 
@@ -573,10 +573,18 @@ async def get_tvl_chart_data(session: SessionDep):
     vaults_SOLV = [
         vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
     ]
+
+    today = datetime.now(timezone.utc)
+    last_sun_day = today - timedelta(days=(today.weekday() + 1) % 7)
+    last_sun_day = last_sun_day.replace(
+        hour=23, minute=59, second=59, microsecond=999999
+    )
+
     # Fetch the performance history for all vaults
     perf_hist = session.exec(
         select(VaultPerformance)
         .where(VaultPerformance.vault_id.in_(vault_ids))
+        .where(VaultPerformance.datetime <= last_sun_day)
         .order_by(VaultPerformance.datetime.asc())
     ).all()
 
