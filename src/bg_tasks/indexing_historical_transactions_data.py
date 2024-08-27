@@ -7,7 +7,7 @@ from sqlmodel import Session, select
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
-from models.vaults import NetworkChain
+from models.vaults import NetworkChain, Vault
 from services import arbiscan_service, basescan_service, etherscan_service
 
 # Configure logging
@@ -89,6 +89,23 @@ def index_transactions(contract_addresses, chain: NetworkChain):
         raise e
 
 
+def live_index_data():
+    with Session(engine) as session:
+        for network_chain in [
+            NetworkChain.arbitrum_one,
+            NetworkChain.ethereum,
+            NetworkChain.base,
+        ]:
+            vaults = session.exec(
+                select(Vault)
+                .where(Vault.is_active == True)
+                .where(Vault.network_chain == network_chain)
+            ).all()
+
+            addresses = [v.contract_address for v in vaults]
+            index_transactions(addresses, network_chain)
+
+
 @click.group()
 def cli():
     pass
@@ -135,16 +152,12 @@ def historical(chain: NetworkChain):
 
 
 @cli.command()
-@click.option("--address", required=True, help="Vault address", type=str)
-@click.option(
-    "--chain", required=True, help="Blockchain network chain", type=NetworkChain
-)
-def live(address, chain: NetworkChain):
+def live():
     setup_logging_to_console()
-    setup_logging_to_file(
-        f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
-    )
-    index_transactions([address], chain)
+    # setup_logging_to_file(
+    #     f"indexing_historical_transactions_data_{chain.value}_{address}", logger=logger
+    # )
+    live_index_data()
     sys.exit(0)
 
 
