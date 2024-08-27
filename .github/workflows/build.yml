@@ -1,73 +1,73 @@
-on:
-  push:
-    branches:
-      - main
-      - develop
-name: Linux_Container_Workflow
+# on:
+#   push:
+#     branches:
+#       - main
+#       - develop
+# name: Linux_Container_Workflow
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    steps:
-      # checkout the repo
-      - name: "Checkout GitHub Action"
-        uses: actions/checkout@main
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
+#     steps:
+#       # checkout the repo
+#       - name: "Checkout GitHub Action"
+#         uses: actions/checkout@main
 
-      - name: "List directory contents"
-        run: ls -R
+#       - name: "List directory contents"
+#         run: ls -R
 
-      - name: "Login via Azure CLI"
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+#       - name: "Login via Azure CLI"
+#         uses: azure/login@v1
+#         with:
+#           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: "Build and push image"
-        uses: azure/docker-login@v1
-        with:
-          login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-      - run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            ENVIRONMENT_NAME=Production
-            IMAGE_PREFIX=prod_
-          else
-            ENVIRONMENT_NAME=Testnet
-            IMAGE_PREFIX=dev_
-          fi
-          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${IMAGE_PREFIX}${{ github.run_number }}
-          docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t $IMAGE_NAME
-          docker push $IMAGE_NAME
+#       - name: "Build and push image"
+#         uses: azure/docker-login@v1
+#         with:
+#           login-server: ${{ secrets.REGISTRY_LOGIN_SERVER }}
+#           username: ${{ secrets.REGISTRY_USERNAME }}
+#           password: ${{ secrets.REGISTRY_PASSWORD }}
+#       - run: |
+#           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             ENVIRONMENT_NAME=Production
+#             IMAGE_PREFIX=prod_
+#           else
+#             ENVIRONMENT_NAME=Testnet
+#             IMAGE_PREFIX=dev_
+#           fi
+#           IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/reverse_proxy:${IMAGE_PREFIX}${{ github.run_number }}
+#           docker build reverse-proxy --build-arg ENVIRONMENT_NAME=$ENVIRONMENT_NAME -t $IMAGE_NAME
+#           docker push $IMAGE_NAME
       
-      - name: "Build and push api image"
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            IMAGE_PREFIX=prod_
-          else
-            IMAGE_PREFIX=dev_
-          fi
-          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/api:${IMAGE_PREFIX}${{ github.run_number }}
-          docker build -f backend.dockerfile -t $IMAGE_NAME .
-          docker push $IMAGE_NAME
+#       - name: "Build and push api image"
+#         run: |
+#           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             IMAGE_PREFIX=prod_
+#           else
+#             IMAGE_PREFIX=dev_
+#           fi
+#           IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/api:${IMAGE_PREFIX}${{ github.run_number }}
+#           docker build -f backend.dockerfile -t $IMAGE_NAME .
+#           docker push $IMAGE_NAME
 
-      - name: "Build and push crontab image"
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            IMAGE_PREFIX=prod_
-          else
-            IMAGE_PREFIX=dev_
-          fi
-          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/cron:${IMAGE_PREFIX}${{ github.run_number }}
-          docker build -f crontab.dockerfile -t $IMAGE_NAME .
-          docker push $IMAGE_NAME
+#       - name: "Build and push crontab image"
+#         run: |
+#           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             IMAGE_PREFIX=prod_
+#           else
+#             IMAGE_PREFIX=dev_
+#           fi
+#           IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/cron:${IMAGE_PREFIX}${{ github.run_number }}
+#           docker build -f crontab.dockerfile -t $IMAGE_NAME .
+#           docker push $IMAGE_NAME
 
-      - name: "Build and push web_listener image"
-        run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            IMAGE_PREFIX=prod_
-          else
-            IMAGE_PREFIX=dev_
-          fi
-          IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/listener:${IMAGE_PREFIX}${{ github.run_number }}
-          docker build -f listener.dockerfile -t $IMAGE_NAME .
-          docker push $IMAGE_NAME
+#       - name: "Build and push web_listener image"
+#         run: |
+#           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+#             IMAGE_PREFIX=prod_
+#           else
+#             IMAGE_PREFIX=dev_
+#           fi
+#           IMAGE_NAME=${{ secrets.REGISTRY_LOGIN_SERVER }}/listener:${IMAGE_PREFIX}${{ github.run_number }}
+#           docker build -f listener.dockerfile -t $IMAGE_NAME .
+#           docker push $IMAGE_NAME
