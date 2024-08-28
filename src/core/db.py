@@ -382,6 +382,26 @@ def seed_vaults(session: Session):
             is_active=False,
             strategy_name=constants.STAKING_STRATEGY,
         ),
+        Vault(
+            name="rsETH Koi Paradise with Pendle",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            contract_address="0xbd8C0594cEe94a3d550145925c29Eca33f7E8D34",
+            slug="arbitrum-pendle-rseth-26sep2024",
+            routes=None,
+            category="real_yield",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=5.789,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=100,
+            max_drawdown=0,
+            maturity_date="2024-09-26",
+            owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
+            is_active=False,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+        ),
     ]
 
     for vault in vaults:
@@ -454,3 +474,8 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
     ).first()
     init_new_vault(session, solv_vault1)
+
+    pendle_rs_26sep = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26sep2024")
+    ).first()
+    init_new_vault(session, pendle_rs_26sep)
