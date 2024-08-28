@@ -24,6 +24,7 @@ class VaultBase(BaseModel):
     slug: str | None = None
     category: VaultCategory | None = None
     network_chain: NetworkChain | None = None
+    maturity_date: NetworkChain | None = None
     strategy_name: str | None = None
     points: List[EarnedPoints] = []
 
@@ -57,10 +58,10 @@ class Vault(VaultInDBBase):
     supported_networks: List[SupportedNetwork] | None = None
     tags: List[str] | None = None
 
-    @validator('tags', pre=True, always=True)
+    @validator("tags", pre=True, always=True)
     def split_str_to_list(cls, v):
         if isinstance(v, str):
-            return v.split(',')
+            return v.split(",")
         return v
 
 
