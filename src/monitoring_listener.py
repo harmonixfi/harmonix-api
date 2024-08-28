@@ -106,17 +106,20 @@ async def handle_event(vault_address: str, entry, event_name):
     if event_name == "Withdrawn":
         event_name_send_bot == "Complete Withdraw"
 
-    await telegram_bot.send_alert(
-        build_message(
-            fields=[
-                ["Event", event_name_send_bot],
-                ["Strategy", vault.name],
-                ["Contract", vault_address],
-                ["Value", value],
-            ]
-        ),
-        channel="transaction",
-    )
+    try:
+        await telegram_bot.send_alert(
+            build_message(
+                fields=[
+                    ["Event", event_name_send_bot],
+                    ["Strategy", vault.name],
+                    ["Contract", vault_address],
+                    ["Value", value],
+                ]
+            ),
+            channel="transaction",
+        )
+    except Exception as e:
+        logger.error(f"Failed to send alert: {e}")
 
 
 EVENT_FILTERS = {
