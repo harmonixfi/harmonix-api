@@ -57,6 +57,7 @@ class VaultBase(sqlmodel.SQLModel):
     is_active: bool | None = None
     owner_wallet_address: str | None = None
     maturity_date: str | None = None
+    underlying_asset: str | None = None
     order: int | None = None
     tags: str | None = None
 
