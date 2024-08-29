@@ -402,7 +402,7 @@ def seed_vaults(session: Session):
             maturity_date="2024-09-26",
             owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
             is_active=False,
-            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+            strategy_name=constants.PENDLE_HEDGING_STRATEGY,
         ),
     ]
 

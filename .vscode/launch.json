@@ -224,11 +224,19 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
-          {
+        {
             "name": "daily_yield_calculation",
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.daily_yield_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "test kyberswap",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "services.kyberswap",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
