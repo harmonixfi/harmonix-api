@@ -128,7 +128,10 @@ async def get_portfolio_info(
             vault_network=vault.network_chain,
         )
 
-        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+        if vault.strategy_name in {
+            constants.DELTA_NEUTRAL_STRATEGY,
+            constants.PENDLE_HEDGING_STRATEGY,
+        }:
             price_per_share = vault_contract.functions.pricePerShare().call()
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
