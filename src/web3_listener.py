@@ -27,6 +27,7 @@ from models import (
     Vault,
 )
 from models.vaults import NetworkChain
+from services.kyberswap import KyberSwapService
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
@@ -93,6 +94,28 @@ def _extract_delta_neutral_event(entry):
 
     shares = int(data[66 : 66 + 64], 16) / 1e6
     return amount, shares, from_address
+
+
+def _extract_pendle_event(entry):
+    # Parse the account parameter from the topics field
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+
+    # token_in = None
+    # if len(entry["topics"]) >= 3:
+    #     token_in = f'0x{entry["topics"][2].hex()[26:]}'
+
+    # Parse the amount and shares parameters from the data field
+    data = entry["data"].hex()
+    pt_amount = int(data[2:66], 16) / 1e18
+    sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+
+    shares = 0
+    if len(data) > 66 + 64:
+        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+
+    return pt_amount, sc_amount, shares, from_address
 
 
 def handle_deposit_event(
@@ -231,6 +254,9 @@ def handle_event(vault_address: str, entry, event_name):
         )
     logger.info(f"Processing event {event_name} for vault {vault_address} {vault.name}")
 
+    # init kyberswap to get price
+    kyberswap_service = KyberSwapService(base_url=settings.KYBERSWAP_BASE_API_URL)
+
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
         select(PricePerShareHistory)
@@ -250,6 +276,29 @@ def handle_event(vault_address: str, entry, event_name):
     elif vault.slug == constants.SOLV_VAULT_SLUG:
         value, shares, from_address = _extract_solv_event(entry)
         latest_pps = round(value / shares, 4)
+    elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        pt_amount, sc_amount, shares, from_address = _extract_pendle_event(entry)
+        logger.info(
+            "Recieving data from pendle vault: %s, %s, %s from %s",
+            pt_amount,
+            sc_amount,
+            shares,
+            from_address,
+        )
+        chain = (
+            "arbitrum"
+            if vault.network_chain == NetworkChain.arbitrum_one
+            else vault.network_chain.value
+        )
+        pt_in_usd = kyberswap_service.get_token_price(
+            chain,
+            constants.RSETH_ADDRESS[vault.network_chain.value],
+            constants.USDC_ADDRESS[vault.network_chain.value],
+            str(int(pt_amount * 1e18)),
+        )
+        pt_in_usd = pt_in_usd / 1e6
+        logger.info("Price pt in usd = %s", pt_in_usd)
+        value = pt_in_usd + sc_amount
     else:
         raise ValueError("Invalid vault address")
 
@@ -307,6 +356,15 @@ EVENT_FILTERS = {
     },
     settings.SOLV_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "event": "Withdrawn",
+    },
+    settings.PENDLE_DEPOSIT_EVENT_TOPIC: {
+        "event": "Deposit",
+    },
+    settings.PENDLE_FORCE_REQUEST_FUND_EVENT_TOPIC: {
+        "event": "InitiateWithdraw",
+    },
+    settings.PENDLE_REQUEST_FUND_EVENT_TOPIC: {
+        "event": "InitiateWithdraw",
     },
 }
 
