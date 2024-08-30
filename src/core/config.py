@@ -167,6 +167,8 @@ class Settings(BaseSettings):
     SYSTEM_ERROR_ALERTS_GROUP_CHATID: Optional[str] = None
     TELEGRAM_TOKEN: Optional[str] = None
 
+    PENDLE_API_URL: Optional[str] = None
+
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
         if isinstance(v, str):

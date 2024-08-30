@@ -81,3 +81,4 @@ class Vault(VaultBase, table=True):
     )
     vault_group: VaultGroup | None = sqlmodel.Relationship(back_populates="vaults")
     update_frequency: str | None = sqlmodel.Field(default="daily")
+    pt_address: str | None = None

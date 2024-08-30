@@ -403,6 +403,7 @@ def seed_vaults(session: Session):
             owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
             is_active=False,
             strategy_name=constants.PENDLE_HEDGING_STRATEGY,
+            pt_address="0x30c98c0139b62290e26ac2a2158ac341dcaf1333",
         ),
     ]
 
