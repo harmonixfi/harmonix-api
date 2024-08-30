@@ -3,9 +3,9 @@ from pydantic import BaseModel
 
 class PendleMarket(BaseModel):
     id: str
-    chainId: int
+    chain_id: int
     symbol: str
     expiry: str
-    underlyingInterestApy: float
-    impliedApy: float
-    ptDiscount: float
+    underlying_interest_apy: float
+    implied_apy: float
+    pt_discount: float
