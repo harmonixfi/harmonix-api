@@ -32,6 +32,18 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+         {
+            "name": "Python: Update Pendle Vault Performance",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_pendle_hedging_vault_performance_daily",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
         {
             "name": "Python: API",
             "type": "debugpy",
