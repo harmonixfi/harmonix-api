@@ -185,7 +185,7 @@ def calculate_performance(
     if pendle_data:
         pendle_market_data = pendle_data[0]
     if pendle_market_data:
-        monthly_apy += pendle_market_data.implied_apy
+        monthly_apy += pendle_market_data.implied_apy / 2
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
