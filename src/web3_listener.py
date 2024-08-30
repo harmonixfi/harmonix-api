@@ -278,6 +278,13 @@ def handle_event(vault_address: str, entry, event_name):
         latest_pps = round(value / shares, 4)
     elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
         pt_amount, sc_amount, shares, from_address = _extract_pendle_event(entry)
+        logger.info(
+            "Recieving data from pendle vault: %s, %s, %s from %s",
+            pt_amount,
+            sc_amount,
+            shares,
+            from_address,
+        )
         chain = (
             "arbitrum"
             if vault.network_chain == NetworkChain.arbitrum_one
@@ -290,6 +297,7 @@ def handle_event(vault_address: str, entry, event_name):
             str(int(pt_amount * 1e18)),
         )
         pt_in_usd = pt_in_usd / 1e6
+        logger.info("Price pt in usd = %s", pt_in_usd)
         value = pt_in_usd + sc_amount
     else:
         raise ValueError("Invalid vault address")
