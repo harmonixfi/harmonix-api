@@ -7,7 +7,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -27,7 +27,8 @@ from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
-from schemas.vault_state import VaultState
+from schemas.vault_state import VaultState, VaultStatePendle
+from services import pendle_service
 from services.bsx_service import get_points_earned
 from services.market_data import get_price
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
@@ -94,12 +95,17 @@ def get_vault_state(vault_contract: Contract, owner_address: str):
     state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_address)}
     )
-    vault_state = VaultState(
-        withdraw_pool_amount=state[0] / 1e6,
-        pending_deposit=state[1] / 1e6,
-        total_share=state[2] / 1e6,
-        total_fee_pool_amount=state[3] / 1e6,
-        last_update_management_fee_date=state[4],
+    vault_state = VaultStatePendle(
+        old_pt_token_address=state[0],
+        pt_withdraw_pool_amount=state[1] / 1e6,
+        sc_withdraw_pool_amount=state[2] / 1e6,
+        total_pt_amount=state[3] / 1e6,
+        total_ua_amount=state[4] / 1e6,
+        ua_withdraw_pool_amount=state[5] / 1e6,
+        total_shares=state[6] / 1e6,
+        total_fee_pool_amount=state[7] / 1e6,
+        last_update_management_fee_date=state[8] / 1e6,
+        ua_pt_rate=state[9] / 1e6,
     )
     return vault_state
 
@@ -154,33 +160,12 @@ def calculate_performance(
 ):
     current_price = get_price("ETHUSDT")
 
-    # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
-    # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
-    # current_price = float(candles[0][4])
-
-    # price_per_share_df = get_price_per_share_history(vault_id)
 
     current_price_per_share = get_current_pps(vault_contract)
     total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
-
-    if vault.slug == constants.BSX_VAULT_SLUG:
-        points_earned = get_points_earned()
-
-        # Incorporate BSX Points:
-        # Each point earned can be converted to $0.2.
-        # Points earned over the month need to be calculated.
-        # Total value of points = Total points earned * $0.2
-        # Calculate the value of the points
-        points_value = points_earned * 0.2
-
-        # Adjust the total balance (TVL)
-        adjusted_tvl = total_balance + points_value
-
-        # Adjust the current PPS
-        current_price_per_share = adjusted_tvl / vault_state.total_share
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
@@ -193,6 +178,15 @@ def calculate_performance(
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
+
+    pendle_data = pendle_service.get_market(
+        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+    )
+    if pendle_data:
+        pendle_market_data = pendle_data[0]
+    if pendle_market_data:
+        implied_apy = pendle_market_data.implied_apy
+        monthly_apy += implied_apy
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
@@ -299,22 +293,24 @@ def main(chain: str):
     try:
         setup_logging_to_console()
         setup_logging_to_file(
-            f"update_delta_neutral_vault_performance_daily_{chain}", logger=logger
+            f"update_pendle_hedging_vault_performance_daily_{chain}", logger=logger
         )
         # Parse chain to NetworkChain enum
         network_chain = NetworkChain[chain.lower()]
-
-        # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+            .where(
+                or_(
+                    Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY,
+                )
+            )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
         ).all()
 
         for vault in vaults:
             logger.info("Updating performance for %s...", vault.name)
-            vault_contract, _ = get_vault_contract(vault)
+            vault_contract, _ = get_vault_contract(vault, "pendlehedging")
 
             new_performance_rec = calculate_performance(
                 vault,
