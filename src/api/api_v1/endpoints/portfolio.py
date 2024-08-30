@@ -23,6 +23,7 @@ router = APIRouter()
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
+pendlehedging_vault_abi = read_abi("pendlehedging")
 
 
 def create_vault_contract(vault: Vault):
@@ -38,6 +39,10 @@ def create_vault_contract(vault: Vault):
         )
     elif vault.slug == constants.SOLV_VAULT_SLUG:
         contract = w3.eth.contract(address=vault.contract_address, abi=solv_vault_abi)
+    elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        contract = w3.eth.contract(
+            address=vault.contract_address, abi=pendlehedging_vault_abi
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid vault strategy")
 
