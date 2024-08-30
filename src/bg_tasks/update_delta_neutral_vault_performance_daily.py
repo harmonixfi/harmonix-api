@@ -194,6 +194,11 @@ def calculate_performance(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
 
+    if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        # get implied_apy from pendle service
+        # calculate monthly_apy += implied_apy
+        pass
+
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
