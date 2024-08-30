@@ -386,7 +386,7 @@ def seed_vaults(session: Session):
             name="Koi Paradise with Pendle",
             vault_capacity=4 * 1e3,
             vault_currency="USDC",
-            contract_address="0xE46C3BE33D0C682fCA5F965D244398E924000705",
+            contract_address="0xC5d824572E20BB73DE991dC31b9802Fcb0A64D1b",
             slug="arbitrum-pendle-rseth-26sep2024",
             routes=None,
             category="real_yield",
