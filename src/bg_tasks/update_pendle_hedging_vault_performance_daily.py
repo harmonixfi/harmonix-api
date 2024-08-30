@@ -35,7 +35,7 @@ from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tv
 
 # # Initialize logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
+logger = logging.getLogger("update_pendle_hedging_vault_performance_daily")
 
 session = Session(engine)
 token_abi = read_abi("ERC20")
@@ -97,15 +97,15 @@ def get_vault_state(vault_contract: Contract, owner_address: str):
     )
     vault_state = VaultStatePendle(
         old_pt_token_address=state[0],
-        pt_withdraw_pool_amount=state[1] / 1e6,
+        pt_withdraw_pool_amount=state[1] / 1e18,
         sc_withdraw_pool_amount=state[2] / 1e6,
-        total_pt_amount=state[3] / 1e6,
-        total_ua_amount=state[4] / 1e6,
-        ua_withdraw_pool_amount=state[5] / 1e6,
+        total_pt_amount=state[3] / 1e18,
+        total_ua_amount=state[4] / 1e18,
+        ua_withdraw_pool_amount=state[5] / 1e18,
         total_shares=state[6] / 1e6,
         total_fee_pool_amount=state[7] / 1e6,
         last_update_management_fee_date=state[8] / 1e6,
-        ua_pt_rate=state[9] / 1e6,
+        ua_pt_rate=state[9] / 1e18,
     )
     return vault_state
 
@@ -185,8 +185,7 @@ def calculate_performance(
     if pendle_data:
         pendle_market_data = pendle_data[0]
     if pendle_market_data:
-        implied_apy = pendle_market_data.implied_apy
-        monthly_apy += implied_apy
+        monthly_apy += pendle_market_data.implied_apy
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
