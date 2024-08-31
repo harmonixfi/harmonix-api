@@ -272,7 +272,7 @@ def calculate_performance(
         vault_id=vault.id,
         risk_factor=risk_factor,
         all_time_high_per_share=all_time_high_per_share,
-        total_shares=vault_state.total_share,
+        total_shares=vault_state.total_shares,
         sortino_ratio=sortino,
         downside_risk=downside,
         unique_depositors=count,
@@ -298,11 +298,7 @@ def main(chain: str):
         network_chain = NetworkChain[chain.lower()]
         vaults = session.exec(
             select(Vault)
-            .where(
-                or_(
-                    Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY,
-                )
-            )
+            .where(Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY)
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
         ).all()
@@ -328,6 +324,7 @@ def main(chain: str):
             vault.ytd_apy = new_performance_rec.apy_ytd
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
+            vault.tvl = new_performance_rec.total_locked_value
             vault.next_close_round_date = None
             logger.info(
                 "Vault %s: tvl = %s, apy %s", vault.name, vault.tvl, vault.monthly_apy
