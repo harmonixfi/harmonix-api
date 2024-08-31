@@ -298,11 +298,7 @@ def main(chain: str):
         network_chain = NetworkChain[chain.lower()]
         vaults = session.exec(
             select(Vault)
-            .where(
-                or_(
-                    Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY,
-                )
-            )
+            .where(Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY)
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
         ).all()
