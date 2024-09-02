@@ -1,3 +1,4 @@
+import time
 import logging
 import sys
 import traceback
@@ -68,8 +69,9 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         address, latest_block + 1, MAX_BLOCK_NUMBER, page, offset=100
                     )
                     logger.info("Get list transactions %s", transactions)
-
+                    
                     if not transactions:
+                        time.sleep(0.5)
                         break
 
                     for tx in transactions:
@@ -81,6 +83,7 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         session.add(new_transaction)
                     session.commit()
                     page += 1
+                    time.sleep(0.5)
 
         logger.info("Stop indexing transaction %s %s", contract_addresses, chain)
     except Exception as e:

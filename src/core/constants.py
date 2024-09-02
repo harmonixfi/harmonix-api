@@ -69,6 +69,7 @@ DAI_ADDRESS: dict = {
 }
 
 ZIRCUIT_DEPOSIT_CONTRACT_ADDRESS = "0xF047ab4c75cebf0eB9ed34Ae2c186f3611aEAfa6"
+
 ZIRCUIT_ABI = [
     {
         "inputs": [
@@ -96,7 +97,7 @@ UNISWAP_POOLS = {
 }
 
 DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
-
+VAULT_SOLV_NAME = "The Golden Guardian with Solv"
 
 class Status(str, Enum):
     ACTIVE = "active"

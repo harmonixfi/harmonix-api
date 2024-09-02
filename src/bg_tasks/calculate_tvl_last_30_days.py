@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import uuid
 from sqlmodel import Session, select
-
+from services.market_data import get_price, get_klines
 from bg_tasks.indexing_user_holding_kelpdao import get_pps
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
@@ -37,13 +37,12 @@ def calculate_tvl_last_30_days():
     last_30_days_timestamp = now - 30 * 24 * 60 * 60
     users = session.exec(select(User)).all()
     vaults = session.exec(select(Vault).where(Vault.is_active)).all()
-
+    vaults_dict = {vault.contract_address.lower(): vault for vault in vaults}
     for user in users:
         statement = select(Referral).where(Referral.referrer_id == user.user_id)
         referrals = session.exec(statement).all()
         if len(referrals) == 0:
             continue
-
         shares_deposited = 0
         balance_deposited = 0
         shares_withdraw = 0
@@ -79,12 +78,21 @@ def calculate_tvl_last_30_days():
                         deposit = amount / 1e6
                     balance_deposited += deposit
                     shares_deposited += deposit / pps
+                
+                elif(onchain_transaction_history.method_id
+                    == constants.MethodID.DEPOSIT2.value and vaults_dict[onchain_transaction_history.to_address.lower()].name == constants.VAULT_SOLV_NAME):
+                    deposit = calculate_amount_value_for_solv(onchain_transaction_history)
+                    balance_deposited += deposit
+                    shares_deposited += deposit / pps
                 elif (
                     onchain_transaction_history.method_id
                     == constants.MethodID.WITHDRAW.value
                 ):
-                    amount = parse_hex_to_int(onchain_transaction_history.input[10:])
-                    withdraw = amount / 1e6
+                    if(vaults_dict[onchain_transaction_history.to_address.lower()].name == constants.VAULT_SOLV_NAME):
+                        withdraw = calculate_amount_value_for_solv(onchain_transaction_history)
+                    else:
+                        amount = parse_hex_to_int(onchain_transaction_history.input[10:])
+                        withdraw = amount / 1e6
                     shares_withdraw += withdraw
 
         if balance_deposited == 0:
@@ -116,6 +124,16 @@ def calculate_tvl_last_30_days():
         session.commit()
 
     logger.info("Calculate TVL last 30 days job completed.")
+
+def calculate_amount_value_for_solv(onchain_transaction_history):
+    input_data = onchain_transaction_history.input[10:].lower()
+    amount = input_data[:64]
+    amount = parse_hex_to_int(amount)
+    amount = amount / 1e8
+    converted_datetime = datetime.fromtimestamp(onchain_transaction_history.timestamp)
+    btc_price = float(get_klines("BTCUSDT", start_time=converted_datetime, end_time=converted_datetime.utcnow() + timedelta(minutes=15), interval="15m", limit=1)[0][4])
+    amount = amount * btc_price
+    return amount
 
 
 def get_pps_by_vault(onchain_tx: OnchainTransactionHistory, vaults: list[Vault]):
