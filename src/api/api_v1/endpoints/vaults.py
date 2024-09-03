@@ -61,6 +61,9 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     if vault.network_chain == NetworkChain.base:
         partners.append(constants.BSX)
 
+    if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        partners.append(constants.HYPERLIQUID)
+
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)

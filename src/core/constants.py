@@ -6,6 +6,7 @@ ZIRCUIT = "zircuit"
 KELPDAO = "kelpdao"
 EIGENLAYER = "eigenlayer"
 HARMONIX = "Harmonix"
+HYPERLIQUID = "Hyperliquid"
 BSX = "bsx"
 
 REWARD_HIGH_PERCENTAGE = 0.08
