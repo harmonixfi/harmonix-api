@@ -32,6 +32,8 @@ CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
 
+KELPDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
+
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
     CHAIN_ETHER_MAINNET: settings.ETHER_MAINNET_INFURA_URL,
@@ -107,6 +109,7 @@ UNISWAP_POOLS = {
 
 DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
 VAULT_SOLV_NAME = "The Golden Guardian with Solv"
+
 
 class Status(str, Enum):
     ACTIVE = "active"

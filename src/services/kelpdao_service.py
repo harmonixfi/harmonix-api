@@ -24,6 +24,19 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
     )
 
 
+def get_apy() -> float:
+    url = f"{settings.KELPDAO_API_URL}/rseth/apy"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise Exception(f"Request failed with status {response.status_code}")
+
+    data = response.json()
+
+    apy_data = data["value"]
+    return float(apy_data)
+
+
 # Usage:
 # points = get_points('0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa')
 # print(points)

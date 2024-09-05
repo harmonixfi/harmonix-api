@@ -168,6 +168,7 @@ class Settings(BaseSettings):
     TELEGRAM_TOKEN: Optional[str] = None
 
     PENDLE_API_URL: Optional[str] = None
+    KELPDAO_API_URL: Optional[str] = "https://universe.kelpdao.xyz"
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
