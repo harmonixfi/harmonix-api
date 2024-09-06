@@ -104,15 +104,15 @@ class Settings(BaseSettings):
 
     # PENDLE TOPICS
     PENDLE_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["Deposit(address,uint256,uint256,uint256)"]
+        ["string"], ["Deposit(address,uint256,uint256,uint256,uint256)"]
     ).hex()
 
     PENDLE_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["RequestFunds(address,uint256,uint256,uint256)"]
+        ["string"], ["RequestFunds(address,uint256,uint256,uint256,uint256)"]
     ).hex()
 
     PENDLE_FORCE_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["ForceRequestFunds(address,uint256,uint256,uint256)"]
+        ["string"], ["ForceRequestFunds(address,uint256,uint256,uint256,uint256)"]
     ).hex()
 
     OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str

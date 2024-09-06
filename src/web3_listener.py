@@ -109,13 +109,14 @@ def _extract_pendle_event(entry):
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     pt_amount = int(data[2:66], 16) / 1e18
-    sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+    eth_amount = int(data[66 : 66 + 64], 16) / 1e18
+    sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
 
     shares = 0
-    if len(data) > 66 + 64:
-        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+    if len(data) > 66 + 2 * 64:
+        shares = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
 
-    return pt_amount, sc_amount, shares, from_address
+    return pt_amount, eth_amount, sc_amount, shares, from_address
 
 
 def handle_deposit_event(
@@ -277,10 +278,10 @@ def handle_event(vault_address: str, entry, event_name):
         value, shares, from_address = _extract_solv_event(entry)
         latest_pps = round(value / shares, 4)
     elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-        pt_amount, sc_amount, shares, from_address = _extract_pendle_event(entry)
+        _, eth_amount, sc_amount, shares, from_address = _extract_pendle_event(entry)
         logger.info(
             "Recieving data from pendle vault: %s, %s, %s from %s",
-            pt_amount,
+            eth_amount,
             sc_amount,
             shares,
             from_address,
@@ -292,9 +293,9 @@ def handle_event(vault_address: str, entry, event_name):
         )
         pt_in_usd = kyberswap_service.get_token_price(
             chain,
-            constants.RSETH_ADDRESS[vault.network_chain.value],
+            constants.WETH_ADDRESS[vault.network_chain.value],
             constants.USDC_ADDRESS[vault.network_chain.value],
-            str(int(pt_amount * 1e18)),
+            str(int(eth_amount * 1e18)),
         )
         pt_in_usd = pt_in_usd / 1e6
         logger.info("Price pt in usd = %s", pt_in_usd)
