@@ -49,9 +49,9 @@ if __name__ == "__main__":
 
     # Define parameters
     chain = "arbitrum"  # Example: ethereum, arbitrum, etc.
-    token_in = constants.RSETH_ADDRESS[constants.CHAIN_ARBITRUM]  # Native ETH
+    token_in = constants.WETH_ADDRESS[constants.CHAIN_ARBITRUM]  # Native ETH
     token_out = constants.USDC_ADDRESS[constants.CHAIN_ARBITRUM]  # DAI
-    amount_in = str(int(1e18))
+    amount_in = str(int(0.01017804369015912 * 1e18))
 
     # Get the price of the token_out
     price_info = kyberswap_service.get_token_price(
