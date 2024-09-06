@@ -37,7 +37,7 @@ KELPDAO_VAULT_ARBITRUM_SLUG = "kelpdao-restaking-delta-neutral-vault"
 RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
 DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
 OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
-
+PENDLE_VAULT_VAULT_SLUG = "arbitrum-pendle-rseth-26sep2024"
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,

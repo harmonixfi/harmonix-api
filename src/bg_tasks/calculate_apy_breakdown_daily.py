@@ -227,6 +227,11 @@ def main():
                         vault.id, current_apy, wst_eth_value, bsx_point_value
                     )
 
+                elif vault.slug == constants.SOLV_VAULT_SLUG:
+                    upsert_vault_apy(vault.id, current_apy)
+
+                elif vault.slug == constants.PENDLE_VAULT_VAULT_SLUG:
+                    upsert_vault_apy(vault.id, current_apy)
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
 

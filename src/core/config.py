@@ -167,7 +167,7 @@ class Settings(BaseSettings):
     SYSTEM_ERROR_ALERTS_GROUP_CHATID: Optional[str] = None
     TELEGRAM_TOKEN: Optional[str] = None
 
-    PENDLE_API_URL: Optional[str] = None
+    PENDLE_API_URL: Optional[str] = "https://api-v2.pendle.finance/core/v1"
     KELPDAO_API_URL: Optional[str] = "https://universe.kelpdao.xyz"
     RENZO_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/stats?chainId=1"
     LIDO_API_URL: Optional[str] = "https://eth-api.lido.fi"
