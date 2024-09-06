@@ -18,6 +18,7 @@ from services import (
     camelot_service,
     kelpdao_service,
     lido_service,
+    pendle_service,
     renzo_service,
 )
 
@@ -168,6 +169,22 @@ def save_option_wheel_components(
     save_vault_apy_components(vault_id, current_apy, component_values)
 
 
+def save_pendle_components(
+    vault_id: uuid.UUID,
+    current_apy: float,
+    fixed_value: float,
+    hyperliquid_point_value: float,
+):
+    component_values = {
+        APYComponent.FIXED_YIELD: fixed_value,
+        APYComponent.BSX_POINT: hyperliquid_point_value,
+        APYComponent.FUNDING_FEES: calculate_funding_fees(
+            current_apy, fixed_value, hyperliquid_point_value
+        ),
+    }
+    save_vault_apy_components(vault_id, current_apy, component_values)
+
+
 # Main Execution
 def main():
     try:
@@ -231,7 +248,11 @@ def main():
                     upsert_vault_apy(vault.id, current_apy)
 
                 elif vault.slug == constants.PENDLE_VAULT_VAULT_SLUG:
-                    upsert_vault_apy(vault.id, current_apy)
+                    fixed_value = 3 / 100
+                    hyperliquid_point_value = 1.2 / 100
+                    save_pendle_components(
+                        vault.id, current_apy, fixed_value, hyperliquid_point_value
+                    )
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
 

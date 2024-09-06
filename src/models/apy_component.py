@@ -11,3 +11,4 @@ class APYComponent(Enum):
     USDCe_USDC = "USDC.e/USDC"
     BSX_POINT = "BSX Point"
     ETH_GAINS = "ETH Gains"
+    FIXED_YIELD = "Fixed Yeild"
