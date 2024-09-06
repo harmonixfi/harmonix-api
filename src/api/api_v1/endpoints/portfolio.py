@@ -159,14 +159,10 @@ async def get_portfolio_info(
             shares = shares / 10**6
             price_per_share = price_per_share / 10**6
 
-        # temporary change until smart contract update the login
-        if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-            position.total_balance = shares * price_per_share
-        else:
-            pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-            position.total_balance = (
-                shares * price_per_share + pending_withdrawal * price_per_share
-            )
+        pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
+        position.total_balance = (
+            shares * price_per_share + pending_withdrawal * price_per_share
+        )
 
         position.pnl = position.total_balance - position.init_deposit
 
