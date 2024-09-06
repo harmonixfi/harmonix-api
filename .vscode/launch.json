@@ -252,5 +252,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Claim bsx point daily",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.claim_bsx_point_daily",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
