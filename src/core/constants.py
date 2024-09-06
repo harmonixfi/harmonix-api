@@ -23,8 +23,6 @@ DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
 
-SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
-BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
@@ -32,7 +30,14 @@ CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
 
+SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
+BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
 KELPDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
+KELPDAO_VAULT_ARBITRUM_SLUG = "kelpdao-restaking-delta-neutral-vault"
+RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
+DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
+OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
+
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,

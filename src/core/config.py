@@ -169,6 +169,9 @@ class Settings(BaseSettings):
 
     PENDLE_API_URL: Optional[str] = None
     KELPDAO_API_URL: Optional[str] = "https://universe.kelpdao.xyz"
+    RENZO_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/stats?chainId=1"
+    LIDO_API_URL: Optional[str] = "https://eth-api.lido.fi"
+    CAMELOT_EXCHANGE_API_URL: Optional[str] = "https://api.camelot.exchange"
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

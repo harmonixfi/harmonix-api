@@ -27,6 +27,21 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
     )
 
 
+def get_apy() -> float:
+    url = f"{settings.RENZO_API_URL}"
+    response = requests.get(url)
+
+    if response.status_code != 200:
+        raise Exception(f"Request failed with status {response.status_code}")
+
+    try:
+        data = response.json()
+        apy_data = data["data"]["apr"]["data"]["rate"]
+        return float(apy_data)
+    except (KeyError, TypeError, ValueError) as e:
+        raise Exception(f"Error parsing APY data: {e}")
+
+
 # Usage:
 # points = get_points('0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa')
 # print(points)
