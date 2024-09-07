@@ -85,8 +85,7 @@ def get_list_claim_point() -> List[BSXPoint]:
                     claimable=epoch["claimable"],
                 )
                 for epoch in data
-                if epoch["status"] == "OPEN"
-                and epoch["claimable"] is False  # Filter condition
+                if epoch["status"] == "OPEN" and epoch["claimable"]  # Filter condition
             ]
 
         else:

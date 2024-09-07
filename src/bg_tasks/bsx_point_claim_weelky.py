@@ -47,4 +47,4 @@ def bsx_point_claim_weelky():
 if __name__ == "__main__":
     setup_logging_to_console()
     setup_logging_to_file("bsx_point_claim_weelky", logger=logger)
-    claim_bsx_point_daily()
+    bsx_point_claim_weelky()
