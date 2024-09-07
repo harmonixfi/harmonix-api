@@ -2,13 +2,13 @@ from enum import Enum
 
 
 class APYComponent(Enum):
-    EZ_ETH = "ezETH"
-    AE_USD = "aeUSD"
-    RS_ETH = "rsETH"
-    WST_ETH = "wstETH"
-    FUNDING_FEES = "Funding Fees"
-    OPTIONS_YIELD = "Options Yield"
-    USDCe_USDC = "USDC.e/USDC"
-    BSX_POINT = "BSX Point"
-    ETH_GAINS = "ETH Gains"
-    FIXED_YIELD = "Fixed Yeild"
+    EZ_ETH = "EZ_ETH"
+    AE_USD = "AE_USD"
+    RS_ETH = "RS_ETH"
+    WST_ETH = "WST_ETH"
+    FUNDING_FEES = "FUNDING_FEES"
+    OPTIONS_YIELD = "OPTIONS_YIELD"
+    USDCe_USDC = "USDCe_USDC"
+    BSX_POINT = "BSX_POINT"
+    ETH_GAINS = "ETH_GAINS"
+    FIXED_YIELD = "FIXED_YIELD"

@@ -248,8 +248,14 @@ def main():
                     upsert_vault_apy(vault.id, current_apy)
 
                 elif vault.slug == constants.PENDLE_VAULT_VAULT_SLUG:
-                    fixed_value = 3 / 100
-                    hyperliquid_point_value = 1.2 / 100
+                    pendle_data = pendle_service.get_market(
+                        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+                    )
+                    fixed_value = 0
+                    if pendle_data:
+                        fixed_value = pendle_data[0].implied_apy
+
+                    hyperliquid_point_value = 10.4 / 100
                     save_pendle_components(
                         vault.id, current_apy, fixed_value, hyperliquid_point_value
                     )
