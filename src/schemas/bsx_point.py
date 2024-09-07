@@ -3,8 +3,8 @@ from pydantic import BaseModel
 
 
 class BSXPoint(BaseModel):
-    start_at: datetime
-    end_at: datetime
+    start_at: str
+    end_at: str
     point: float
     degen_point: float
     status: str

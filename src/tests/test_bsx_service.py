@@ -44,12 +44,6 @@ class TestBSXService(unittest.TestCase):
 
         self.assertEqual(len(result), 2)
         self.assertIsInstance(result[0], BSXPoint)
-        self.assertEqual(
-            result[0].start_at, datetime(2022, 4, 1, 0, 0, tzinfo=timezone.utc)
-        )
-        self.assertEqual(
-            result[0].end_at, datetime(2022, 4, 2, 0, 0, tzinfo=timezone.utc)
-        )
         self.assertEqual(result[0].point, 100.5)
         self.assertEqual(result[0].degen_point, 10.5)
         self.assertEqual(result[0].status, "completed")

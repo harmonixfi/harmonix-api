@@ -253,10 +253,10 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "Claim bsx point daily",
+            "name": "Claim bsx point weelky",
             "type": "debugpy",
             "request": "launch",
-            "module": "bg_tasks.claim_bsx_point_daily",
+            "module": "bg_tasks.bsx_point_claim_weelky",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

@@ -39,7 +39,7 @@ def get_points_earned() -> float:
         raise Exception(f"Request failed with status {response.status_code}")
 
 
-def get_list_claim_bsx_point() -> List[BSXPoint]:
+def get_list_claim_point() -> List[BSXPoint]:
     try:
         api_url = f"{bsx_base_url}/points/trading"
         headers = {
@@ -67,12 +67,8 @@ def get_list_claim_bsx_point() -> List[BSXPoint]:
             data = response.json()["epochs"]
             return [
                 BSXPoint(
-                    start_at=datetime.fromtimestamp(
-                        int(epoch["start_at"]) / 1e9, tz=timezone.utc
-                    ),
-                    end_at=datetime.fromtimestamp(
-                        int(epoch["end_at"]) / 1e9, tz=timezone.utc
-                    ),
+                    start_at=epoch["start_at"],
+                    end_at=epoch["end_at"],
                     point=float(epoch["point"]),
                     degen_point=float(epoch["degen_point"]),
                     status=epoch["status"],
@@ -89,7 +85,10 @@ def get_list_claim_bsx_point() -> List[BSXPoint]:
                     claimable=epoch["claimable"],
                 )
                 for epoch in data
+                if epoch["status"] == "OPEN"
+                and epoch["claimable"] is False  # Filter condition
             ]
+
         else:
             raise Exception(f"Request failed with status {response.status_code}")
 
@@ -97,10 +96,10 @@ def get_list_claim_bsx_point() -> List[BSXPoint]:
         raise Exception(f"Error occurred while fetching BSX points: {str(e)}")
 
 
-def claim_bsx_point():
+def claim_point(start_at: str, end_at: str):
     try:
         # Giả sử API endpoint để claim point
-        api_url = f"{bsx_base_url}/v1/claim-point"
+        api_url = f"{bsx_base_url}/points/claim"
         headers = {
             "accept": "application/json",
             "accept-language": "en-US,en;q=0.9,vi;q=0.8",
@@ -120,11 +119,12 @@ def claim_bsx_point():
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0",
         }
 
-        response = requests.post(api_url, headers=headers)
+        data = {"start_at": start_at, "end_at": end_at}
+        response = requests.post(api_url, headers=headers, json=data)
 
         if response.status_code == 200:
-            data = response.json()
-            claimed_points = data.get("claimed_points", 0)
+            return True
+        return False
 
     except Exception as e:
         raise Exception(f"Error occurred while claiming BSX points: {str(e)}")
