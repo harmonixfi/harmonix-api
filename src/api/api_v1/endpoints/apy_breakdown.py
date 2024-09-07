@@ -4,7 +4,7 @@ from sqlmodel import select
 
 from api.api_v1.deps import SessionDep
 from models.user_assets_history import UserHoldingAssetHistory
-from models.vault_apy import VaultAPY
+from models.vault_apy_breakdown import VaultAPY
 from models.vaults import NetworkChain, Vault
 from schemas.user_assets import UserAssetAmount
 

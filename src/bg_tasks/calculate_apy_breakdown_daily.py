@@ -11,7 +11,7 @@ from models import Vault
 from core.abi_reader import read_abi
 from core import constants
 from models.apy_component import APYComponent
-from models.vault_apy import VaultAPY, VaultAPYComponent
+from models.vault_apy_breakdown import VaultAPYBreakdown, VaultAPYComponent
 from models.vault_performance import VaultPerformance
 from services import (
     bsx_service,
@@ -28,7 +28,7 @@ logger = logging.getLogger("calculate_apy_breakdown_daily")
 
 session = Session(engine)
 
-DISTRIBUTE_VAULE: float = 1 / 2
+ALLOCATION_RATIO: float = 1 / 2
 KEYDAO_AEVO_VAULE: float = 8 / 100
 RENZO_AEVO_VAULE: float = 8 / 100
 DELTA_NEUTRAL_AEVO_VAULE: float = 8 / 100
@@ -46,10 +46,10 @@ def get_vault_performance(vault_id: uuid.UUID) -> VaultPerformance:
     return performance
 
 
-def update_or_create_component(vault_apy_id, component_name, component_apy):
+def update_or_create_component(vault_apy_breakdown_id, component_name, component_apy):
     component = session.exec(
         select(VaultAPYComponent).where(
-            VaultAPYComponent.vault_apy_id == vault_apy_id,
+            VaultAPYComponent.vault_apy_breakdown_id == vault_apy_breakdown_id,
             VaultAPYComponent.component_name == component_name,
         )
     ).first()
@@ -58,20 +58,20 @@ def update_or_create_component(vault_apy_id, component_name, component_apy):
         component.component_apy = component_apy
     else:
         new_component = VaultAPYComponent(
-            vault_apy_id=vault_apy_id,
+            vault_apy_breakdown_id=vault_apy_breakdown_id,
             component_name=component_name,
             component_apy=component_apy,
         )
         session.add(new_component)
 
 
-def upsert_vault_apy(vault_id: uuid.UUID, total_apy: float) -> VaultAPY:
+def upsert_vault_apy(vault_id: uuid.UUID, total_apy: float) -> VaultAPYBreakdown:
     vault_apy = session.exec(
-        select(VaultAPY).where(VaultAPY.vault_id == vault_id)
+        select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
     ).first()
 
     if not vault_apy:
-        vault_apy = VaultAPY(vault_id=vault_id)
+        vault_apy = VaultAPYBreakdown(vault_id=vault_id)
 
     vault_apy.total_apy = total_apy
     session.add(vault_apy)
@@ -201,25 +201,25 @@ def main():
                 )
 
                 if vault.slug in [
-                    constants.KELPDAO_VAULT_SLUG,
-                    constants.KELPDAO_VAULT_ARBITRUM_SLUG,
+                    constants.KEYDAO_VAULT_SLUG,
+                    constants.KEYDAO_VAULT_ARBITRUM_SLUG,
                 ]:
-                    rs_eth_value = kelpdao_service.get_apy() * DISTRIBUTE_VAULE
-                    ae_usd_value = KEYDAO_AEVO_VAULE * DISTRIBUTE_VAULE
+                    rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
+                    ae_usd_value = KEYDAO_AEVO_VAULE * ALLOCATION_RATIO
                     save_kelpdao_components(
                         vault.id, current_apy, rs_eth_value, ae_usd_value
                     )
 
                 elif vault.slug == constants.RENZO_VAULT_SLUG:
-                    ez_eth_value = renzo_service.get_apy() * DISTRIBUTE_VAULE
-                    ae_usd_value = RENZO_AEVO_VAULE * DISTRIBUTE_VAULE
+                    ez_eth_value = renzo_service.get_apy() * ALLOCATION_RATIO
+                    ae_usd_value = RENZO_AEVO_VAULE * ALLOCATION_RATIO
                     save_renzo_components(
                         vault.id, current_apy, ez_eth_value, ae_usd_value
                     )
 
                 elif vault.slug == constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * DISTRIBUTE_VAULE
-                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * DISTRIBUTE_VAULE
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
+                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * ALLOCATION_RATIO
                     save_delta_neutral_components(
                         vault.id, current_apy, wst_eth_value, ae_usd_value
                     )
@@ -228,7 +228,7 @@ def main():
                     wst_eth_value = camelot_service.get_apy()
                     usde_usdc_value = camelot_service.get_apy_usdc()
                     option_yield_value = OPTION_YIELD_VALUE
-                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * DISTRIBUTE_VAULE
+                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * ALLOCATION_RATIO
                     save_option_wheel_components(
                         vault.id,
                         current_apy,
@@ -238,7 +238,7 @@ def main():
                     )
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * DISTRIBUTE_VAULE
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
                     bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
                     save_bsx_components(
                         vault.id, current_apy, wst_eth_value, bsx_point_value

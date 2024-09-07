@@ -10,8 +10,8 @@ class VaultAPYComponent(sqlmodel.SQLModel, table=True):
     __tablename__ = "vault_apy_component"
 
     id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
-    vault_apy_id: uuid.UUID = sqlmodel.Field(
-        foreign_key="vault_apy.id"
+    vault_apy_breakdown_id: uuid.UUID = sqlmodel.Field(
+        foreign_key="vault_apy_breakdown.id"
     )  # Foreign key to Vault
 
     component_name: str | None = None
@@ -19,11 +19,13 @@ class VaultAPYComponent(sqlmodel.SQLModel, table=True):
         default=0.0
     )  # The overall vault APY with default 0
 
-    vault_apy: "VaultAPY" = sqlmodel.Relationship(back_populates="apy_components")
+    vault_apy_breakdown: "VaultAPYBreakdown" = sqlmodel.Relationship(
+        back_populates="apy_components"
+    )
 
 
-class VaultAPY(sqlmodel.SQLModel, table=True):
-    __tablename__ = "vault_apy"
+class VaultAPYBreakdown(sqlmodel.SQLModel, table=True):
+    __tablename__ = "vault_apy_breakdown"
 
     id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
     vault_id: uuid.UUID = sqlmodel.Field(
@@ -35,5 +37,5 @@ class VaultAPY(sqlmodel.SQLModel, table=True):
     )  # The overall vault APY with default 0
 
     apy_components: List[VaultAPYComponent] = sqlmodel.Relationship(
-        back_populates="vault_apy"
+        back_populates="vault_apy_breakdown"
     )

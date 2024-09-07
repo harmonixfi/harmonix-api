@@ -32,8 +32,8 @@ CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
 
 SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
 BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
-KELPDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
-KELPDAO_VAULT_ARBITRUM_SLUG = "kelpdao-restaking-delta-neutral-vault"
+KEYDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
+KEYDAO_VAULT_ARBITRUM_SLUG = "kelpdao-restaking-delta-neutral-vault"
 RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
 DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
 OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
