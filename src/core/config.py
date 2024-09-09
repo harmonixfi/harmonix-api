@@ -115,6 +115,10 @@ class Settings(BaseSettings):
         ["string"], ["ForceRequestFunds(address,uint256,uint256,uint256,uint256,uint256)"]
     ).hex()
 
+    PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,uint256,uint256,uint256,uint256)"]
+    ).hex()
+
     OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str
 
     OPERATION_ADMIN_WALLET_ADDRESS: str

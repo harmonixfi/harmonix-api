@@ -109,11 +109,18 @@ def _extract_pendle_event(entry):
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
     
-    pt_amount = int(data[2:66], 16) / 1e18
-    eth_amount = int(data[66 : 66 + 64], 16) / 1e18
-    sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
-    total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
-    shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+    if entry["topics"][0] == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
+        pt_amount = int(data[2:66], 16) / 1e18
+        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        shares = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
+        total_amount = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+        eth_amount = 0
+    else:
+        pt_amount = int(data[2:66], 16) / 1e18
+        eth_amount = int(data[66 : 66 + 64], 16) / 1e18
+        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
+        shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
 
     return pt_amount, eth_amount, sc_amount, total_amount, shares, from_address
 
@@ -350,6 +357,9 @@ EVENT_FILTERS = {
     },
     settings.PENDLE_REQUEST_FUND_EVENT_TOPIC: {
         "event": "InitiateWithdraw",
+    },
+    settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC: {
+        "event": "Withdrawn",
     },
 }
 
