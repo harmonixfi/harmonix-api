@@ -104,6 +104,12 @@
             {
                 "indexed": false,
                 "internalType": "uint256",
+                "name": "ethAmount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
                 "name": "scAmount",
                 "type": "uint256"
             },
@@ -134,37 +140,6 @@
             }
         ],
         "name": "FeeRatesUpdated",
-        "type": "event"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            {
-                "indexed": true,
-                "internalType": "address",
-                "name": "account",
-                "type": "address"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "ptAmount",
-                "type": "uint256"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "scAmount",
-                "type": "uint256"
-            },
-            {
-                "indexed": false,
-                "internalType": "uint256",
-                "name": "shares",
-                "type": "uint256"
-            }
-        ],
-        "name": "ForceRequestFunds",
         "type": "event"
     },
     {
@@ -224,7 +199,13 @@
             {
                 "indexed": false,
                 "internalType": "uint256",
-                "name": "uaAmount",
+                "name": "ptAmount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "ethAmount",
                 "type": "uint256"
             },
             {
@@ -346,7 +327,32 @@
     },
     {
         "anonymous": false,
-        "inputs": [],
+        "inputs": [
+            {
+                "indexed": true,
+                "internalType": "address",
+                "name": "account",
+                "type": "address"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "ptAmount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "scAmount",
+                "type": "uint256"
+            },
+            {
+                "indexed": false,
+                "internalType": "uint256",
+                "name": "shares",
+                "type": "uint256"
+            }
+        ],
         "name": "Withdrawn",
         "type": "event"
     },
@@ -484,8 +490,19 @@
         "type": "function"
     },
     {
-        "inputs": [],
-        "name": "completeForceWithdrawal",
+        "inputs": [
+            {
+                "internalType": "address",
+                "name": "receiver",
+                "type": "address"
+            },
+            {
+                "internalType": "uint256",
+                "name": "amount",
+                "type": "uint256"
+            }
+        ],
+        "name": "claimFee",
         "outputs": [],
         "stateMutability": "nonpayable",
         "type": "function"
@@ -810,17 +827,17 @@
                     },
                     {
                         "internalType": "uint256",
-                        "name": "uaWithdrawAmount",
+                        "name": "scWithdrawAmount",
                         "type": "uint256"
                     },
                     {
-                        "internalType": "uint256",
-                        "name": "scWithdrawAmount",
-                        "type": "uint256"
+                        "internalType": "bool",
+                        "name": "isForceWithdraw",
+                        "type": "bool"
                     }
                 ],
                 "internalType": "struct WithdrawPendle",
-                "name": "withdrawal",
+                "name": "",
                 "type": "tuple"
             }
         ],
@@ -840,6 +857,11 @@
                     },
                     {
                         "internalType": "uint256",
+                        "name": "pps",
+                        "type": "uint256"
+                    },
+                    {
+                        "internalType": "uint256",
                         "name": "ptWithdrawPoolAmount",
                         "type": "uint256"
                     },
@@ -850,17 +872,7 @@
                     },
                     {
                         "internalType": "uint256",
-                        "name": "totalPTAmount",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "totalUAAmount",
-                        "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "uaWithdrawPoolAmount",
+                        "name": "totalPtAmount",
                         "type": "uint256"
                     },
                     {
@@ -877,11 +889,6 @@
                         "internalType": "uint256",
                         "name": "lastUpdateManagementFeeDate",
                         "type": "uint256"
-                    },
-                    {
-                        "internalType": "uint256",
-                        "name": "uaPtRate",
-                        "type": "uint256"
                     }
                 ],
                 "internalType": "struct VaultStatePendle",
@@ -896,11 +903,6 @@
         "inputs": [],
         "name": "getWithdrawPoolAmount",
         "outputs": [
-            {
-                "internalType": "uint256",
-                "name": "",
-                "type": "uint256"
-            },
             {
                 "internalType": "uint256",
                 "name": "",
@@ -1013,6 +1015,11 @@
                 "type": "address"
             },
             {
+                "internalType": "address",
+                "name": "_ethAddress",
+                "type": "address"
+            },
+            {
                 "internalType": "uint8",
                 "name": "_ptDecimals",
                 "type": "uint8"
@@ -1025,6 +1032,11 @@
             {
                 "internalType": "uint256",
                 "name": "_cap",
+                "type": "uint256"
+            },
+            {
+                "internalType": "uint256",
+                "name": "_networkCost",
                 "type": "uint256"
             },
             {
@@ -1086,13 +1098,6 @@
             }
         ],
         "stateMutability": "view",
-        "type": "function"
-    },
-    {
-        "inputs": [],
-        "name": "redeemPtToToken",
-        "outputs": [],
-        "stateMutability": "nonpayable",
         "type": "function"
     },
     {

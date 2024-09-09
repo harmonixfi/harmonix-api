@@ -21,12 +21,10 @@ class VaultState(BaseModel):
 
 class VaultStatePendle(BaseModel):
     old_pt_token_address: str = None
+    pps: float = 0
     pt_withdraw_pool_amount: float = 0
     sc_withdraw_pool_amount: float = 0
     total_pt_amount: float = 0
-    total_ua_amount: float = 0
-    ua_withdraw_pool_amount: float = 0
     total_shares: float = 0
     total_fee_pool_amount: float = 0
     last_update_management_fee_date: float = 0
-    ua_pt_rate: float = 0
