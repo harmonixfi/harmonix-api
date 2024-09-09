@@ -1,3 +1,4 @@
+import os
 import uuid
 from unittest.mock import patch
 
@@ -13,7 +14,7 @@ from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vault_performance import VaultPerformance
 from models.vaults import Vault
-from web3_listener import handle_event
+from web3_listener import _extract_pendle_event, handle_event
 
 
 @pytest.fixture(scope="module")
@@ -25,6 +26,8 @@ def db_session():
 # create fixture run before every test
 @pytest.fixture(autouse=True)
 def seed_data(db_session: Session):
+    assert os.getenv('POSTGRES_DB') == 'test'
+
     db_session.query(UserPointAudit).delete()
     db_session.query(UserPoints).delete()
     db_session.query(PointDistributionHistory).delete()
@@ -72,18 +75,32 @@ def event_data():
     }
 
 
-@patch("web3_listener._extract_pendle_event")
+def test_extract_pendle_event(event_data):
+
+    event_data["data"] = HexBytes(
+        "0x{:064x}".format(int(1e18))
+        + "{:064x}".format(int(1e18))
+        + "{:064x}".format(int(2000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+    )
+    # Call the method with the event data
+    pt_amount, eth_amount, sc_amount, total_amount, shares, from_address = _extract_pendle_event(event_data)
+    
+    # Assert the expected values (based on the mock data)
+    assert pt_amount == 1
+    assert eth_amount == 1
+    assert sc_amount == 2000
+    assert total_amount == 4000
+    assert shares == 4000
+    assert from_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
+
+
 @patch("web3_listener.KyberSwapService.get_token_price")
 def test_handle_event_pendle_deposit(
-    mock_get_token_price, mock_extract_event, event_data, db_session: Session
+    mock_get_token_price, event_data, db_session: Session
 ):
     mock_get_token_price.return_value = 4700.0  # Example value in USD
-    mock_extract_event.return_value = (
-        470_000000000000000000,
-        3076,
-        600,
-        "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
-    )  # pt_amount, sc_amount, shares, from_address
 
     vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
     vault = (
@@ -91,9 +108,11 @@ def test_handle_event_pendle_deposit(
     )
 
     event_data["data"] = HexBytes(
-        "0x{:064x}".format(470_000000000000000000)
-        + "{:064x}".format(3076)
-        + "{:064x}".format(600)
+        "0x{:064x}".format(int(1e18))
+        + "{:064x}".format(int(1e18))
+        + "{:064x}".format(int(2000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+        + "{:064x}".format(int(4000*1e6))
     )
     handle_event(vault_address, event_data, "Deposit")
 
@@ -106,24 +125,15 @@ def test_handle_event_pendle_deposit(
     )
 
     assert user_portfolio is not None
-    assert round(user_portfolio.total_balance) == round(
-        4700 + 3076
-    )  # pt_in_usd + sc_amount
+    assert round(user_portfolio.total_balance) == 4000
     assert user_portfolio.status == PositionStatus.ACTIVE
 
 
-@patch("web3_listener._extract_pendle_event")
 @patch("web3_listener.KyberSwapService.get_token_price")
 def test_handle_event_pendle_initiate_withdraw(
-    mock_get_token_price, mock_extract_event, event_data, db_session: Session
+    mock_get_token_price, event_data, db_session: Session
 ):
     mock_get_token_price.return_value = 4700.0  # Example value in USD
-    mock_extract_event.return_value = (
-        470_000000000000000000,
-        3076,
-        600,
-        "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
-    )  # pt_amount, sc_amount, shares, from_address
 
     vault_address = "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"
     vault = (
@@ -131,15 +141,24 @@ def test_handle_event_pendle_initiate_withdraw(
     )
 
     event_data["data"] = HexBytes(
-        "0x{:064x}".format(470_000000000000000000)
-        + "{:064x}".format(3076)
-        + "{:064x}".format(600)
+        "0x{:064x}".format(int(1e18))
+        + "{:064x}".format(int(1e18))
+        + "{:064x}".format(int(2000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+        + "{:064x}".format(int(4000*1e6))
     )
 
     # First handle the deposit
     handle_event(vault_address, event_data, "Deposit")
 
     # Now handle initiate withdrawal
+    event_data["data"] = HexBytes(
+        "0x{:064x}".format(int(1e18))
+        + "{:064x}".format(int(1e18))
+        + "{:064x}".format(int(2000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+        + "{:064x}".format(int(4000*1e6))
+    )
     handle_event(vault_address, event_data, "InitiateWithdraw")
 
     user_portfolio = (
@@ -151,7 +170,7 @@ def test_handle_event_pendle_initiate_withdraw(
     )
 
     assert user_portfolio is not None
-    assert user_portfolio.pending_withdrawal == 600  # shares in the withdrawal
+    assert user_portfolio.pending_withdrawal == 4000  # shares in the withdrawal
     assert user_portfolio.status == PositionStatus.ACTIVE
     assert (
         user_portfolio.init_deposit == 0
