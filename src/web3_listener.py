@@ -111,9 +111,9 @@ def _extract_pendle_event(entry):
     
     if entry["topics"][0] == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
         pt_amount = int(data[2:66], 16) / 1e18
-        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
-        shares = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
-        total_amount = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+        sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
         eth_amount = 0
     else:
         pt_amount = int(data[2:66], 16) / 1e18
