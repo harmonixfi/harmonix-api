@@ -3,7 +3,6 @@ import logging
 import uuid
 import contextvars
 
-
 import seqlog
 
 # Define a context variable for the flow ID
