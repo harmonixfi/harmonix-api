@@ -397,7 +397,7 @@ def seed_vaults(session: Session):
             ytd_apy=0,
             apr=0,
             tvl=100,
-            tag="pendle",
+            tags="pendle",
             max_drawdown=0,
             maturity_date="2024-09-26",
             owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
@@ -420,13 +420,14 @@ def seed_vaults(session: Session):
             ytd_apy=0,
             apr=0,
             tvl=0,
-            tag="pendle,new",
+            tags="pendle,new",
             max_drawdown=0,
             maturity_date="2024-12-26",
             owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
             is_active=False,
             strategy_name=constants.PENDLE_HEDGING_STRATEGY,
             pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
+            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f"
         ),
     ]
 
