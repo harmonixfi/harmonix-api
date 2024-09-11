@@ -506,3 +506,8 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26sep2024")
     ).first()
     init_new_vault(session, pendle_rs_26sep)
+
+    pendle_rs_26dec = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26dec2024")
+    ).first()
+    init_new_vault(session, pendle_rs_26dec)
