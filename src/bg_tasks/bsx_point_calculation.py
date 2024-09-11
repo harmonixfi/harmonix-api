@@ -123,11 +123,7 @@ def distribute_points(
     point_distribution = PointDistributionHistory(
         vault_id=vault.id,
         partner_name=partner_name,
-        point=(
-            total_earned_points.total_points
-            if partner_name != constants.EIGENLAYER
-            else total_earned_points.eigen_layer_points
-        ),
+        point=total_earned_points.total_points,
     )
     session.add(point_distribution)
 
@@ -143,7 +139,7 @@ def calculate_point_distributions(vault: Vault):
     ).all()
     logger.info("Total user positions of vault %s: %s", vault.name, len(user_positions))
 
-    partners = json.loads(vault.routes)
+    partners = [constants.BSX]
 
     for partner_name in partners:
         # get earned points for the partner

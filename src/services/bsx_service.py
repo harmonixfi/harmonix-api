@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import List
+from typing import Any, List
 import requests
 from core.config import settings
 from schemas.bsx_point import BSXPoint
@@ -9,8 +9,8 @@ secret = settings.BSX_SECRET
 bsx_base_url = settings.BSX_BASE_API_URL
 
 
-def get_points_earned() -> float:
-    headers = {
+def create_header() -> dict[str, Any]:
+    return {
         "accept": "application/json",
         "accept-language": "en-US,en;q=0.9,vi;q=0.8",
         "bsx-key": api_key,
@@ -29,6 +29,10 @@ def get_points_earned() -> float:
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0",
     }
 
+
+def get_points_earned() -> float:
+    headers = create_header()
+
     response = requests.get(f"{bsx_base_url}/points/trading", headers=headers)
 
     if response.status_code == 200:
@@ -42,25 +46,7 @@ def get_points_earned() -> float:
 def get_list_claim_point() -> List[BSXPoint]:
     try:
         api_url = f"{bsx_base_url}/points/trading"
-        headers = {
-            "accept": "application/json",
-            "accept-language": "en-US,en;q=0.9,vi;q=0.8",
-            "bsx-key": api_key,
-            "bsx-secret": secret,
-            "cache-control": "no-cache",
-            "origin": bsx_base_url,
-            "pragma": "no-cache",
-            "priority": "u=1, i",
-            "referer": bsx_base_url,
-            "sec-ch-ua": '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-site",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0",
-        }
-
+        headers = create_header()
         response = requests.get(api_url, headers=headers)
 
         if response.status_code == 200:
@@ -97,26 +83,8 @@ def get_list_claim_point() -> List[BSXPoint]:
 
 def claim_point(start_at: str, end_at: str):
     try:
-        # Giả sử API endpoint để claim point
         api_url = f"{bsx_base_url}/points/claim"
-        headers = {
-            "accept": "application/json",
-            "accept-language": "en-US,en;q=0.9,vi;q=0.8",
-            "bsx-key": api_key,
-            "bsx-secret": secret,
-            "cache-control": "no-cache",
-            "origin": bsx_base_url,
-            "pragma": "no-cache",
-            "priority": "u=1, i",
-            "referer": bsx_base_url,
-            "sec-ch-ua": '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-site",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36 Edg/127.0.0.0",
-        }
+        headers = create_header()
 
         data = {"start_at": start_at, "end_at": end_at}
         response = requests.post(api_url, headers=headers, json=data)
