@@ -35,6 +35,8 @@ DELTA_NEUTRAL_AEVO_VAULE: float = 8 / 100
 BSX_POINT_VAULE: float = 0.2
 OPTION_YIELD_VALUE: float = 5 / 100
 
+WEEKS_IN_YEAR = 52
+
 
 def get_vault_performance(vault_id: uuid.UUID) -> VaultPerformance:
     statement = (
@@ -185,6 +187,14 @@ def save_pendle_components(
     save_vault_apy_components(vault_id, current_apy, component_values)
 
 
+def calculate_weekly_pnl_in_percentage(profit: float, tvl: float) -> float:
+    return profit / tvl
+
+
+def calculate_annualized_pnl(weekly_pnl_percentage: float, weeks_in_year: int):
+    return pow((weekly_pnl_percentage + 1), weeks_in_year) - 1
+
+
 # Main Execution
 def main():
     try:
@@ -240,8 +250,16 @@ def main():
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
                     bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    # Calculate weekly PnL in percentage
+                    weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
+                        bsx_point_value, vault.tvl
+                    )
+                    # Calculate annualized PnL based on weekly PnL
+                    annualized_pnl = calculate_annualized_pnl(
+                        weekly_pnl_percentage, WEEKS_IN_YEAR
+                    )
                     save_bsx_components(
-                        vault.id, current_apy, wst_eth_value, bsx_point_value
+                        vault.id, current_apy, wst_eth_value, annualized_pnl
                     )
 
                 elif vault.slug == constants.SOLV_VAULT_SLUG:
