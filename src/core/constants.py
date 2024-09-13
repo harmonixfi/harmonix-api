@@ -1,4 +1,6 @@
 from enum import Enum
+
+from web3 import Web3
 from core.config import settings
 
 RENZO = "renzo"
@@ -31,6 +33,8 @@ CHAIN_ETHER_MAINNET = "ethereum"
 CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
+
+FEED_ADDRESS = Web3.to_checksum_address("0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612")
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
@@ -137,8 +141,10 @@ class Campaign(str, Enum):
 class MethodID(str, Enum):
     DEPOSIT = "0x2e2d2984"
     DEPOSIT2 = "0xb6b55f25"
+    DEPOSIT3 = "0x71b8dc69"
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
+    COMPPLETE_WITHDRAWAL2 = "0xe03ff7cb"
 
 
 class UpdateFrequency(str, Enum):

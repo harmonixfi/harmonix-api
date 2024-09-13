@@ -9,7 +9,10 @@ from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vault_performance import VaultPerformance
 from models.vault_performance_history import VaultPerformanceHistory
 from models.vaults import Vault
-from utils.extension_utils import to_tx_aumount
+from utils.extension_utils import (
+    to_amount_pendle,
+    to_tx_aumount,
+)
 
 
 class VaultPerformanceHistoryService:
@@ -136,6 +139,7 @@ class VaultPerformanceHistoryService:
                     [
                         constants.MethodID.DEPOSIT2.value,
                         constants.MethodID.DEPOSIT.value,
+                        constants.MethodID.DEPOSIT3.value,
                     ]
                 )
             )
@@ -149,8 +153,12 @@ class VaultPerformanceHistoryService:
         withdraw_query = (
             select(OnchainTransactionHistory)
             .where(
-                OnchainTransactionHistory.method_id
-                == constants.MethodID.COMPPLETE_WITHDRAWAL.value
+                OnchainTransactionHistory.method_id.in_(
+                    [
+                        constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+                        constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
+                    ]
+                )
             )
             .where(
                 OnchainTransactionHistory.to_address == vault.contract_address.lower()
@@ -160,9 +168,20 @@ class VaultPerformanceHistoryService:
         )
 
         withdraw = self.session.exec(withdraw_query).all()
-
-        total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
-        total_withdraw = sum(to_tx_aumount(tx.input) for tx in withdraw)
+        total_deposit = 0
+        total_withdraw = 0
+        if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+            total_deposit = sum(
+                to_amount_pendle(tx.input, tx.block_number, vault.network_chain)
+                for tx in deposits
+            )
+            total_withdraw = sum(
+                to_amount_pendle(tx.input, tx.block_number, vault.network_chain)
+                for tx in withdraw
+            )
+        else:
+            total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
+            total_withdraw = sum(to_tx_aumount(tx.input) for tx in withdraw)
 
         return total_deposit - total_withdraw
 
