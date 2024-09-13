@@ -36,6 +36,7 @@ rich = "^13.7.1"
 empyrical = "^0.5.5"
 seqlog = "^0.3.31"
 click = "^8.1.7"
+boto3 = "^1.35.17"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.3"
