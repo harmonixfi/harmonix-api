@@ -788,5 +788,5 @@ async def get_tvl_chart_data(session: SessionDep):
         "tvl"
     ].shift().fillna(0)
     weekly_tvl_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
-    result_with_change = weekly_tvl_df.to_dict(orient="records")
-    return result_with_change
+    result = weekly_tvl_df.to_dict(orient="records")
+    return result
