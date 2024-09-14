@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 from sqlalchemy import text
 from sqlmodel import Session, select
@@ -30,9 +30,14 @@ def get_init_dates(vault: Vault) -> List[datetime]:
 
     # Execute the query and retrieve the result
     result = session.exec(raw_query.bindparams(vault_id=vault.id)).one()
-    min_date = result.datetime
+    min_date = datetime(
+        year=result.datetime.year,
+        month=result.datetime.month,
+        day=result.datetime.day,
+        tzinfo=timezone.utc,
+    )
     # min_date = datetime(2024, 6, 13)
-    end_date = datetime.now() - timedelta(days=1)
+    end_date = datetime.now(tz=timezone.utc)
 
     date_list = []
     add_date = 1

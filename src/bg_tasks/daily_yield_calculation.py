@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlmodel import Session
 
 from log import setup_logging_to_console, setup_logging_to_file
@@ -23,7 +23,7 @@ def daily_yield_calculation():
     service = VaultPerformanceHistoryService(session)
     vaults = service.get_active_vaults()
 
-    datetimeNow = datetime.now()
+    datetimeNow = datetime.now(tz=timezone.utc)
     for vault in vaults:
         if (
             vault.update_frequency == constants.UpdateFrequency.weekly.value
