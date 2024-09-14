@@ -273,7 +273,7 @@ def main():
                     if pendle_data:
                         fixed_value = pendle_data[0].implied_apy
 
-                    hyperliquid_point_value = 10.4 / 100
+                    hyperliquid_point_value = 0
                     save_pendle_components(
                         vault.id, current_apy, fixed_value, hyperliquid_point_value
                     )
