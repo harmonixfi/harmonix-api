@@ -189,8 +189,6 @@ class Settings(BaseSettings):
             path=f"{info.data.get('POSTGRES_DB') or ''}",
         )
 
-    TEST_API_BASE: KMSSecretStr
-
     class Config:
 
         case_sensitive = True
