@@ -37,7 +37,7 @@ def get_init_dates(vault: Vault) -> List[datetime]:
         tzinfo=timezone.utc,
     )
     # min_date = datetime(2024, 6, 13)
-    end_date = datetime.now(tz=timezone.utc) - timedelta(days=1)
+    end_date = datetime.now(tz=timezone.utc)
 
     date_list = []
     add_date = 1
