@@ -21,6 +21,7 @@ from services.deposit_service import DepositService
 from services.market_data import get_price
 from services.vault_performance_history_service import VaultPerformanceHistoryService
 from utils.extension_utils import to_tx_aumount
+from pytz import timezone
 
 router = APIRouter()
 
@@ -668,3 +669,83 @@ async def get_user_chart_data(session: SessionDep):
     ]
 
     return yield_data
+
+
+@router.get("/api/tvl-data-chart/test")
+async def get_tvl_chart_data(session: SessionDep):
+    statement = select(Vault).where(Vault.is_active)
+    vaults = session.exec(statement).all()
+    vault_ids = [vault.id for vault in vaults]
+
+    vaults_SOLV = [
+        vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
+    ]
+
+    last_friday_for_daily_vault_raw_query = text(
+        """
+    SELECT DISTINCT ON (vp.vault_id, DATE_TRUNC('week', vp.datetime + INTERVAL '1 day')) 
+        vp.vault_id,
+        vp.total_locked_value,
+        vp.datetime
+    FROM vault_performance vp
+    JOIN vaults v ON vp.vault_id = v.id
+    WHERE v.id IN (
+        SELECT id
+        FROM vaults
+        WHERE update_frequency = 'daily' and is_active= True
+    )
+    AND EXTRACT(DOW FROM vp.datetime) = 5
+    """
+    )
+
+    result = session.exec(last_friday_for_daily_vault_raw_query)
+    last_friday_for_daily_vaults = [
+        {
+            "vault_id": row[0],
+            "tvl": row[1],
+            "date": pd.to_datetime(row[2])
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            .tz_localize("UTC"),
+        }
+        for row in result.all()
+    ]
+
+    friday_vault_raw_query = text(
+        """
+    SELECT
+        vp.vault_id,
+        vp.total_locked_value,
+        vp.datetime
+    FROM vault_performance vp
+	JOIN vaults v ON vp.vault_id = v.id
+    WHERE v.id IN (
+        SELECT id
+        FROM vaults
+        WHERE update_frequency = 'weekly' and is_active= True
+    )
+    AND EXTRACT(DOW FROM vp.datetime) = 5 
+    """
+    )
+    result = session.exec(friday_vault_raw_query)
+    friday_vaults = [
+        {
+            "vault_id": row[0],
+            "tvl": row[1],
+            "date": pd.to_datetime(row[2])
+            .replace(hour=0, minute=0, second=0, microsecond=0)
+            .tz_localize("UTC"),
+        }
+        for row in result.all()
+    ]
+
+    if last_friday_for_daily_vaults and friday_vaults:
+        last_day_of_daily_vault = max(
+            last_friday_for_daily_vaults, key=lambda x: x["date"]
+        )["date"]
+
+        last_day_of_weekly_vault = max(
+            last_friday_for_daily_vaults, key=lambda x: x["date"]
+        )["date"]
+        if last_day_of_daily_vault > last_day_of_weekly_vault:
+            friday_vaults.add({})
+    return friday_vaults
