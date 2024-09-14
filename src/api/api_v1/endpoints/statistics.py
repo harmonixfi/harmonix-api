@@ -751,23 +751,23 @@ async def get_tvl_chart_data(session: SessionDep):
         if last_day_of_daily_vault > last_day_of_weekly_vault:
             friday_vaults.sort(key=itemgetter("vault_id", "date"))
 
-        grouped_vaults = groupby(friday_vaults, key=itemgetter("vault_id"))
+            grouped_vaults = groupby(friday_vaults, key=itemgetter("vault_id"))
 
-        last_daily_vaults = [
-            max(vaults, key=itemgetter("date")) for _, vaults in grouped_vaults
-        ]
+            last_daily_vaults = [
+                max(vaults, key=itemgetter("date")) for _, vaults in grouped_vaults
+            ]
 
-        vault_add = []
-        for vault in last_daily_vaults:
-            vault_add.append(
-                {
-                    "vault_id": vault["vault_id"],
-                    "tvl": vault["tvl"],
-                    "date": last_day_of_daily_vault,
-                }
-            )
+            vault_add = []
+            for vault in last_daily_vaults:
+                vault_add.append(
+                    {
+                        "vault_id": vault["vault_id"],
+                        "tvl": vault["tvl"],
+                        "date": last_day_of_daily_vault,
+                    }
+                )
 
-        friday_vaults.extend(vault_add)
+            friday_vaults.extend(vault_add)
     friday_vaults.sort(key=itemgetter("date"))
     last_friday_for_daily_vaults.sort(key=itemgetter("date"))
     joined_vaults = last_friday_for_daily_vaults + friday_vaults
