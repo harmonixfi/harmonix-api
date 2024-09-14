@@ -1,22 +1,33 @@
+import json
 from core.config import Settings
 from core.kms import decrypt, encrypt
 from core.kms_client import KmsClient
 from core.kms_secret import decrypt_kms_secrets
 
 
+def load_config(fname="./data/kms.json"):
+    config = None
+    with open(fname) as f:
+        config = json.load(f)
+    return config
+
+
 if __name__ == "__main__":
     setting = Settings()
     settting = decrypt_kms_secrets(Settings())
     print(f"Secret text: {settting.TEST_API_BASE}")
-    secret_text = "abc"
-    kms_client = KmsClient()
-    cipher_text = encrypt(secret_text, kms_client)
+    # secret_text = "abc"
+    # kms_client = KmsClient()
+    # cipher_text = encrypt(secret_text, kms_client)
 
-    text = decrypt(
-        b"\x94\x0f\xda\x00B\x99\xba\x1c\x98\x13/j\x1dT\xbfu\xcd\xac\xe9b\xd9\xf8C\xef\x1c[\xa8xGZ\x1d\xe7/k\x9d\xa2\xea]\x14Qx0\xb1\xdd\x9f0\xbc\xa0\x88M7\xb7\xc5\x16\xb9\xe7\xbf\xe0\xff\x88\x8b[\xf8\xc63\xdf\xa2\xe4\xd29\xf3\x14\xac\xfeV\xa4\x06x\xba\x95\x80\xc3)\x9f\x80;\x1cg7D\xd4}\xeez5\x08\x8bH\x19\xf6\xc8\x95&\x02\xf8[N\xc9\x06\xcf\xfad7\xf3\xc5\x87x\x8d\xfe\xed@\xe6Fw\xfa\x0bj\x07\xa5\xdd\x1e\xf4:1\x7f[\x93\xda\xa8\x02?\xc9Q\xbdj\xde\xdbJ~\xa4I\xa0S\xdd(/\xfdCr\x8a\xd9\x10\x90U\xb9L\xc2\x9f\xc7\xad\xdb\xf4\xa5\x90\x9b\xd8t\x87h\xa1\x8f\xd0y\xbd\xdb\xf9\xa6#\x86\x19\xfd\xcd\xc7\xfbZK\xe4(\xd6\x044\xff\x1a\xd15\xd4\xd9\x11\xa9\xd0\x97] )\xeb6\xfa\xd2\xb16\xbb,\xff\xc1\xa3G>3\x8f\xd8\xf5\xb86\xfa\x88\xcd<\xff\xd8NK\xbeWT\xc9\xe7\xc8\xc1\xb4\xc4k\x8c\x8fdAg",
-        kms_client,
-    )
+    # config = load_config()
+    # aws_access_key = config["key"]
 
-    print(f"Secret text: {secret_text}")
-    print(f"cipher_text: {cipher_text}")
-    print(f"Unencrypted secret text: {text}")
+    # binary_data = bytes.fromhex(aws_access_key)
+    # text = decrypt(
+    #     binary_data,
+    #     kms_client,
+    # )
+    # print(f"Secret text: {secret_text}")
+    # print(f"cipher_text: {cipher_text}")
+    # print(f"Unencrypted secret text: {text}")

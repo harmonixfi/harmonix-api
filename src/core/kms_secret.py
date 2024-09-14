@@ -62,6 +62,15 @@ class KMSSecretStr:
         return self._secret_value
 
 
+def try_parse_hex_to_KMSSecretStr(aws_access_key: str) -> tuple[bool, KMSSecretStr]:
+    try:
+        binary_data = bytes.fromhex(aws_access_key)
+        secret = KMSSecretStr(binary_data)
+        return True, secret
+    except ValueError:
+        return False, None
+
+
 def decrypt_kms_secrets(settings: BaseSettings, kms_client: Optional[KmsClient] = None):
     """
     Decrypts all of the KMSSecretStr values in the settings
@@ -75,10 +84,10 @@ def decrypt_kms_secrets(settings: BaseSettings, kms_client: Optional[KmsClient] 
         )
 
     for k, v in settings.__dict__.items():
-        if k == "TEST_API_BASE":
-            KMSSecretStr(v).decrypt_secret_value(kms_client)
-
-        if isinstance(v, KMSSecretStr):
-            v.decrypt_secret_value(kms_client)
+        if isinstance(v, str) and "KMS_" in v:
+            is_valid, secret = try_parse_hex_to_KMSSecretStr(v[4:])
+            if is_valid:
+                secret.decrypt_secret_value(kms_client)
+                setattr(settings, k, secret)
 
     return settings
