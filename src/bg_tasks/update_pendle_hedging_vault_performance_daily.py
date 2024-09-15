@@ -260,7 +260,7 @@ def calculate_performance(
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
-        datetime=today,
+        datetime=datetime.now(timezone.utc),
         total_locked_value=total_balance,
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,

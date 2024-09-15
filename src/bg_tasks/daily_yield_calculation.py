@@ -8,7 +8,6 @@ from core import constants
 from sqlmodel import Session, select
 
 from services.vault_performance_history_service import VaultPerformanceHistoryService
-from utils.web3_utils import parse_hex_to_int
 
 
 logging.basicConfig(level=logging.INFO)

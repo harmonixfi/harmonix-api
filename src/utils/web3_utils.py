@@ -43,12 +43,21 @@ def get_vault_contract(
     return vault_contract, w3
 
 
-def get_current_pps(vault_contract: Contract, decimals = 1e6):
+def get_current_pps(vault_contract: Contract, decimals=1e6):
     pps = vault_contract.functions.pricePerShare().call()
     return pps / decimals
 
 
-def get_current_tvl(vault_contract: Contract, decimals = 1e6):
+def get_current_pps_by_block(
+    vault_contract: Contract,
+    block_number,
+    decimals=1e6,
+):
+    pps = vault_contract.functions.pricePerShare().call(block_identifier=block_number)
+    return pps / decimals
+
+
+def get_current_tvl(vault_contract: Contract, decimals=1e6):
     tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / decimals
