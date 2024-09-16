@@ -68,7 +68,7 @@ def get_vault_performance(vault_id: uuid.UUID) -> VaultPerformance:
     return performance
 
 
-def calculate_funding_fees(current_apy, rs_eth_value, ae_usd_value):
+def calculate_funding_fees(current_apy, rs_eth_value, ae_usd_value) -> float:
     return current_apy - rs_eth_value - ae_usd_value
 
 
@@ -109,7 +109,7 @@ def main():
                         current_apy,
                         rs_eth_value,
                         ae_usd_value,
-                        funding_fee_value,
+                        float(funding_fee_value),
                         session,
                     )
                     kelpdao_component_service.save()
@@ -121,15 +121,15 @@ def main():
                         current_apy, ez_eth_value, ae_usd_value
                     )
 
-                    renzo__component_service = RenzoApyComponentService(
+                    renzo_component_service = RenzoApyComponentService(
                         vault.id,
                         current_apy,
                         ez_eth_value,
                         ae_usd_value,
-                        funding_fee_value,
+                        float(funding_fee_value),
                         session,
                     )
-                    renzo__component_service.save()
+                    renzo_component_service.save()
 
                 elif vault.slug == constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
@@ -142,7 +142,7 @@ def main():
                         current_apy,
                         wst_eth_value,
                         ae_usd_value,
-                        funding_fee_value,
+                        float(funding_fee_value),
                         session,
                     )
                     delta_neutral_component_service.save()
@@ -185,17 +185,16 @@ def main():
                     annualized_pnl = calculate_annualized_pnl(
                         weekly_pnl_percentage, WEEKS_IN_YEAR
                     )
-                    funding_fee_value = (
-                        calculate_funding_fees(
-                            current_apy, wst_eth_value, bsx_point_value
-                        ),
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, wst_eth_value, bsx_point_value
                     )
+
                     bsx_component_service = BSXApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
-                        annualized_pnl,
-                        funding_fee_value,
+                        float(annualized_pnl),
+                        float(funding_fee_value),
                         session,
                     )
                     bsx_component_service.save()
@@ -219,7 +218,7 @@ def main():
                         current_apy,
                         fixed_value,
                         hyperliquid_point_value,
-                        funding_fee_value,
+                        float(funding_fee_value),
                         session,
                     )
                     pendle_component_service.save()
