@@ -36,13 +36,17 @@ def main():
 
         for vault in vaults:
             decimals = 1e6
-            if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            if vault.slug == constants.SOLV_VAULT_SLUG:
+                abi = "solv"
+                decimals = 1e8
+            elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
                 abi = "RockOnyxDeltaNeutralVault"
             elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
                 abi = "rockonyxstablecoin"
+            elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+                abi = "pendlehedging"
             else:
-                abi = "solv"
-                decimals = 1e8
+                raise ValueError("Not support vault")
 
             vault_contract, _ = get_vault_contract(vault, abi)
             current_tvl = get_current_tvl(vault_contract, decimals)

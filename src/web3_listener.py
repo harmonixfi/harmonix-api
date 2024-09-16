@@ -27,6 +27,7 @@ from models import (
     Vault,
 )
 from models.vaults import NetworkChain
+from services.kyberswap import KyberSwapService
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
 
@@ -95,12 +96,42 @@ def _extract_delta_neutral_event(entry):
     return amount, shares, from_address
 
 
+def _extract_pendle_event(entry):
+    # Parse the account parameter from the topics field
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+
+    # token_in = None
+    # if len(entry["topics"]) >= 3:
+    #     token_in = f'0x{entry["topics"][2].hex()[26:]}'
+
+    # Parse the amount and shares parameters from the data field
+    data = entry["data"].hex()
+    
+    if entry["topics"][0] == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
+        pt_amount = int(data[2:66], 16) / 1e18
+        sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
+        eth_amount = 0
+    else:
+        pt_amount = int(data[2:66], 16) / 1e18
+        eth_amount = int(data[66 : 66 + 64], 16) / 1e18
+        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
+        shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+
+    return pt_amount, eth_amount, sc_amount, total_amount, shares, from_address
+
+
 def handle_deposit_event(
     user_portfolio: Optional[UserPortfolio],
     value,
     from_address,
     vault: Vault,
     latest_pps,
+    shares,
     *args,
     **kwargs,
 ):
@@ -118,7 +149,7 @@ def handle_deposit_event(
             pnl=0,
             status=PositionStatus.ACTIVE,
             trade_start_date=datetime.now(timezone.utc),
-            total_shares=value / latest_pps,
+            total_shares=shares,
         )
         session.add(user_portfolio)
         logger.info(f"User with address {from_address} added to user_portfolio table")
@@ -131,11 +162,9 @@ def handle_deposit_event(
         user_portfolio.entry_price = calculate_avg_entry_price(
             user_portfolio, latest_pps, value
         )
-        user_portfolio.total_shares += value / latest_pps
+        user_portfolio.total_shares += shares
         session.add(user_portfolio)
-        logger.info(
-            f"User deposit {from_address}, amount = {value}, shares = {value / latest_pps}"
-        )
+        logger.info(f"User deposit {from_address}, amount = {value}, shares = {shares}")
         logger.info(f"User with address {from_address} updated in user_portfolio table")
 
     # Update TVL realtime when user deposit to vault
@@ -231,6 +260,9 @@ def handle_event(vault_address: str, entry, event_name):
         )
     logger.info(f"Processing event {event_name} for vault {vault_address} {vault.name}")
 
+    # init kyberswap to get price
+    kyberswap_service = KyberSwapService(base_url=settings.KYBERSWAP_BASE_API_URL)
+
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
         select(PricePerShareHistory)
@@ -250,6 +282,15 @@ def handle_event(vault_address: str, entry, event_name):
     elif vault.slug == constants.SOLV_VAULT_SLUG:
         value, shares, from_address = _extract_solv_event(entry)
         latest_pps = round(value / shares, 4)
+    elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        _, eth_amount, sc_amount, value, shares, from_address = _extract_pendle_event(entry)
+        logger.info(
+            "Recieving data from pendle vault: %s, %s, %s from %s",
+            eth_amount,
+            sc_amount,
+            shares,
+            from_address,
+        )
     else:
         raise ValueError("Invalid vault address")
 
@@ -306,6 +347,18 @@ EVENT_FILTERS = {
         "event": "InitiateWithdraw",
     },
     settings.SOLV_COMPLETE_WITHDRAW_EVENT_TOPIC: {
+        "event": "Withdrawn",
+    },
+    settings.PENDLE_DEPOSIT_EVENT_TOPIC: {
+        "event": "Deposit",
+    },
+    settings.PENDLE_FORCE_REQUEST_FUND_EVENT_TOPIC: {
+        "event": "InitiateWithdraw",
+    },
+    settings.PENDLE_REQUEST_FUND_EVENT_TOPIC: {
+        "event": "InitiateWithdraw",
+    },
+    settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC: {
         "event": "Withdrawn",
     },
 }

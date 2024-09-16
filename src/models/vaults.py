@@ -56,6 +56,9 @@ class VaultBase(sqlmodel.SQLModel):
     strategy_name: str | None = None
     is_active: bool | None = None
     owner_wallet_address: str | None = None
+    maturity_date: str | None = None
+    pendle_market_address: str | None = None
+    underlying_asset: str | None = None
     order: int | None = None
     tags: str | None = None
 
@@ -79,3 +82,4 @@ class Vault(VaultBase, table=True):
     )
     vault_group: VaultGroup | None = sqlmodel.Relationship(back_populates="vaults")
     update_frequency: str | None = sqlmodel.Field(default="daily")
+    pt_address: str | None = None

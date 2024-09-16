@@ -382,6 +382,53 @@ def seed_vaults(session: Session):
             is_active=False,
             strategy_name=constants.STAKING_STRATEGY,
         ),
+        Vault(
+            name="Koi Paradise with Pendle",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            contract_address="0xC5d824572E20BB73DE991dC31b9802Fcb0A64D1b",
+            slug="arbitrum-pendle-rseth-26sep2024",
+            routes=None,
+            category="real_yield",
+            underlying_asset="rsETH",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=5.789,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=100,
+            tags="pendle",
+            max_drawdown=0,
+            maturity_date="2024-09-26",
+            owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
+            is_active=False,
+            strategy_name=constants.PENDLE_HEDGING_STRATEGY,
+            pt_address="0x30c98c0139b62290e26ac2a2158ac341dcaf1333",
+        ),
+        Vault(
+            name="Koi Paradise with Pendle",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            contract_address="0xC71BA0E3C1FB9CBcB15fbC677e78C99aC1bc590B",
+            slug="arbitrum-pendle-rseth-26dec2024",
+            routes=None,
+            category="real_yield",
+            underlying_asset="rsETH",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            tags="pendle,new",
+            max_drawdown=0,
+            maturity_date="2024-12-26",
+            owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
+            is_active=False,
+            strategy_name=constants.PENDLE_HEDGING_STRATEGY,
+            pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
+            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f"
+        ),
     ]
 
     for vault in vaults:
@@ -454,3 +501,13 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
     ).first()
     init_new_vault(session, solv_vault1)
+
+    pendle_rs_26sep = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26sep2024")
+    ).first()
+    init_new_vault(session, pendle_rs_26sep)
+
+    pendle_rs_26dec = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26dec2024")
+    ).first()
+    init_new_vault(session, pendle_rs_26dec)

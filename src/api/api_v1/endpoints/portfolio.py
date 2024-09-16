@@ -24,6 +24,7 @@ router = APIRouter()
 rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
+pendlehedging_vault_abi = read_abi("pendlehedging")
 
 
 def create_vault_contract(vault: Vault):
@@ -39,6 +40,10 @@ def create_vault_contract(vault: Vault):
         )
     elif vault.slug == constants.SOLV_VAULT_SLUG:
         contract = w3.eth.contract(address=vault.contract_address, abi=solv_vault_abi)
+    elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        contract = w3.eth.contract(
+            address=vault.contract_address, abi=pendlehedging_vault_abi
+        )
     else:
         raise HTTPException(status_code=400, detail="Invalid vault strategy")
 
@@ -123,7 +128,10 @@ async def get_portfolio_info(
             vault_network=vault.network_chain,
         )
 
-        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+        if vault.strategy_name in {
+            constants.DELTA_NEUTRAL_STRATEGY,
+            constants.PENDLE_HEDGING_STRATEGY,
+        }:
             price_per_share = vault_contract.functions.pricePerShare().call()
             shares = vault_contract.functions.balanceOf(
                 Web3.to_checksum_address(user_address)
@@ -155,6 +163,7 @@ async def get_portfolio_info(
         position.total_balance = (
             shares * price_per_share + pending_withdrawal * price_per_share
         )
+
         position.pnl = position.total_balance - position.init_deposit
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
