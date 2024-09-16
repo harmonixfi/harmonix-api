@@ -202,7 +202,7 @@ def main():
                 elif vault.slug == constants.SOLV_VAULT_SLUG:
                     upsert_vault_apy(vault.id, current_apy)
 
-                elif vault.slug == constants.PENDLE_VAULT_VAULT_SLUG:
+                elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
                     pendle_data = pendle_service.get_market(
                         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
                     )
