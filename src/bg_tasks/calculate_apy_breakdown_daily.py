@@ -29,9 +29,8 @@ logger = logging.getLogger("calculate_apy_breakdown_daily")
 session = Session(engine)
 
 ALLOCATION_RATIO: float = 1 / 2
-KEYDAO_AEVO_VAULE: float = 8 / 100
+AEUSD_VAULT_APY: float = 8 / 100
 RENZO_AEVO_VAULE: float = 8 / 100
-DELTA_NEUTRAL_AEVO_VAULE: float = 8 / 100
 BSX_POINT_VAULE: float = 0.2
 OPTION_YIELD_VALUE: float = 5 / 100
 
@@ -97,41 +96,47 @@ def save_vault_apy_components(
 
 
 def save_kelpdao_components(
-    vault_id: uuid.UUID, current_apy: float, rs_eth_value: float, ae_usd_value: float
+    vault_id: uuid.UUID,
+    current_apy: float,
+    rs_eth_value: float,
+    ae_usd_value: float,
+    funding_fee_value: float,
 ):
 
     component_values = {
         APYComponent.RS_ETH: rs_eth_value,
         APYComponent.AE_USD: ae_usd_value,
-        APYComponent.FUNDING_FEES: calculate_funding_fees(
-            current_apy, rs_eth_value, ae_usd_value
-        ),
+        APYComponent.FUNDING_FEES: funding_fee_value,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
 
 def save_renzo_components(
-    vault_id: uuid.UUID, current_apy: float, ez_eth_value: float, ae_usd_value: float
+    vault_id: uuid.UUID,
+    current_apy: float,
+    ez_eth_value: float,
+    ae_usd_value: float,
+    funding_fee_value: float,
 ):
     component_values = {
         APYComponent.EZ_ETH: ez_eth_value,
         APYComponent.AE_USD: ae_usd_value,
-        APYComponent.FUNDING_FEES: calculate_funding_fees(
-            current_apy, ez_eth_value, ae_usd_value
-        ),
+        APYComponent.FUNDING_FEES: funding_fee_value,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
 
 def save_delta_neutral_components(
-    vault_id: uuid.UUID, current_apy: float, wst_eth_value: float, ae_usd_value: float
+    vault_id: uuid.UUID,
+    current_apy: float,
+    wst_eth_value: float,
+    ae_usd_value: float,
+    funding_fee_value: float,
 ):
     component_values = {
         APYComponent.WST_ETH: wst_eth_value,
         APYComponent.AE_USD: ae_usd_value,
-        APYComponent.FUNDING_FEES: calculate_funding_fees(
-            current_apy, wst_eth_value, ae_usd_value
-        ),
+        APYComponent.FUNDING_FEES: funding_fee_value,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
@@ -141,13 +146,12 @@ def save_bsx_components(
     current_apy: float,
     wst_eth_value: float,
     bsx_point_value: float,
+    funding_fee_value: float,
 ):
     component_values = {
         APYComponent.WST_ETH: wst_eth_value,
         APYComponent.BSX_POINT: bsx_point_value,
-        APYComponent.FUNDING_FEES: calculate_funding_fees(
-            current_apy, wst_eth_value, bsx_point_value
-        ),
+        APYComponent.FUNDING_FEES: funding_fee_value,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
@@ -158,15 +162,13 @@ def save_option_wheel_components(
     wst_eth_value: float,
     usde_usdc_value: float,
     option_yield_vaule: float,
+    eth_gains: float,
 ):
     component_values = {
         APYComponent.WST_ETH: wst_eth_value,
         APYComponent.USDCe_USDC: usde_usdc_value,
         APYComponent.OPTIONS_YIELD: option_yield_vaule,
-        APYComponent.ETH_GAINS: current_apy
-        - wst_eth_value
-        - usde_usdc_value
-        - option_yield_vaule,
+        APYComponent.ETH_GAINS: eth_gains,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
@@ -176,13 +178,12 @@ def save_pendle_components(
     current_apy: float,
     fixed_value: float,
     hyperliquid_point_value: float,
+    funding_fee_value: float,
 ):
     component_values = {
         APYComponent.FIXED_YIELD: fixed_value,
         APYComponent.BSX_POINT: hyperliquid_point_value,
-        APYComponent.FUNDING_FEES: calculate_funding_fees(
-            current_apy, fixed_value, hyperliquid_point_value
-        ),
+        APYComponent.FUNDING_FEES: funding_fee_value,
     }
     save_vault_apy_components(vault_id, current_apy, component_values)
 
@@ -215,23 +216,44 @@ def main():
                     constants.KEYDAO_VAULT_ARBITRUM_SLUG,
                 ]:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
-                    ae_usd_value = KEYDAO_AEVO_VAULE * ALLOCATION_RATIO
+                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, rs_eth_value, ae_usd_value
+                    )
                     save_kelpdao_components(
-                        vault.id, current_apy, rs_eth_value, ae_usd_value
+                        vault.id,
+                        current_apy,
+                        rs_eth_value,
+                        ae_usd_value,
+                        funding_fee_value,
                     )
 
                 elif vault.slug == constants.RENZO_VAULT_SLUG:
                     ez_eth_value = renzo_service.get_apy() * ALLOCATION_RATIO
                     ae_usd_value = RENZO_AEVO_VAULE * ALLOCATION_RATIO
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, ez_eth_value, ae_usd_value
+                    )
                     save_renzo_components(
-                        vault.id, current_apy, ez_eth_value, ae_usd_value
+                        vault.id,
+                        current_apy,
+                        ez_eth_value,
+                        ae_usd_value,
+                        funding_fee_value,
                     )
 
                 elif vault.slug == constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
-                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * ALLOCATION_RATIO
+                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, wst_eth_value, ae_usd_value
+                    )
                     save_delta_neutral_components(
-                        vault.id, current_apy, wst_eth_value, ae_usd_value
+                        vault.id,
+                        current_apy,
+                        wst_eth_value,
+                        ae_usd_value,
+                        funding_fee_value,
                     )
 
                 elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
@@ -242,13 +264,20 @@ def main():
                         constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
                     )
                     option_yield_value = OPTION_YIELD_VALUE
-                    ae_usd_value = DELTA_NEUTRAL_AEVO_VAULE * ALLOCATION_RATIO
+                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                    eth_gains_value = (
+                        current_apy
+                        - wst_eth_value
+                        - usde_usdc_value
+                        - option_yield_value
+                    )
                     save_option_wheel_components(
                         vault.id,
                         current_apy,
                         wst_eth_value,
                         usde_usdc_value,
                         option_yield_value,
+                        eth_gains_value,
                     )
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
@@ -262,8 +291,17 @@ def main():
                     annualized_pnl = calculate_annualized_pnl(
                         weekly_pnl_percentage, WEEKS_IN_YEAR
                     )
+                    funding_fee_value = (
+                        calculate_funding_fees(
+                            current_apy, wst_eth_value, bsx_point_value
+                        ),
+                    )
                     save_bsx_components(
-                        vault.id, current_apy, wst_eth_value, annualized_pnl
+                        vault.id,
+                        current_apy,
+                        wst_eth_value,
+                        annualized_pnl,
+                        funding_fee_value,
                     )
 
                 elif vault.slug == constants.SOLV_VAULT_SLUG:
@@ -278,8 +316,15 @@ def main():
                         fixed_value = pendle_data[0].implied_apy
 
                     hyperliquid_point_value = 0
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, fixed_value, hyperliquid_point_value
+                    )
                     save_pendle_components(
-                        vault.id, current_apy, fixed_value, hyperliquid_point_value
+                        vault.id,
+                        current_apy,
+                        fixed_value,
+                        hyperliquid_point_value,
+                        funding_fee_value,
                     )
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
