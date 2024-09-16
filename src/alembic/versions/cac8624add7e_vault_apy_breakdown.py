@@ -1,8 +1,8 @@
 """vault_apy_breakdown
 
-Revision ID: e940f6b1508d
-Revises: 41409ced74bc
-Create Date: 2024-09-07 15:04:33.212711
+Revision ID: cac8624add7e
+Revises: 56ef659cac65
+Create Date: 2024-09-16 21:02:41.827235
 
 """
 
@@ -14,8 +14,8 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "e940f6b1508d"
-down_revision: Union[str, None] = "41409ced74bc"
+revision: str = "cac8624add7e"
+down_revision: Union[str, None] = "56ef659cac65"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
