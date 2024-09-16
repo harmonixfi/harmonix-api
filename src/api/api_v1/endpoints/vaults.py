@@ -333,7 +333,6 @@ async def get_vault_performance(session: SessionDep):
 
 @router.get("/apy-breakdown/{vault_id}")
 def get_apy_breakdown(session: SessionDep, vault_id: str):
-
     statement = select(Vault).where(Vault.id == vault_id)
     vault = session.exec(statement).first()
     if vault is None:
@@ -345,10 +344,12 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     statement = select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
     vault_apy = session.exec(statement).first()
     if vault_apy is None:
-        return []
-    data = [
-        {component.component_name: component.component_apy}
-        for component in vault_apy.apy_components
-    ]
+        return {}
 
+    # Aggregate all components into a single dictionary
+    data = {
+        component.component_name: component.component_apy
+        for component in vault_apy.apy_components
+    }
+    data["apy"] = vault_apy.total_apy
     return data
