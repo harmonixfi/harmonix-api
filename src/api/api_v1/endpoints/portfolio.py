@@ -2,6 +2,7 @@ import datetime
 from typing import List
 
 from fastapi import APIRouter, HTTPException, Query
+from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
 
@@ -48,22 +49,21 @@ def get_user_earned_points(
     session: Session, position: UserPortfolio
 ) -> List[schemas.EarnedPoints]:
     user_points = session.exec(
-        select(UserPoints)
+        select(
+            UserPoints.partner_name.label("partner_name"),
+            func.sum(UserPoints.points).label("points")
+        )
         .where(UserPoints.vault_id == position.vault_id)
         .where(UserPoints.wallet_address == position.user_address.lower())
+        .group_by(UserPoints.partner_name)
     ).all()
-
     earned_points = []
     for user_point in user_points:
         earned_points.append(
             schemas.EarnedPoints(
                 name=user_point.partner_name,
                 point=user_point.points,
-                created_at=(
-                    custom_encoder(user_point.created_at)
-                    if user_point.updated_at is None
-                    else custom_encoder(user_point.updated_at)
-                ),
+                created_at=None,
             )
         )
 
