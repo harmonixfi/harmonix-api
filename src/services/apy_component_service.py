@@ -62,13 +62,13 @@ class APYComponentService:
         if component:
             component.component_apy = component_apy
         else:
-            new_component = VaultAPYComponent(
+            component = VaultAPYComponent(
                 vault_apy_breakdown_id=vault_apy_breakdown_id,
                 component_name=component_name,
                 component_apy=component_apy,
             )
 
-        self.session.add(new_component)
+        self.session.add(component)
 
 
 class KelpDaoComponentService(APYComponentService):

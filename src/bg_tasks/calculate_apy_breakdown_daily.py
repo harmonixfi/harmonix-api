@@ -45,6 +45,21 @@ OPTION_YIELD_VALUE: float = 5 / 100
 WEEKS_IN_YEAR = 52
 
 
+def upsert_vault_apy(vault_id: uuid.UUID, total_apy: float) -> VaultAPYBreakdown:
+    vault_apy = session.exec(
+        select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
+    ).first()
+
+    if not vault_apy:
+        vault_apy = VaultAPYBreakdown(vault_id=vault_id)
+
+    vault_apy.total_apy = total_apy
+    session.add(vault_apy)
+    session.commit()
+
+    return vault_apy
+
+
 def get_vault_performance(vault_id: uuid.UUID) -> VaultPerformance:
     statement = (
         select(VaultPerformance)
