@@ -351,5 +351,5 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
         component.component_name: component.component_apy
         for component in vault_apy.apy_components
     }
-    data["apy"] = vault_apy.total_apy
+    data["APY"] = vault_apy.total_apy
     return data
