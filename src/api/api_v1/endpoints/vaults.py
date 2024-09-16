@@ -5,6 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, and_, select, or_
 
+from models.vault_apy_breakdown import VaultAPYBreakdown
 import schemas
 from api.api_v1.deps import SessionDep
 from core import constants
@@ -341,7 +342,7 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
             detail="The data not found in the database.",
         )
 
-    statement = select(VaultAPY).where(VaultAPY.vault_id == vault_id)
+    statement = select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
     vault_apy = session.exec(statement).first()
     if vault_apy is None:
         return []

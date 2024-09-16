@@ -30,6 +30,12 @@ CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
 
+CAMELOT_LP_POOL = {
+    "WST_ETH_ADDRESS": "0xdEb89DE4bb6ecf5BFeD581EB049308b52d9b2Da7",
+    "USDE_USDC_ADDRESS": "0xc23f308CF1bFA7efFFB592920a619F00990F8D74",
+}
+
+
 SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
 BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
 KEYDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"

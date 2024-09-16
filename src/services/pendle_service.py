@@ -2,8 +2,16 @@ from typing import List
 import requests
 from core.config import settings
 from schemas.pendle_market import PendleMarket
+from datetime import datetime, timezone
 
 url = settings.PENDLE_API_URL
+
+# authen Pendle
+signature = {
+    "r": "0x3459ec392736749e9b0118b298be049173a3752fe07966efec84d973c1540934",
+    "s": "0x5d3f866b1eb0d679784882e8d0f8f5e5076a9aca95f889ac5adb86ca711ebbb5",
+    "v": 28,
+}
 
 
 def get_market(
@@ -33,7 +41,7 @@ def get_market(
         raise Exception(f"Request failed with status {response.status_code}")
 
 
-def get_user_points():
+def get_user_points(user_address: str = "0x4328Ed031d6A750ff278bd80B01A9045faE4be38"):
     url = "https://api-ui.hyperliquid.xyz/info"
 
     headers = {
@@ -55,14 +63,10 @@ def get_user_points():
     }
 
     data = {
-        "signature": {
-            "r": "0x3459ec392736749e9b0118b298be049173a3752fe07966efec84d973c1540934",
-            "s": "0x5d3f866b1eb0d679784882e8d0f8f5e5076a9aca95f889ac5adb86ca711ebbb5",
-            "v": 28,
-        },
-        "timestamp": 1725622234,
+        "signature": signature,
+        "timestamp": datetime.now(timezone.utc).timestamp(),
         "type": "userPoints",
-        "user": "0x4328Ed031d6A750ff278bd80B01A9045faE4be38",
+        "user": user_address,
     }
 
     response = requests.post(url, headers=headers, json=data)

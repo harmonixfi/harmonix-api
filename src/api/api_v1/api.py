@@ -7,7 +7,6 @@ from api.api_v1.endpoints import (
     referral,
     partners,
     healthz,
-    apy_breakdown,
 )
 
 api_router = APIRouter()

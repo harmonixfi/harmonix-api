@@ -1,6 +1,0 @@
-{
-  "aws_access_key": "AKIAW3MEFB7NVALNQFG3",
-  "aws_secret_access_key": "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",
-  "aws_kms_arn": "arn:aws:kms:us-east-1:471112945627:key/eb7ada6c-af13-41cf-b11e-d94038724066",
-  "aws_region_name": "us-east-1"
-}
