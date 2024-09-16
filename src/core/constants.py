@@ -1,4 +1,6 @@
 from enum import Enum
+
+from web3 import Web3
 from core.config import settings
 
 RENZO = "renzo"
@@ -29,6 +31,8 @@ CHAIN_ETHER_MAINNET = "ethereum"
 CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
+
+FEED_ADDRESS = Web3.to_checksum_address("0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612")
 
 CAMELOT_LP_POOL = {
     "WST_ETH_ADDRESS": "0xdEb89DE4bb6ecf5BFeD581EB049308b52d9b2Da7",
@@ -63,7 +67,7 @@ WSTETH_ADDRESS: dict = {
 }
 
 WETH_ADDRESS: dict = {
-    CHAIN_ARBITRUM: "0x5979D7b546E38E414F7E9822514be443A4800529",
+    CHAIN_ARBITRUM: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     CHAIN_ETHER_MAINNET: "0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0",
 }
 
@@ -150,8 +154,10 @@ class Campaign(str, Enum):
 class MethodID(str, Enum):
     DEPOSIT = "0x2e2d2984"
     DEPOSIT2 = "0xb6b55f25"
+    DEPOSIT3 = "0x71b8dc69"
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
+    COMPPLETE_WITHDRAWAL2 = "0xe03ff7cb"
 
 
 class UpdateFrequency(str, Enum):
