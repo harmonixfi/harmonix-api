@@ -71,7 +71,7 @@ class APYComponentService:
         self.session.add(component)
 
 
-class KelpDaoComponentService(APYComponentService):
+class KelpDaoApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,
@@ -94,7 +94,7 @@ class KelpDaoComponentService(APYComponentService):
         }
 
 
-class RenzoComponentService(APYComponentService):
+class RenzoApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,
@@ -117,7 +117,7 @@ class RenzoComponentService(APYComponentService):
         }
 
 
-class DeltaNeutralComponentService(APYComponentService):
+class DeltaNeutralApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,
@@ -140,7 +140,7 @@ class DeltaNeutralComponentService(APYComponentService):
         }
 
 
-class BSXComponentService(APYComponentService):
+class BSXApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,
@@ -163,7 +163,7 @@ class BSXComponentService(APYComponentService):
         }
 
 
-class OptionWheelComponentService(APYComponentService):
+class OptionWheelApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,
@@ -189,7 +189,7 @@ class OptionWheelComponentService(APYComponentService):
         }
 
 
-class PendleComponentService(APYComponentService):
+class PendleApyComponentService(APYComponentService):
     def __init__(
         self,
         vault_id: uuid.UUID,

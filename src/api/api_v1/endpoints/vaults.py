@@ -261,7 +261,7 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
 
 @router.get("/apy/performance/chart")
-async def get_vault_performance(session: SessionDep):
+async def get_vault_performance_chart(session: SessionDep):
     # Get the VaultPerformance records for the given vault_id
     vaults = session.exec(select(Vault).where(Vault.is_active)).all()
 
@@ -348,8 +348,8 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
 
     # Aggregate all components into a single dictionary
     data = {
-        component.component_name: component.component_apy
+        component.component_name.lower(): component.component_apy
         for component in vault_apy.apy_components
     }
-    data["APY"] = vault_apy.total_apy
+    data["apy"] = vault_apy.total_apy
     return data

@@ -8,10 +8,8 @@ from web3.contract import Contract
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
-from core.abi_reader import read_abi
 from core import constants
-from models.apy_component import APYComponent
-from models.vault_apy_breakdown import VaultAPYBreakdown, VaultAPYComponent
+from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from services import (
     bsx_service,
@@ -22,12 +20,12 @@ from services import (
     renzo_service,
 )
 from services.apy_component_service import (
-    BSXComponentService,
-    DeltaNeutralComponentService,
-    KelpDaoComponentService,
-    OptionWheelComponentService,
-    PendleComponentService,
-    RenzoComponentService,
+    BSXApyComponentService,
+    DeltaNeutralApyComponentService,
+    KelpDaoApyComponentService,
+    OptionWheelApyComponentService,
+    PendleApyComponentService,
+    RenzoApyComponentService,
 )
 
 # Initialize logger
@@ -106,7 +104,7 @@ def main():
                     funding_fee_value = calculate_funding_fees(
                         current_apy, rs_eth_value, ae_usd_value
                     )
-                    kelpdao_component_service = KelpDaoComponentService(
+                    kelpdao_component_service = KelpDaoApyComponentService(
                         vault.id,
                         current_apy,
                         rs_eth_value,
@@ -123,7 +121,7 @@ def main():
                         current_apy, ez_eth_value, ae_usd_value
                     )
 
-                    renzo__component_service = RenzoComponentService(
+                    renzo__component_service = RenzoApyComponentService(
                         vault.id,
                         current_apy,
                         ez_eth_value,
@@ -139,7 +137,7 @@ def main():
                     funding_fee_value = calculate_funding_fees(
                         current_apy, wst_eth_value, ae_usd_value
                     )
-                    delta_neutral_component_service = DeltaNeutralComponentService(
+                    delta_neutral_component_service = DeltaNeutralApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
@@ -165,7 +163,7 @@ def main():
                         - option_yield_value
                     )
 
-                    option_wheel_component_service = OptionWheelComponentService(
+                    option_wheel_component_service = OptionWheelApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
@@ -192,7 +190,7 @@ def main():
                             current_apy, wst_eth_value, bsx_point_value
                         ),
                     )
-                    bsx_component_service = BSXComponentService(
+                    bsx_component_service = BSXApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
@@ -216,7 +214,7 @@ def main():
                     funding_fee_value = calculate_funding_fees(
                         current_apy, fixed_value, hyperliquid_point_value
                     )
-                    pendle_component_service = PendleComponentService(
+                    pendle_component_service = PendleApyComponentService(
                         vault.id,
                         current_apy,
                         fixed_value,
