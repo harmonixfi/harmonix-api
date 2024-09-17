@@ -112,7 +112,8 @@ class Settings(BaseSettings):
     ).hex()
 
     PENDLE_FORCE_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["ForceRequestFunds(address,uint256,uint256,uint256,uint256,uint256)"]
+        ["string"],
+        ["ForceRequestFunds(address,uint256,uint256,uint256,uint256,uint256)"],
     ).hex()
 
     PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
@@ -176,6 +177,7 @@ class Settings(BaseSettings):
     RENZO_API_URL: Optional[str] = "https://app.renzoprotocol.com/api/stats?chainId=1"
     LIDO_API_URL: Optional[str] = "https://eth-api.lido.fi"
     CAMELOT_EXCHANGE_API_URL: Optional[str] = "https://api.camelot.exchange"
+    GOLD_LINK_API_URL: Optional[str] = "https://api.goldlink.io"
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

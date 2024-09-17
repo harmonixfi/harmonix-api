@@ -73,6 +73,22 @@ class VaultBase(sqlmodel.SQLModel):
         return []
 
 
+# Metadata table for storing leverage information
+class VaultMetadata(sqlmodel.SQLModel, table=True):
+    __tablename__ = "vault_metadata"
+
+    id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
+    vault_id: uuid.UUID = sqlmodel.Field(foreign_key="vaults.id")
+    leverage: float | None = None
+    borrow_apr: float | None = None
+    health_factor: float | None = None
+    open_position: float | None = None
+    last_updated: datetime = sqlmodel.Field(default_factory=datetime.utcnow)
+
+    # Relationship to the Vault
+    vault: "Vault" = sqlmodel.Relationship(back_populates="vault_metadata")
+
+
 # Database model, database table inferred from class name
 class Vault(VaultBase, table=True):
     __tablename__ = "vaults"
@@ -83,3 +99,6 @@ class Vault(VaultBase, table=True):
     vault_group: VaultGroup | None = sqlmodel.Relationship(back_populates="vaults")
     update_frequency: str | None = sqlmodel.Field(default="daily")
     pt_address: str | None = None
+
+    # Relationship to VaultMetadata
+    vault_metadata: List[VaultMetadata] = sqlmodel.Relationship(back_populates="vault")
