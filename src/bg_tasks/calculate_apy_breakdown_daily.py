@@ -89,7 +89,7 @@ def main():
         for vault in vaults:
             try:
                 current_apy = (
-                    vault.monthly_apy
+                    vault.ytd_apy
                     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
                     else vault.monthly_apy
                 )
