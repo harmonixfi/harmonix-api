@@ -147,11 +147,17 @@ def main():
                     delta_neutral_component_service.save()
 
                 elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
-                    wst_eth_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                    wst_eth_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                        )
+                        * 0.6
                     )
-                    usde_usdc_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                    usde_usdc_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                        )
+                        * 0.2
                     )
                     option_yield_value = OPTION_YIELD_VALUE
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
