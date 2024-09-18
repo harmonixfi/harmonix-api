@@ -181,8 +181,8 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    # bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
-                    bsx_point_value = float(102) * BSX_POINT_VAULE
+                    bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    # bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         bsx_point_value, vault.tvl
