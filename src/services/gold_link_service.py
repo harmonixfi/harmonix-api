@@ -109,3 +109,13 @@ def get_account_positions():
         return positions
     else:
         return {"error": f"Failed to fetch data. Status code: {response.status_code}"}
+
+
+if __name__ == "__main__":
+    result = get_strategy_info()
+    print(result)
+
+    result2 = get_account_positions()
+    print(result2)
+
+    print("Ed")
