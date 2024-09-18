@@ -35,10 +35,10 @@ logger = logging.getLogger("calculate_apy_breakdown_daily")
 session = Session(engine)
 
 ALLOCATION_RATIO: float = 1 / 2
-AEUSD_VAULT_APY: float = 8 / 100
-RENZO_AEVO_VAULE: float = 8 / 100
+AEUSD_VAULT_APY: float = 8
+RENZO_AEVO_VAULE: float = 8
 BSX_POINT_VAULE: float = 0.2
-OPTION_YIELD_VALUE: float = 5 / 100
+OPTION_YIELD_VALUE: float = 5
 
 WEEKS_IN_YEAR = 52
 
@@ -88,18 +88,17 @@ def main():
 
         for vault in vaults:
             try:
-                performance = get_vault_performance(vault.id)
                 current_apy = (
-                    performance.apy_ytd
+                    vault.monthly_apy
                     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                    else performance.apy_1m
+                    else vault.monthly_apy
                 )
-
                 if vault.slug in [
                     constants.KEYDAO_VAULT_SLUG,
                     constants.KEYDAO_VAULT_ARBITRUM_SLUG,
                 ]:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
+
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
                     funding_fee_value = calculate_funding_fees(
                         current_apy, rs_eth_value, ae_usd_value
@@ -132,7 +131,7 @@ def main():
                     renzo_component_service.save()
 
                 elif vault.slug == constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
                     funding_fee_value = calculate_funding_fees(
                         current_apy, wst_eth_value, ae_usd_value
@@ -175,25 +174,27 @@ def main():
                     option_wheel_component_service.save()
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
-                    bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
+                    # bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         bsx_point_value, vault.tvl
                     )
                     # Calculate annualized PnL based on weekly PnL
-                    annualized_pnl = calculate_annualized_pnl(
-                        weekly_pnl_percentage, WEEKS_IN_YEAR
+                    annualized_point_pnl = (
+                        calculate_annualized_pnl(weekly_pnl_percentage, WEEKS_IN_YEAR)
+                        * 100
                     )
                     funding_fee_value = calculate_funding_fees(
-                        current_apy, wst_eth_value, bsx_point_value
+                        current_apy, wst_eth_value, annualized_point_pnl
                     )
 
                     bsx_component_service = BSXApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
-                        float(annualized_pnl),
+                        float(annualized_point_pnl),
                         float(funding_fee_value),
                         session,
                     )
