@@ -147,11 +147,17 @@ def main():
                     delta_neutral_component_service.save()
 
                 elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
-                    wst_eth_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                    wst_eth_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                        )
+                        * 0.6
                     )
-                    usde_usdc_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                    usde_usdc_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                        )
+                        * 0.2
                     )
                     option_yield_value = OPTION_YIELD_VALUE
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
@@ -175,8 +181,8 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    # bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
-                    bsx_point_value = float(102) * BSX_POINT_VAULE
+                    bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    # bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         bsx_point_value, vault.tvl
@@ -208,7 +214,7 @@ def main():
                     )
                     fixed_value = 0
                     if pendle_data:
-                        fixed_value = pendle_data[0].implied_apy
+                        fixed_value = pendle_data[0].implied_apy * 100
 
                     hyperliquid_point_value = 0
                     funding_fee_value = calculate_funding_fees(
