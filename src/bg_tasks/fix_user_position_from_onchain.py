@@ -101,6 +101,7 @@ def fix_user_position_by_address(vault: Vault, user_address: str):
     user_portfolio = session.exec(
         select(UserPortfolio)
         .where(UserPortfolio.user_address == user_address.lower())
+        .where(UserPortfolio.vault_id == vault.id)
         .where(UserPortfolio.status == PositionStatus.ACTIVE)
     ).first()
 
@@ -147,7 +148,7 @@ def main():
         select(Vault).where(Vault.id == '65f75bd7-a2d2-4764-ae31-78e4bb132c62')
     ).first()
 
-    fix_user_position_by_address(vault, '0x7354F8aDFDfc6ca4D9F81Fc20d04eb8A7b11b01b'.lower())
+    fix_user_position_by_address(vault, '0x864608EFC402E4714b07BC52a49120FF74387a0B'.lower())
 
 
 if __name__ == "__main__":
