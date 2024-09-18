@@ -26,6 +26,7 @@ class VaultBase(BaseModel):
     network_chain: NetworkChain | None = None
     maturity_date: str | None = None
     underlying_asset: str | None = None
+    pendle_market_address: str | None = None
     strategy_name: str | None = None
     points: List[EarnedPoints] = []
 

@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import math
+import os
 from unittest.mock import patch
 import uuid
 
@@ -53,6 +54,8 @@ def event_data():
 # create fixture run before every test
 @pytest.fixture(autouse=True)
 def seed_data(db_session: Session):
+    assert os.getenv('POSTGRES_DB') == 'test'
+    
     db_session.query(UserPointAudit).delete()
     db_session.query(UserPoints).delete()
     db_session.query(PointDistributionHistory).delete()
@@ -107,13 +110,7 @@ def seed_data(db_session: Session):
     db_session.commit()
 
 
-@patch("web3_listener._extract_stablecoin_event")
-def test_handle_event_deposit(mock_extract_event, event_data, db_session: Session):
-    mock_extract_event.return_value = (
-        20,
-        100,
-        "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7",
-    )  # amount, from_address
+def test_handle_event_deposit(event_data, db_session: Session):
     amount = 20_000000
     shares = 20_000000
 

@@ -28,3 +28,10 @@ class VaultStatePendle(BaseModel):
     total_shares: float = 0
     total_fee_pool_amount: float = 0
     last_update_management_fee_date: float = 0
+
+
+class DepositReceiptPendle(BaseModel):
+    shares: float | None = 0
+    deposit_amount: float | None = 0
+    deposit_pt_amount: float | None = 0
+    deposit_sc_amount: float | None = 0
