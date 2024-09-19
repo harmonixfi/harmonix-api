@@ -213,7 +213,7 @@ class VaultPerformanceHistoryService:
         return self.session.exec(query).all()
 
     def get_vault_contract(
-        sefl,
+        self,
         network_chain: str,
         contract_address,
         abi_name: str = "RockOnyxDeltaNeutralVault",
