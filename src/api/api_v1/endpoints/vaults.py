@@ -5,6 +5,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, and_, select, or_
 
+from models.vault_apy_breakdown import VaultAPYBreakdown
 import schemas
 from api.api_v1.deps import SessionDep
 from core import constants
@@ -260,7 +261,7 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
 
 @router.get("/apy/performance/chart")
-async def get_vault_performance(session: SessionDep):
+async def get_vault_performance_chart(session: SessionDep):
     # Get the VaultPerformance records for the given vault_id
     vaults = session.exec(select(Vault).where(Vault.is_active)).all()
 
@@ -328,3 +329,27 @@ async def get_vault_performance(session: SessionDep):
                 result.append({"date": date, "values": values})
 
     return result
+
+
+@router.get("/apy-breakdown/{vault_id}")
+def get_apy_breakdown(session: SessionDep, vault_id: str):
+    statement = select(Vault).where(Vault.id == vault_id)
+    vault = session.exec(statement).first()
+    if vault is None:
+        raise HTTPException(
+            status_code=400,
+            detail="The data not found in the database.",
+        )
+
+    statement = select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
+    vault_apy = session.exec(statement).first()
+    if vault_apy is None:
+        return {}
+
+    # Aggregate all components into a single dictionary
+    data = {
+        component.component_name.lower(): component.component_apy
+        for component in vault_apy.apy_components
+    }
+    data["apy"] = vault_apy.total_apy
+    return data

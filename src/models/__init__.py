@@ -25,3 +25,4 @@ from .user_last_30_days_tvl import UserLast30DaysTVL
 from .user_holding_job_state import UserHoldingJobState
 
 from .vault_performance_history import VaultPerformanceHistory
+from .vault_apy_breakdown import VaultAPYBreakdown, VaultAPYComponent

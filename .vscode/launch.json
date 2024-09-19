@@ -260,5 +260,17 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Python: APY Breakdown API",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.calculate_apy_breakdown_daily",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
