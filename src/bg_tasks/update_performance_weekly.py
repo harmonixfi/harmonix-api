@@ -153,11 +153,11 @@ def get_next_friday():
 
 
 def calculate_apy_ytd(vault_id, current_price_per_share):
-    now = datetime.now()
+    now = datetime.now(tz=timezone.utc)
     vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
 
     # Get the start of the year or the first logged price per share
-    start_of_year = datetime(now.year, 1, 1)
+    start_of_year = datetime(now.year, 1, 1, tzinfo=timezone.utc)
     price_per_share_start = session.exec(
         select(PricePerShareHistory)
         .where(
