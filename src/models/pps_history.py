@@ -1,10 +1,10 @@
-from datetime import datetime
+from datetime import datetime as dt, timezone
 from sqlmodel import SQLModel, Field
 import uuid
 
 
 class PricePerShareHistoryBase(SQLModel):
-    datetime: datetime
+    datetime: dt = Field(default=dt.now(timezone.utc))
     price_per_share: float
 
 

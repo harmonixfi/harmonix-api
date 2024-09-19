@@ -706,9 +706,9 @@ async def get_tvl_chart_data(session: SessionDep):
         {
             "vault_id": row[0],
             "tvl": row[1],
-            "date": pd.to_datetime(row[2])
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-            .tz_localize("UTC"),
+            "date": pd.to_datetime(row[2]).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ),
         }
         for row in result.all()
     ]
@@ -734,9 +734,9 @@ async def get_tvl_chart_data(session: SessionDep):
         {
             "vault_id": row[0],
             "tvl": row[1],
-            "date": pd.to_datetime(row[2])
-            .replace(hour=0, minute=0, second=0, microsecond=0)
-            .tz_localize("UTC"),
+            "date": pd.to_datetime(row[2]).replace(
+                hour=0, minute=0, second=0, microsecond=0
+            ),
         }
         for row in result.all()
     ]

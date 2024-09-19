@@ -155,7 +155,8 @@ def calculate_performance(
     current_price = get_price("ETHUSDT")
 
     # today = datetime.strptime(df["Date"].iloc[-1], "%Y-%m-%d")
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    # today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
+    today = datetime.now(timezone.utc)
     # candles = get_klines("ETHUSDT", end_time=(today + timedelta(days=2)), limit=1)
     # current_price = float(candles[0][4])
 
@@ -242,11 +243,12 @@ def calculate_performance(
                     }
                 ]
             )
-            new_row["datetime"] = pd.to_datetime(new_row["datetime"])
             last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
 
             # resample last_6_days_df to daily frequency
-            last_6_days_df["datetime"] = pd.to_datetime(last_6_days_df["datetime"])
+            last_6_days_df["datetime"] = pd.to_datetime(
+                last_6_days_df["datetime"], utc=True
+            )
             last_6_days_df.set_index("datetime", inplace=True)
             last_6_days_df = last_6_days_df.resample("D").mean()
 
@@ -269,7 +271,7 @@ def calculate_performance(
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
-        datetime=today,
+        datetime=datetime.now(timezone.utc),
         total_locked_value=total_balance,
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
