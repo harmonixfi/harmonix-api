@@ -233,7 +233,6 @@ def calculate_performance(
                     }
                 ]
             )
-            new_row["datetime"] = pd.to_datetime(new_row["datetime"])
             last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
 
             # resample last_6_days_df to daily frequency
