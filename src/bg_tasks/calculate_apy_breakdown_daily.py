@@ -214,7 +214,9 @@ def main():
                     )
                     fixed_value = 0
                     if pendle_data:
-                        fixed_value = pendle_data[0].implied_apy * 100
+                        fixed_value = (
+                            pendle_data[0].implied_apy * 100 * ALLOCATION_RATIO
+                        )
 
                     hyperliquid_point_value = 0
                     funding_fee_value = calculate_funding_fees(
