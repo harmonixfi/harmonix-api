@@ -3,13 +3,21 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
 import uuid
+import pytz
+from telegram import Contact
+from web3 import Web3
 
 from core import constants
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vault_performance import VaultPerformance
 from models.vault_performance_history import VaultPerformanceHistory
 from models.vaults import Vault
-from utils.extension_utils import to_tx_aumount
+from utils.extension_utils import (
+    to_amount_pendle,
+    to_tx_aumount,
+)
+from utils.web3_utils import get_current_pps_by_block
+from core.abi_reader import read_abi
 
 
 class VaultPerformanceHistoryService:
@@ -47,7 +55,7 @@ class VaultPerformanceHistoryService:
         return total_value, start_date, end_date
 
     def process_vault_performance(self, vault, date: datetime) -> float:
-
+        utc_tz = pytz.utc
         end_date = date
         start_date = end_date - timedelta(days=1)
         if (
@@ -136,6 +144,7 @@ class VaultPerformanceHistoryService:
                     [
                         constants.MethodID.DEPOSIT2.value,
                         constants.MethodID.DEPOSIT.value,
+                        constants.MethodID.DEPOSIT3.value,
                     ]
                 )
             )
@@ -149,20 +158,45 @@ class VaultPerformanceHistoryService:
         withdraw_query = (
             select(OnchainTransactionHistory)
             .where(
-                OnchainTransactionHistory.method_id
-                == constants.MethodID.COMPPLETE_WITHDRAWAL.value
+                OnchainTransactionHistory.method_id.in_(
+                    [
+                        constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+                        constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
+                    ]
+                )
             )
-            .where(
-                OnchainTransactionHistory.to_address == vault.contract_address.lower()
-            )
+            .where(OnchainTransactionHistory.to_address.in_(contract_address))
             .where(OnchainTransactionHistory.timestamp <= end_date)
             .where(OnchainTransactionHistory.timestamp >= start_date)
         )
 
         withdraw = self.session.exec(withdraw_query).all()
+        total_deposit = 0
+        total_withdraw = 0
+        if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+            total_deposit = sum(
+                to_amount_pendle(tx.input, tx.block_number, vault.network_chain)
+                for tx in deposits
+            )
+            total_withdraw = sum(
+                to_amount_pendle(tx.input, tx.block_number, vault.network_chain)
+                for tx in withdraw
+            )
+        else:
+            total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
 
-        total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
-        total_withdraw = sum(to_tx_aumount(tx.input) for tx in withdraw)
+            abi = self.get_vault_abi(vault=vault)
+
+            for tx in withdraw:
+                shares = to_tx_aumount(tx.input)
+                vault_contract, _ = self.get_vault_contract(
+                    vault.network_chain,
+                    Web3.to_checksum_address(tx.to_address),
+                    abi,
+                )
+                pps = get_current_pps_by_block(vault_contract, tx.block_number)
+                usdc_amount = shares * pps
+                total_withdraw = total_withdraw + usdc_amount
 
         return total_deposit - total_withdraw
 
@@ -177,3 +211,33 @@ class VaultPerformanceHistoryService:
         )
 
         return self.session.exec(query).all()
+
+    def get_vault_contract(
+        self,
+        network_chain: str,
+        contract_address,
+        abi_name: str = "RockOnyxDeltaNeutralVault",
+    ) -> tuple[Contact, Web3]:
+
+        w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[network_chain]))
+
+        rockonyx_delta_neutral_vault_abi = read_abi(abi_name)
+        vault_contract = w3.eth.contract(
+            address=contract_address,
+            abi=rockonyx_delta_neutral_vault_abi,
+        )
+        return vault_contract, w3
+
+    def get_vault_abi(self, vault):
+        abi = "RockOnyxDeltaNeutralVault"
+
+        if vault.slug == constants.SOLV_VAULT_SLUG:
+            abi = "solv"
+        elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            abi = "RockOnyxDeltaNeutralVault"
+        elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+            abi = "rockonyxstablecoin"
+        elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+            abi = "pendlehedging"
+
+        return abi

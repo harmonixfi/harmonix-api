@@ -54,8 +54,8 @@ def event_data():
 # create fixture run before every test
 @pytest.fixture(autouse=True)
 def seed_data(db_session: Session):
-    assert os.getenv('POSTGRES_DB') == 'test'
-    
+    assert os.getenv("POSTGRES_DB") == "test"
+
     db_session.query(UserPointAudit).delete()
     db_session.query(UserPoints).delete()
     db_session.query(PointDistributionHistory).delete()
@@ -177,7 +177,7 @@ def test_handle_event_deposit_calculating_entry_price(event_data, db_session: Se
     if latest_pps is None:
         latest_pps = PricePerShareHistory(
             price_per_share=1,
-            datetime=pendulum.now().add(days=-1),
+            datetime=pendulum.now(tz=pendulum.UTC).add(days=-1),
             vault_id=vault.id,
             id=1,
         )
@@ -312,7 +312,6 @@ def test_handle_event_deposit_then_init_withdraw(
     assert user_portfolio.status == PositionStatus.CLOSED
 
 
-
 def test_handle_solv_events(event_data, db_session: Session):
     db_session.query(UserPortfolio).filter(
         UserPortfolio.user_address == "0x20f89ba1b0fc1e83f9aef0a134095cd63f7e8cc7"
@@ -356,9 +355,7 @@ def test_handle_solv_events(event_data, db_session: Session):
     amount = 100000
     shares = 936810457735051
     event_data["data"] = HexBytes("0x{:064x}".format(amount) + "{:064x}".format(shares))
-    handle_event(
-        vault_address, event_data, "InitiateWithdraw"
-    )
+    handle_event(vault_address, event_data, "InitiateWithdraw")
     db_session.commit()
     user_portfolio = (
         db_session.query(UserPortfolio)
@@ -368,7 +365,5 @@ def test_handle_solv_events(event_data, db_session: Session):
         .first()
     )
     assert user_portfolio is not None
-    assert user_portfolio.pending_withdrawal == 936810457735051/1e18
+    assert user_portfolio.pending_withdrawal == 936810457735051 / 1e18
     assert user_portfolio.init_deposit == 0.002
-
-    

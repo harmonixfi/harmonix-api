@@ -1,4 +1,6 @@
 from enum import Enum
+
+from web3 import Web3
 from core.config import settings
 
 RENZO = "renzo"
@@ -23,14 +25,29 @@ DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
 
-SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
-BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
 CHAIN_BASE = "base"
 
 CHAIN_IDS = {"CHAIN_ARBITRUM": 42161}
+
+FEED_ADDRESS = Web3.to_checksum_address("0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612")
+
+CAMELOT_LP_POOL = {
+    "WST_ETH_ADDRESS": "0xdEb89DE4bb6ecf5BFeD581EB049308b52d9b2Da7",
+    "USDE_USDC_ADDRESS": "0xc23f308CF1bFA7efFFB592920a619F00990F8D74",
+}
+
+
+SOLV_VAULT_SLUG = "arbitrum-wbtc-vault"
+BSX_VAULT_SLUG = "base-wsteth-delta-neutral"
+KEYDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
+KEYDAO_VAULT_ARBITRUM_SLUG = "kelpdao-restaking-delta-neutral-vault"
+RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
+DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
+OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
+PENDLE_VAULT_VAULT_SLUG = "arbitrum-pendle-rseth-26sep2024"
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
@@ -137,8 +154,10 @@ class Campaign(str, Enum):
 class MethodID(str, Enum):
     DEPOSIT = "0x2e2d2984"
     DEPOSIT2 = "0xb6b55f25"
+    DEPOSIT3 = "0x71b8dc69"
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
+    COMPPLETE_WITHDRAWAL2 = "0xe03ff7cb"
 
 
 class UpdateFrequency(str, Enum):

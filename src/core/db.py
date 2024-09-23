@@ -33,7 +33,9 @@ def init_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31), price_per_share=1, vault_id=vault.id
+                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                price_per_share=1,
+                vault_id=vault.id,
             )
         ]
 
@@ -82,23 +84,27 @@ def seed_stablecoin_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31), price_per_share=1, vault_id=vault.id
+                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                price_per_share=1,
+                vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 9), price_per_share=1.0000, vault_id=vault.id
+                datetime=datetime(2024, 2, 9, timezone=timezone.utc),
+                price_per_share=1.0000,
+                vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 16),
+                datetime=datetime(2024, 2, 16, timezone=timezone.utc),
                 price_per_share=1.043481,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 23),
+                datetime=datetime(2024, 2, 23, timezone=timezone.utc),
                 price_per_share=1.066503,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 3, 1),
+                datetime=datetime(2024, 3, 1, timezone=timezone.utc),
                 price_per_share=1.151802,
                 vault_id=vault.id,
             ),
@@ -427,7 +433,7 @@ def seed_vaults(session: Session):
             is_active=False,
             strategy_name=constants.PENDLE_HEDGING_STRATEGY,
             pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
-            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f"
+            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
         ),
     ]
 

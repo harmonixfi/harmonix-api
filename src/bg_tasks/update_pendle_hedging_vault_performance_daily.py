@@ -233,7 +233,6 @@ def calculate_performance(
                     }
                 ]
             )
-            new_row["datetime"] = pd.to_datetime(new_row["datetime"])
             last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
 
             # resample last_6_days_df to daily frequency
@@ -260,7 +259,7 @@ def calculate_performance(
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
-        datetime=today,
+        datetime=datetime.now(timezone.utc),
         total_locked_value=total_balance,
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
