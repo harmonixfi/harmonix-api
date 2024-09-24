@@ -1,6 +1,8 @@
+from datetime import datetime, timedelta, timezone
 import logging
 import uuid
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
@@ -182,10 +184,12 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    point_dist_hist = vaults = session.exec(
+                    last_tuesday = datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday() + 6)
+                    point_dist_hist = session.exec(
                         select(PointDistributionHistory)
                         .where(PointDistributionHistory.vault_id == vault.id)
                         .where(PointDistributionHistory.partner_name == constants.BSX)
+                        .where(func.date(PointDistributionHistory.created_at) == last_tuesday.date())
                         .order_by(PointDistributionHistory.created_at.desc())
                     ).first()
 
