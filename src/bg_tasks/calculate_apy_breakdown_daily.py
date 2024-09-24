@@ -9,6 +9,7 @@ from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core import constants
+from models.point_distribution_history import PointDistributionHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from services import (
@@ -181,7 +182,20 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    point_dist_hist = vaults = session.exec(
+                        select(PointDistributionHistory)
+                        .where(PointDistributionHistory.vault_id == vault.id)
+                        .order_by(PointDistributionHistory.created_at.desc())
+                    ).first()
+
+                    bsx_point = bsx_service.get_points_earned()
+                    if point_dist_hist:
+                        bsx_point = bsx_point - float(point_dist_hist.point)
+
+                    bsx_point_value = 0
+                    if bsx_point >= 0:
+                        bsx_point_value = bsx_point * BSX_POINT_VAULE
+
                     # bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
