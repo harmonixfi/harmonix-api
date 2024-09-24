@@ -1,4 +1,6 @@
 import requests
+from web3 import Web3
+from core.abi_reader import read_abi
 from core.config import settings
 
 url = settings.GOLD_LINK_API_URL
@@ -112,10 +114,69 @@ def get_account_positions():
 
 
 if __name__ == "__main__":
-    result = get_strategy_info()
-    print(result)
 
-    result2 = get_account_positions()
-    print(result2)
+    w3 = Web3(
+        Web3.HTTPProvider(
+            "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
+        )
+    )
 
-    print("Ed")
+    strategy_account_address = Web3.to_checksum_address(
+        "0x04df99681dd2c0d26598139afd517142430b1202"
+    )
+
+    strategy_reserve_abi = read_abi("strategy-reserve")
+    strategy_reserve = w3.eth.contract(
+        address=strategy_account_address,
+        abi=strategy_reserve_abi,
+    )
+
+    bank = strategy_reserve.functions.STRATEGY_BANK().call()
+    print("bank", bank)
+
+    bank_abi = read_abi("strategy-bank")
+    strategy_bank = w3.eth.contract(
+        address=bank,
+        abi=bank_abi,
+    )
+
+    strategy_account_abi = read_abi("strategy-account")
+    strategy_account = w3.eth.contract(
+        address=strategy_account_address,
+        abi=strategy_account_abi,
+    )
+    account_value = strategy_account.functions.getAccountValue().call()
+    print("account_value", account_value)
+
+    holdings_after_pay_interest = (
+        strategy_bank.functions.getStrategyAccountHoldingsAfterPayingInterest(
+            strategy_account_address,
+        ).call()
+    )
+    print(
+        {
+            "collateral": holdings_after_pay_interest[0] / 1e6,
+            "loan": holdings_after_pay_interest[1],
+            "interestIndexLast": holdings_after_pay_interest[2],
+        }
+    )
+    health_factor = account_value / holdings_after_pay_interest[1]
+    healthScore = (holdings_after_pay_interest[0]) / holdings_after_pay_interest[1]
+    print("healthScore", health_factor)
+    liquidatable_health_score = (
+        strategy_bank.functions.LIQUIDATABLE_HEALTH_SCORE().call()
+    )
+
+    initial_value = -176.111683
+    holdings = strategy_bank.functions.getStrategyAccountHoldingsAfterPayingInterest(
+        strategy_account.address
+    ).call()
+    collateral = holdings[0] / 1e6
+    loan = holdings[1] / 1e6
+
+    # Tính equity
+    equity = collateral - loan
+
+    # Tính loss
+    loss = max(initial_value - equity, 0)
+    print("Is Liquidatable:", loss)
