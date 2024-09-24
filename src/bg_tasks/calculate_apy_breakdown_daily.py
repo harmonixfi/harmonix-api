@@ -185,7 +185,7 @@ def main():
                     point_dist_hist = vaults = session.exec(
                         select(PointDistributionHistory)
                         .where(PointDistributionHistory.vault_id == vault.id)
-                        .where(PointDistributionHistory.partner_name == "bsx")
+                        .where(PointDistributionHistory.partner_name == constants.BSX)
                         .order_by(PointDistributionHistory.created_at.desc())
                     ).first()
 
