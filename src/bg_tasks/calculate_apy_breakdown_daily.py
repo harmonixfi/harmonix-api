@@ -84,7 +84,7 @@ def calculate_annualized_pnl(weekly_pnl_percentage: float, weeks_in_year: int):
 def main():
     try:
         logger.info("Start calculating APY breakdown daily for vaults...")
-        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        vaults = session.exec(select(Vault).where(Vault.is_active == True).where(Vault.slug == constants.BSX_VAULT_SLUG)).all()
 
         for vault in vaults:
             try:

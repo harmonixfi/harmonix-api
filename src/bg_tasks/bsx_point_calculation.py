@@ -108,7 +108,7 @@ def distribute_points(
     partner_name: str,
     user_positions: List[UserPortfolio],
     earned_points_in_period: float,
-    total_earned_points: EarnedRestakingPoints,
+    total_earned_points: float,
 ):
 
     # calculate user earn points in the period
@@ -123,7 +123,7 @@ def distribute_points(
     point_distribution = PointDistributionHistory(
         vault_id=vault.id,
         partner_name=partner_name,
-        point=total_earned_points.total_points,
+        point=total_earned_points,
     )
     session.add(point_distribution)
 
@@ -200,8 +200,5 @@ def main():
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file(
-        app="bsx_point_calculation", level=logging.INFO, logger=logger
-    )
 
     main()
