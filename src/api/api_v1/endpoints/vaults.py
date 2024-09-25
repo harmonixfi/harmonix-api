@@ -85,6 +85,35 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
                     created_at=None,
                 )
             )
+        if partner == "kelpdaogain":
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name="linea",
+                    point=0.0,
+                    created_at=None,
+                )
+            )
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name="scroll",
+                    point=0.0,
+                    created_at=None,
+                )
+            )
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name="karak",
+                    point=0.0,
+                    created_at=None,
+                )
+            )
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name="infra partner",
+                    point=0.0,
+                    created_at=None,
+                )
+            )
 
     return earned_points
 
