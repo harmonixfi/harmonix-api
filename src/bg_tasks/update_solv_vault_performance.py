@@ -98,7 +98,6 @@ def calculate_performance(
     update_freq: str = "daily",
 ):
     current_price = get_price("BTCUSDT")
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
     current_price_per_share = get_current_pps(vault_contract, decimals=1e8)
     total_balance = get_current_tvl(vault_contract, decimals=1e8)
     fee_info = get_fee_info()
@@ -142,7 +141,7 @@ def calculate_performance(
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
-        datetime=today,
+        datetime=datetime.now(timezone.utc),
         total_locked_value=total_balance,
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,

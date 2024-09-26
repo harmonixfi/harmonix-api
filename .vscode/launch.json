@@ -245,6 +245,22 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "bsx_point_claim_weelky",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.bsx_point_claim_weelky",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "bsx_point_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.bsx_point_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "test kyberswap",
             "type": "debugpy",
             "request": "launch",
@@ -261,7 +277,7 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "Python: APY Breakdown API",
+            "name": "Python: APY Breakdown calulate",
             "type": "debugpy",
             "request": "launch",
             "module": "bg_tasks.calculate_apy_breakdown_daily",

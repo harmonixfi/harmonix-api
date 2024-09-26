@@ -13,4 +13,4 @@ def get_apy() -> float:
     data = response.json()
 
     apy_data = data["data"]["smaApr"]
-    return float(apy_data)
+    return float(apy_data) / 100

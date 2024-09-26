@@ -1,6 +1,8 @@
+from datetime import datetime, timedelta, timezone
 import logging
 import uuid
 
+from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
@@ -9,6 +11,7 @@ from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core import constants
+from models.point_distribution_history import PointDistributionHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from services import (
@@ -35,10 +38,10 @@ logger = logging.getLogger("calculate_apy_breakdown_daily")
 session = Session(engine)
 
 ALLOCATION_RATIO: float = 1 / 2
-AEUSD_VAULT_APY: float = 8 / 100
-RENZO_AEVO_VAULE: float = 8 / 100
+AEUSD_VAULT_APY: float = 8
+RENZO_AEVO_VAULE: float = 8
 BSX_POINT_VAULE: float = 0.2
-OPTION_YIELD_VALUE: float = 5 / 100
+OPTION_YIELD_VALUE: float = 5
 
 WEEKS_IN_YEAR = 52
 
@@ -88,18 +91,17 @@ def main():
 
         for vault in vaults:
             try:
-                performance = get_vault_performance(vault.id)
                 current_apy = (
-                    performance.apy_ytd
+                    vault.ytd_apy
                     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                    else performance.apy_1m
+                    else vault.monthly_apy
                 )
-
                 if vault.slug in [
                     constants.KEYDAO_VAULT_SLUG,
                     constants.KEYDAO_VAULT_ARBITRUM_SLUG,
                 ]:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
+
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
                     funding_fee_value = calculate_funding_fees(
                         current_apy, rs_eth_value, ae_usd_value
@@ -132,7 +134,7 @@ def main():
                     renzo_component_service.save()
 
                 elif vault.slug == constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
                     funding_fee_value = calculate_funding_fees(
                         current_apy, wst_eth_value, ae_usd_value
@@ -148,11 +150,17 @@ def main():
                     delta_neutral_component_service.save()
 
                 elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
-                    wst_eth_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                    wst_eth_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                        )
+                        * 0.6
                     )
-                    usde_usdc_value = camelot_service.get_pool_apy(
-                        constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                    usde_usdc_value = (
+                        camelot_service.get_pool_apy(
+                            constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                        )
+                        * 0.2
                     )
                     option_yield_value = OPTION_YIELD_VALUE
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
@@ -175,25 +183,43 @@ def main():
                     option_wheel_component_service.save()
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
-                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO
-                    bsx_point_value = bsx_service.get_points_earned() * BSX_POINT_VAULE
+                    wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
+                    last_tuesday = datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday() + 6)
+                    point_dist_hist = session.exec(
+                        select(PointDistributionHistory)
+                        .where(PointDistributionHistory.vault_id == vault.id)
+                        .where(PointDistributionHistory.partner_name == constants.BSX)
+                        .where(func.date(PointDistributionHistory.created_at) == last_tuesday.date())
+                        .order_by(PointDistributionHistory.created_at.desc())
+                    ).first()
+
+                    bsx_point = bsx_service.get_points_earned()
+                    if point_dist_hist:
+                        bsx_point = bsx_point - float(point_dist_hist.point)
+
+                    bsx_point_value = 0
+                    if bsx_point >= 0:
+                        bsx_point_value = bsx_point * BSX_POINT_VAULE
+
+                    # bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         bsx_point_value, vault.tvl
                     )
                     # Calculate annualized PnL based on weekly PnL
-                    annualized_pnl = calculate_annualized_pnl(
-                        weekly_pnl_percentage, WEEKS_IN_YEAR
+                    annualized_point_pnl = (
+                        calculate_annualized_pnl(weekly_pnl_percentage, WEEKS_IN_YEAR)
+                        * 100
                     )
                     funding_fee_value = calculate_funding_fees(
-                        current_apy, wst_eth_value, bsx_point_value
+                        current_apy, wst_eth_value, annualized_point_pnl
                     )
 
                     bsx_component_service = BSXApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,
-                        float(annualized_pnl),
+                        float(annualized_point_pnl),
                         float(funding_fee_value),
                         session,
                     )
@@ -207,7 +233,9 @@ def main():
                     )
                     fixed_value = 0
                     if pendle_data:
-                        fixed_value = pendle_data[0].implied_apy
+                        fixed_value = (
+                            pendle_data[0].implied_apy * 100 * ALLOCATION_RATIO
+                        )
 
                     hyperliquid_point_value = 0
                     funding_fee_value = calculate_funding_fees(
