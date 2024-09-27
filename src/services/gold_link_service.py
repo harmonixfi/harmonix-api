@@ -2,181 +2,154 @@ import requests
 from web3 import Web3
 from core.abi_reader import read_abi
 from core.config import settings
+from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
 
 url = settings.GOLD_LINK_API_URL
+gold_link_web3_url = "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
+w3 = Web3(
+    Web3.HTTPProvider(
+        "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
+    )
+)
+STRATEGY_RESERVE_ABI_NAME = "strategy-reserve"
+STRATEGY_BANK_ABI_NAME = "strategy-bank"
+STRATEGY_ACCOUNT_ABI_NAME = "strategy-account"
+
+trading_address = Web3.to_checksum_address("0x04df99681dd2c0d26598139afd517142430b1202")
 
 
-def __convert_to_float(value, divisor=1e18):
-    """Child method to convert large integer values to float and divide by a divisor."""
-    return float(value) / divisor
+def get_contract(address, abi_name):
+    abi = read_abi(abi_name)
+    return w3.eth.contract(address=address, abi=abi)
 
 
-def get_strategy_info():
-    params = {
-        "method": "goldlink/getStrategyInfo",
-        "params": ["0xb4e29a1a0e6f9db584447e988ce15d48a1381311"],
-        "jsonrpc": "2.0",
-        "id": "1",
+def get_strategy_bank(strategy_reserve):
+    return strategy_reserve.functions.STRATEGY_BANK().call()
+
+
+def get_account_holdings(strategy_bank, trading_address, decimals=1e6):
+    account_holdings = strategy_bank.functions.getStrategyAccountHoldings(
+        trading_address
+    ).call()
+
+    if not account_holdings:
+        return GoldLinkAccountHoldings(collateral=0.0, loan=0.0, interestIndexLast=0.0)
+
+    return GoldLinkAccountHoldings(
+        collateral=float(account_holdings[0]) / decimals,
+        loan=float(account_holdings[1]) / decimals,
+        interest_index_last=float(account_holdings[2]) / decimals,
+    )
+
+
+def get_account_value(strategy_account, decimals=1e6):
+    return strategy_account.functions.getAccountValue().call() / decimals
+
+
+def get_account_holdings_with_interest(strategy_bank, trading_address, decimals=1e6):
+    account_holdings_with_interest = (
+        strategy_bank.functions.getStrategyAccountHoldingsAfterPayingInterest(
+            trading_address
+        ).call()
+    )
+    if not account_holdings_with_interest:
+        return GoldLinkAccountHoldings(collateral=0.0, loan=0.0, interestIndexLast=0.0)
+
+    return GoldLinkAccountHoldings(
+        collateral=float(account_holdings_with_interest[0]) / decimals,
+        loan=float(account_holdings_with_interest[1]) / decimals,
+        interest_index_last=float(account_holdings_with_interest[2]) / decimals,
+    )
+
+
+def get_loss():
+    # Initialize contracts
+    strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME)
+    strategy_bank = get_contract(
+        get_strategy_bank(strategy_reserve), STRATEGY_BANK_ABI_NAME
+    )
+    strategy_account = get_contract(trading_address, STRATEGY_ACCOUNT_ABI_NAME)
+
+    # Fetch holdings and account value
+    account_holdings = get_account_holdings(strategy_bank, trading_address)
+    account_value = get_account_value(strategy_account)
+
+    # Calculate loss
+    loss = account_holdings.loan - min(account_value, account_holdings.loan)
+
+    return float(loss)
+
+
+def get_interest() -> float:
+    # Initialize contracts
+    strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME)
+    strategy_bank = get_contract(
+        get_strategy_bank(strategy_reserve), STRATEGY_BANK_ABI_NAME
+    )
+
+    # Fetch holdings and account value
+    account_holdings = get_account_holdings(strategy_bank, trading_address)
+    account_holdings_with_interest = get_account_holdings_with_interest(
+        strategy_bank, trading_address
+    )
+
+    interest = account_holdings.collateral - account_holdings_with_interest.collateral
+    return interest
+
+
+def get_health_factor() -> float:
+    # Initialize contracts
+    strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME)
+    strategy_bank = get_contract(
+        get_strategy_bank(strategy_reserve), STRATEGY_BANK_ABI_NAME
+    )
+
+    # Fetch holdings and account value
+    account_holdings_with_interest = get_account_holdings_with_interest(
+        strategy_bank, trading_address
+    )
+
+    account_holdings = get_account_holdings(strategy_bank, trading_address)
+    loss = get_loss()
+    interest = get_interest()
+
+    health_factor_score = (
+        account_holdings_with_interest.collateral - interest - loss
+    ) / account_holdings.loan
+    return health_factor_score
+
+
+def get_meta_data():
+    # Initialize contracts
+    strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME)
+    strategy_bank = get_contract(
+        get_strategy_bank(strategy_reserve), STRATEGY_BANK_ABI_NAME
+    )
+    strategy_account = get_contract(trading_address, STRATEGY_ACCOUNT_ABI_NAME)
+
+    # Fetch holdings and account value
+    account_holdings = get_account_holdings(strategy_bank, trading_address)
+    account_holdings_with_interest = get_account_holdings_with_interest(
+        strategy_bank, trading_address
+    )
+    account_value = get_account_value(strategy_account)
+
+    interest = account_holdings.collateral - account_holdings_with_interest.collateral
+    loss = account_holdings.loan - min(account_value, account_holdings.loan)
+    health_factor_score = (
+        account_holdings_with_interest.collateral - interest - loss
+    ) / account_holdings.loan
+
+    return {
+        "collateral": account_holdings_with_interest.collateral,
+        "loss": loss,
+        "health_factor_score": health_factor_score,
     }
-
-    response = requests.post(url, json=params)
-
-    if response.status_code == 200:
-        data = response.json()
-        result = data.get("result", {})
-
-        # Using the convert_to_float method to process supply_apy and borrow_apr
-        supply_apy = __convert_to_float(result.get("supply_apy", 0), 1e18)
-        borrow_apr = __convert_to_float(result.get("borrow_apr", 0), 1e18)
-
-        reserve_balance = result.get("reserve_balance")
-        utilized = result.get("utilized")
-
-        # Returning the extracted and processed data
-        return {
-            "supply_apy": supply_apy,
-            "borrow_apr": borrow_apr,
-            "reserve_balance": reserve_balance,
-            "utilized": utilized,
-        }
-    else:
-        return {"error": f"Failed to fetch data. Status code: {response.status_code}"}
-
-
-def get_account_positions():
-    params = {
-        "method": "goldlink/getAccountPositions",
-        "params": ["0x04df99681dd2c0d26598139afd517142430b1202"],
-        "jsonrpc": "2.0",
-        "id": "1",
-    }
-
-    response = requests.post(url, json=params)
-
-    if response.status_code == 200:
-        data = response.json()
-        result = data.get("result", [])
-
-        positions = []
-
-        for position in result:
-            # Process each position and divide relevant fields by 1e18
-            account = position.get("account")
-            market = position.get("market")
-            block = position.get("block")
-            ts = position.get("ts")
-            collateral_token = position.get("collateral_token")
-            size_in_usd = __convert_to_float(position.get("size_in_usd"))
-            size_in_tokens = __convert_to_float(position.get("size_in_tokens"))
-            collateral_amount = __convert_to_float(position.get("collateral_amount"))
-            borrowing_factor = __convert_to_float(position.get("borrowing_factor"))
-            funding_fee_amount_per_size = __convert_to_float(
-                position.get("funding_fee_amount_per_size")
-            )
-            long_token_claimable_funding_amount_per_size = __convert_to_float(
-                position.get("long_token_claimable_funding_amount_per_size")
-            )
-            short_token_claimable_funding_amount_per_size = __convert_to_float(
-                position.get("short_token_claimable_funding_amount_per_size")
-            )
-            index_token_price_max = __convert_to_float(
-                position.get("index_token_price_max")
-            )
-            collateral_token_price_max = __convert_to_float(
-                position.get("collateral_token_price_max")
-            )
-            position_key = position.get("position_key")
-
-            # Append the processed position to the list
-            positions.append(
-                {
-                    "account": account,
-                    "market": market,
-                    "block": block,
-                    "timestamp": ts,
-                    "collateral_token": collateral_token,
-                    "size_in_usd": size_in_usd,
-                    "size_in_tokens": size_in_tokens,
-                    "collateral_amount": collateral_amount,
-                    "borrowing_factor": borrowing_factor,
-                    "funding_fee_amount_per_size": funding_fee_amount_per_size,
-                    "long_token_claimable_funding_amount_per_size": long_token_claimable_funding_amount_per_size,
-                    "short_token_claimable_funding_amount_per_size": short_token_claimable_funding_amount_per_size,
-                    "index_token_price_max": index_token_price_max,
-                    "collateral_token_price_max": collateral_token_price_max,
-                    "position_key": position_key,
-                }
-            )
-
-        return positions
-    else:
-        return {"error": f"Failed to fetch data. Status code: {response.status_code}"}
 
 
 if __name__ == "__main__":
 
-    w3 = Web3(
-        Web3.HTTPProvider(
-            "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
-        )
-    )
-
-    strategy_account_address = Web3.to_checksum_address(
-        "0x04df99681dd2c0d26598139afd517142430b1202"
-    )
-
-    strategy_reserve_abi = read_abi("strategy-reserve")
-    strategy_reserve = w3.eth.contract(
-        address=strategy_account_address,
-        abi=strategy_reserve_abi,
-    )
-
-    bank = strategy_reserve.functions.STRATEGY_BANK().call()
-    print("bank", bank)
-
-    bank_abi = read_abi("strategy-bank")
-    strategy_bank = w3.eth.contract(
-        address=bank,
-        abi=bank_abi,
-    )
-
-    strategy_account_abi = read_abi("strategy-account")
-    strategy_account = w3.eth.contract(
-        address=strategy_account_address,
-        abi=strategy_account_abi,
-    )
-    account_value = strategy_account.functions.getAccountValue().call()
-    print("account_value", account_value)
-
-    holdings_after_pay_interest = (
-        strategy_bank.functions.getStrategyAccountHoldingsAfterPayingInterest(
-            strategy_account_address,
-        ).call()
-    )
-    print(
-        {
-            "collateral": holdings_after_pay_interest[0] / 1e6,
-            "loan": holdings_after_pay_interest[1],
-            "interestIndexLast": holdings_after_pay_interest[2],
-        }
-    )
-    health_factor = account_value / holdings_after_pay_interest[1]
-    healthScore = (holdings_after_pay_interest[0]) / holdings_after_pay_interest[1]
-    print("healthScore", health_factor)
-    liquidatable_health_score = (
-        strategy_bank.functions.LIQUIDATABLE_HEALTH_SCORE().call()
-    )
-
-    initial_value = -176.111683
-    holdings = strategy_bank.functions.getStrategyAccountHoldingsAfterPayingInterest(
-        strategy_account.address
-    ).call()
-    collateral = holdings[0] / 1e6
-    loan = holdings[1] / 1e6
-
-    # Tính equity
-    equity = collateral - loan
+    print(get_meta_data())
 
     # Tính loss
-    loss = max(initial_value - equity, 0)
-    print("Is Liquidatable:", loss)
+    print("Is Liquidatable:")
