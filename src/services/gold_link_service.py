@@ -3,6 +3,7 @@ from web3 import Web3
 from core.abi_reader import read_abi
 from core.config import settings
 from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
+from eth_abi import encode
 
 url = settings.GOLD_LINK_API_URL
 gold_link_web3_url = "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
@@ -147,8 +148,86 @@ def get_meta_data():
     }
 
 
-if __name__ == "__main__":
+def get_borrow_apr(
+    network_id_mainnet: str = "0xB4E29A1A0E6F9DB584447E988CE15D48A1381311",
+    decimals=1e18,
+):
+    params = f'["{network_id_mainnet}"]'
 
+    api_url = f"{url}/?method=goldlink/getStrategyInfo&params={params}"
+    response = requests.get(api_url)
+
+    if response.status_code == 200:
+        data = response.json()["result"]
+
+        return float(data.get("borrow_apr", "0")) / decimals
+    else:
+        raise Exception(f"Request failed with status {response.status_code}")
+
+
+def get_token_addresses_for_market(market="0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"):
+    """
+    Get addresses for market.
+
+    :param market: required
+    :type market: address
+
+    :returns: Object
+    """
+    WETH_USDC = "0x70d95587d40A2caf56bd97485aB3Eec10Bee6336"
+    gmx_v2_reader = get_contract(trading_address, "gmx_v2_reader")
+    token_addresses = gmx_v2_reader.functions.getMarket(
+        "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8", WETH_USDC
+    ).call()
+
+    return {
+        "market_token": token_addresses[0],
+        "index_token": token_addresses[1],
+        "long_token": token_addresses[2],
+        "short_token": token_addresses[3],
+    }
+
+
+def get_position_key(strategy_account):
+    """
+    Get a position's key.
+
+    :param market: required
+    :type market: address
+
+    :param strategy_account: required
+    :type strategy_account: address
+
+    :returns: str
+    """
+    market_addresses = get_token_addresses_for_market(
+        "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8"
+    )
+    return Web3.solidityKeccak(
+        ["bytes"],
+        [
+            encode(
+                ["address", "address", "address", "bool"],
+                [
+                    strategy_account,
+                    "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8",
+                    market_addresses["long_token"],
+                    False,
+                ],
+            )
+        ],
+    ).hex()
+
+
+if __name__ == "__main__":
+    # strategy_account = get_contract(trading_address, STRATEGY_ACCOUNT_ABI_NAME)
+    # gmx_v2_reader = get_contract(trading_address, "gmx_v2_reader")
+    # position = gmx_v2_reader.functions.getPosition(
+    #     "0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8",
+    #     get_position_key(strategy_account),
+    # ).call()
+
+    # print(get_meta_data())
     print(get_meta_data())
 
     # Tính loss
