@@ -287,6 +287,6 @@
             ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
-        }
+        },
     ]
 }
