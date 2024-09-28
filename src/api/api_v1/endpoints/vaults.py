@@ -387,22 +387,25 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
 
 
 @router.get("/metrics/{vault_id}")
-def get_apy_breakdown(session: SessionDep, vault_id: str):
-    statement = select(Vault).where(Vault.id == vault_id)
-    vault = session.exec(statement).first()
-    if vault is None:
+def get_vault_metadata(session: SessionDep, vault_id: str):
+    # Retrieve the vault
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if not vault:
         raise HTTPException(
-            status_code=400,
-            detail="The data not found in the database.",
+            status_code=404,  # Use 404 to indicate "not found"
+            detail="Vault not found in the database.",
         )
 
-    statement = select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
-    vault_metadata = session.exec(statement).first()
-    if vault_metadata is None:
+    # Retrieve the vault metadata
+    vault_metadata = session.exec(
+        select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
+    ).first()
+
+    if not vault_metadata:
         return {}
 
     # Aggregate all components into a single dictionary
-    data = {
+    return {
         "vault_id": vault_metadata.vault_id,
         "borrow_apr": vault_metadata.borrow_apr,
         "health_factor": vault_metadata.health_factor,
@@ -410,4 +413,3 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
         "open_position": vault_metadata.open_position,
         "last_updated": vault_metadata.last_updated,
     }
-    return data
