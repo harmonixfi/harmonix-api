@@ -101,11 +101,3 @@ def get_borrow_apr(
         return float(data.get("borrow_apr", "0")) / decimals
     else:
         raise Exception(f"Request failed with status {response.status_code}")
-
-
-if __name__ == "__main__":
-    # print(get_meta_data())
-    print(get_meta_data())
-
-    # Tính loss
-    print("Is Liquidatable:")

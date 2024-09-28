@@ -287,18 +287,6 @@
             ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
-        },
-         {
-            "name": "test",
-            "type": "debugpy",
-            "request": "launch",
-            "module": "bg_tasks.golden_link_metrics_daily",
-            "args": [
-                "--chain",
-                "arbitrum_one"
-            ],
-            "justMyCode": true,
-            "cwd": "${workspaceFolder}/src"
-        },
+        }
     ]
 }
