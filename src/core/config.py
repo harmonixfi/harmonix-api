@@ -178,6 +178,12 @@ class Settings(BaseSettings):
     LIDO_API_URL: Optional[str] = "https://eth-api.lido.fi"
     CAMELOT_EXCHANGE_API_URL: Optional[str] = "https://api.camelot.exchange"
     GOLD_LINK_API_URL: Optional[str] = "https://api.goldlink.io"
+    GOLD_LINK_MAINNET_INFURA_URL: Optional[str] = (
+        "https://bitter-wandering-feather.arbitrum-mainnet.quiknode.pro/862a558ad28be94cf6b1ccae509bdca74a19086a"
+    )
+    GOLD_LINK_TRADING_ADDRESS: Optional[str] = (
+        "0x04df99681dd2c0d26598139afd517142430b1202"
+    )
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
