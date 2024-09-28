@@ -36,7 +36,7 @@ def save_or_update_vault_metadata(
         # Update existing vault metadata
         vault_metadata.borrow_apr = borrow_apr
         vault_metadata.health_factor = health_factor
-        vault_metadata.leverage = leverage  # Corrected leverage assignment
+        vault_metadata.leverage = leverage
         vault_metadata.open_position = open_position
         vault_metadata.last_updated = now
     else:
@@ -54,42 +54,43 @@ def save_or_update_vault_metadata(
     session.commit()
 
 
-# Main Execution
+def process_vault(vault):
+    try:
+        health_factor_score = get_health_factor_score() * 100
+        borrow_apr = get_borrow_apr() * 100
+        save_or_update_vault_metadata(
+            vault.id,
+            borrow_apr=borrow_apr,
+            health_factor=health_factor_score,
+            leverage=LEVERAGE,
+            open_position=OPEN_POSITIONS,
+        )
+    except Exception as vault_error:
+        logger.error(
+            "An error occurred while processing vault %s: %s",
+            vault.id,
+            vault_error,
+            exc_info=True,
+        )
+
+
 def main():
     try:
-        logger.info(
-            "Start calculating Gold Link metrics daily for vaults..."
-        )  # Updated log message
+        logger.info("Start fetch info Gold Link metrics daily for vaults...")
         vaults = session.exec(
             select(Vault)
             .where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
-            .where(Vault.is_active == True)
+            .where(Vault.is_active.is_(True))
         ).all()
 
         for vault in vaults:
-            try:
-                health_factor_score = get_health_factor_score() * 100
-                borrow_apr = get_borrow_apr() * 100
-                save_or_update_vault_metadata(
-                    vault.id,
-                    borrow_apr=borrow_apr,
-                    health_factor=health_factor_score,
-                    leverage=LEVERAGE,
-                    open_position=OPEN_POSITIONS,
-                )
-            except Exception as vault_error:
-                logger.error(
-                    "An error occurred while processing vault %s: %s",
-                    vault.id,
-                    vault_error,
-                    exc_info=True,
-                )
+            process_vault(vault)
 
     except Exception as e:
         logger.error(
-            "An error occurred during Gold Link metrics calculation: %s",
+            "An error occurred during Gold Link metrics fetch info: %s",
             e,
-            exc_info=True,  # Updated error message
+            exc_info=True,
         )
 
 
