@@ -292,7 +292,7 @@
             "name": "test",
             "type": "debugpy",
             "request": "launch",
-            "module": "services.gold_link_service",
+            "module": "bg_tasks.golden_link_metrics_daily",
             "args": [
                 "--chain",
                 "arbitrum_one"
