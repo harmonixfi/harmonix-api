@@ -1,8 +1,8 @@
 """add_vault_metadata
 
-Revision ID: ac931da41452
-Revises: cac8624add7e
-Create Date: 2024-09-17 14:30:56.073542
+Revision ID: 4774183a20d7
+Revises: 991468c3f633
+Create Date: 2024-09-28 23:27:16.275465
 
 """
 
@@ -10,12 +10,12 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 import sqlmodel
 
-
 # revision identifiers, used by Alembic.
-revision: str = "ac931da41452"
-down_revision: Union[str, None] = "cac8624add7e"
+revision: str = "4774183a20d7"
+down_revision: Union[str, None] = "991468c3f633"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
@@ -37,7 +37,6 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-
     op.alter_column(
         "vault_metadata",
         "last_updated",
@@ -45,6 +44,7 @@ def upgrade() -> None:
         type_=sa.DateTime(timezone=True),
         existing_nullable=False,
     )
+    # ### end Alembic commands ###
 
 
 def downgrade() -> None:

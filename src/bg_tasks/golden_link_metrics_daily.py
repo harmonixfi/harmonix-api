@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import logging
 import uuid
 
@@ -29,6 +30,7 @@ def save_or_update_vault_metadata(
     vault_metadata = session.exec(
         select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
     ).first()
+    now = datetime.now(timezone.utc)
 
     if vault_metadata:
         # Update existing vault metadata
@@ -36,6 +38,7 @@ def save_or_update_vault_metadata(
         vault_metadata.health_factor = health_factor
         vault_metadata.leverage = leverage  # Corrected leverage assignment
         vault_metadata.open_position = open_position
+        vault_metadata.last_updated = now
     else:
         # Create new vault metadata
         vault_metadata = VaultMetadata(
@@ -44,6 +47,7 @@ def save_or_update_vault_metadata(
             health_factor=health_factor,
             leverage=leverage,
             open_position=open_position,
+            last_updated=now,
         )
         session.add(vault_metadata)
 
@@ -64,8 +68,8 @@ def main():
 
         for vault in vaults:
             try:
-                health_factor_score = get_health_factor_score()
-                borrow_apr = get_borrow_apr()
+                health_factor_score = get_health_factor_score() * 100
+                borrow_apr = get_borrow_apr() * 100
                 save_or_update_vault_metadata(
                     vault.id,
                     borrow_apr=borrow_apr,
