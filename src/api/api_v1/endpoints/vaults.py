@@ -67,10 +67,9 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
 
     earned_points = []
     for partner in partners:
-        if partner == constants.PARTNER_KELPDAOGAIN:
-            continue
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
-        if point_dist_hist is not None:
+        if point_dist_hist is not None or partner != constants.PARTNER_KELPDAOGAIN:
+
             earned_points.append(
                 schemas.EarnedPoints(
                     name=partner,
@@ -79,14 +78,15 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
                 )
             )
         else:
-            # add default value 0
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=partner,
-                    point=0.0,
-                    created_at=None,
+            if partner == constants.PARTNER_KELPDAOGAIN:
+                # add default value 0
+                earned_points.append(
+                    schemas.EarnedPoints(
+                        name=partner,
+                        point=0.0,
+                        created_at=None,
+                    )
                 )
-            )
         if partner == constants.PARTNER_KELPDAOGAIN:
             earned_points.append(
                 schemas.EarnedPoints(
