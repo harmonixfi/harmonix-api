@@ -12,8 +12,8 @@ STRATEGY_BANK_ABI_NAME = "strategy-bank"
 STRATEGY_ACCOUNT_ABI_NAME = "strategy-account"
 
 
-def get_trading_address(trading_addess: str):
-    return Web3.to_checksum_address(trading_addess)
+def get_trading_address(trading_account: str):
+    return Web3.to_checksum_address(trading_account)
 
 
 def get_contract(address, abi_name, web3: Web3):
