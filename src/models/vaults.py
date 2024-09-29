@@ -83,6 +83,7 @@ class VaultMetadata(sqlmodel.SQLModel, table=True):
     borrow_apr: float | None = None
     health_factor: float | None = None
     open_position: float | None = None
+    goldlink_trading_account: str | None
     last_updated: datetime = sqlmodel.Field(default_factory=datetime.utcnow)
 
     # Relationship to the Vault

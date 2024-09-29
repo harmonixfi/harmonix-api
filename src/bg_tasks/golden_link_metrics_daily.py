@@ -20,46 +20,51 @@ LEVERAGE: float = 4
 OPEN_POSITIONS: float = 435.55
 
 
-def save_or_update_vault_metadata(
-    vault_id: uuid.UUID,
+def get_vault_metadata(vault_id: uuid.UUID) -> VaultMetadata:
+    vault_metadata = session.exec(
+        select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
+    ).first()
+    return vault_metadata
+
+
+def update_vault_metadata(
+    vault_metadata: VaultMetadata,
     borrow_apr: float,
     health_factor: float,
     leverage: float,
     open_position: float,
 ):
-    vault_metadata = session.exec(
-        select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
-    ).first()
-    now = datetime.now(timezone.utc)
 
-    if vault_metadata:
-        # Update existing vault metadata
-        vault_metadata.borrow_apr = borrow_apr
-        vault_metadata.health_factor = health_factor
-        vault_metadata.leverage = leverage
-        vault_metadata.open_position = open_position
-        vault_metadata.last_updated = now
-    else:
-        # Create new vault metadata
-        vault_metadata = VaultMetadata(
-            vault_id=vault_id,
-            borrow_apr=borrow_apr,
-            health_factor=health_factor,
-            leverage=leverage,
-            open_position=open_position,
-            last_updated=now,
-        )
-        session.add(vault_metadata)
+    now = datetime.now(timezone.utc)
+    # Update existing vault metadata
+    vault_metadata.borrow_apr = borrow_apr
+    vault_metadata.health_factor = health_factor
+    vault_metadata.leverage = leverage
+    vault_metadata.open_position = open_position
+    vault_metadata.last_updated = now
 
     session.commit()
 
 
-def process_vault(vault):
+def process_vault(vault: Vault):
     try:
-        health_factor_score = get_health_factor_score() * 100
+        vault_metadata = get_vault_metadata(vault_id=vault.id)
+
+        if not vault_metadata:
+            logger.error(
+                "No vault metadata found for vault %s. Cannot update.",
+                vault.id,
+                exc_info=True,
+            )
+            raise ValueError(f"No vault metadata found for vault {vault.id}.")
+
+        health_factor_score = (
+            get_health_factor_score(vault_metadata.goldlink_trading_account) * 100
+        )
         borrow_apr = get_borrow_apr() * 100
-        save_or_update_vault_metadata(
-            vault.id,
+
+        update_vault_metadata(
+            vault_metadata,
             borrow_apr=borrow_apr,
             health_factor=health_factor_score,
             leverage=LEVERAGE,

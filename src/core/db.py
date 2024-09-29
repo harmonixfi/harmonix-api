@@ -13,7 +13,7 @@ from models.reward_sessions import RewardSessions
 from models.reward_thresholds import RewardThresholds
 from models.user import User
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain, Vault, VaultGroup
+from models.vaults import NetworkChain, Vault, VaultGroup, VaultMetadata
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI), pool_pre_ping=True)
 
@@ -309,6 +309,32 @@ def init_new_vault(session: Session, vault: Vault):
         init_vault_performance(session, vault)
 
 
+def init_new_vault_metadata(session: Session):
+    existing_vault = session.exec(
+        select(Vault).where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
+    ).first()
+    if existing_vault:
+
+        existing_vault_metadata = session.exec(
+            select(VaultMetadata).where(VaultMetadata.vault_id == existing_vault.id)
+        ).first()
+
+        if existing_vault_metadata:
+            return
+
+        vault_metadata = VaultMetadata(
+            vault_id=existing_vault.id,
+            leverage=0,
+            borrow_apr=0,
+            goldlink_trading_account="0x04df99681dd2c0d26598139afd517142430b1202",
+            health_factor=0,
+            last_updated=datetime.now(tz=timezone.utc),
+            open_position=0,
+        )
+        session.add(vault_metadata)
+        session.commit()
+
+
 def seed_vaults(session: Session):
     kelpdao_group = session.exec(
         select(VaultGroup).where(VaultGroup.name == "Koi & Chill with Kelp DAO")
@@ -542,3 +568,5 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26dec2024")
     ).first()
     init_new_vault(session, pendle_rs_26dec)
+
+    init_new_vault_metadata(session)
