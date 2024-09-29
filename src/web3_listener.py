@@ -108,7 +108,8 @@ def _extract_pendle_event(entry):
 
     # Parse the amount and shares parameters from the data field
     data = entry["data"].hex()
-    
+    logger.info("Raw data: %s", data)
+
     if entry["topics"][0] == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
         pt_amount = int(data[2:66], 16) / 1e18
         sc_amount = int(data[66 : 66 + 64], 16) / 1e6
@@ -121,6 +122,9 @@ def _extract_pendle_event(entry):
         sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
         total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
         shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+        logger.info(
+            f"pt_amount: {pt_amount}, eth_amount: {eth_amount}, sc_amount: {sc_amount}, total_amount: {total_amount}, shares: {shares}"
+        )
 
     return pt_amount, eth_amount, sc_amount, total_amount, shares, from_address
 
@@ -167,6 +171,7 @@ def handle_deposit_event(
         logger.info(f"User deposit {from_address}, amount = {value}, shares = {shares}")
         logger.info(f"User with address {from_address} updated in user_portfolio table")
 
+    session.commit()
     # Update TVL realtime when user deposit to vault
     update_tvl(vault, float(value))
 
@@ -283,7 +288,9 @@ def handle_event(vault_address: str, entry, event_name):
         value, shares, from_address = _extract_solv_event(entry)
         latest_pps = round(value / shares, 4)
     elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-        _, eth_amount, sc_amount, value, shares, from_address = _extract_pendle_event(entry)
+        _, eth_amount, sc_amount, value, shares, from_address = _extract_pendle_event(
+            entry
+        )
         logger.info(
             "Recieving data from pendle vault: %s, %s, %s from %s",
             eth_amount,
