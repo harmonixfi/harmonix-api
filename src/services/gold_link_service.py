@@ -12,8 +12,8 @@ STRATEGY_BANK_ABI_NAME = "strategy-bank"
 STRATEGY_ACCOUNT_ABI_NAME = "strategy-account"
 
 
-def get_trading_address():
-    return Web3.to_checksum_address(settings.GOLD_LINK_TRADING_ADDRESS)
+def get_trading_address(trading_addess: str):
+    return Web3.to_checksum_address(trading_addess)
 
 
 def get_contract(address, abi_name, web3: Web3):
@@ -60,10 +60,12 @@ def get_account_holdings_with_interest(strategy_bank, trading_address, decimals=
     )
 
 
-def get_health_factor_score() -> float:
+def get_health_factor_score(
+    trading_addess: str = "0x04df99681dd2c0d26598139afd517142430b1202",
+) -> float:
     # Initialize contracts
-    web3 = Web3(Web3.HTTPProvider(settings.GOLD_LINK_MAINNET_INFURA_URL))
-    trading_address = get_trading_address()
+    web3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
+    trading_address = get_trading_address(trading_addess)
 
     strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME, web3)
     strategy_bank = get_contract(
