@@ -60,12 +60,10 @@ def get_account_holdings_with_interest(strategy_bank, trading_address, decimals=
     )
 
 
-def get_health_factor_score(
-    trading_addess: str = "0x04df99681dd2c0d26598139afd517142430b1202",
-) -> float:
+def get_health_factor_score(trading_account: str) -> float:
     # Initialize contracts
     web3 = Web3(Web3.HTTPProvider(settings.ARBITRUM_MAINNET_INFURA_URL))
-    trading_address = get_trading_address(trading_addess)
+    trading_address = get_trading_address(trading_account)
 
     strategy_reserve = get_contract(trading_address, STRATEGY_RESERVE_ABI_NAME, web3)
     strategy_bank = get_contract(
