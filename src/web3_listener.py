@@ -110,7 +110,7 @@ def _extract_pendle_event(entry):
     data = entry["data"].hex()
     logger.info("Raw data: %s", data)
 
-    if entry["topics"][0] == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
+    if entry["topics"][0].hex() == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
         pt_amount = int(data[2:66], 16) / 1e18
         sc_amount = int(data[66 : 66 + 64], 16) / 1e6
         shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
