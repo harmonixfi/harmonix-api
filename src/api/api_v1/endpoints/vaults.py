@@ -13,6 +13,7 @@ from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.vault import GroupSchema, SupportedNetwork
+from schemas.vault_metadata_response import VaultMetadataResponse
 
 router = APIRouter()
 
@@ -386,7 +387,7 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     return data
 
 
-@router.get("/metrics/{vault_id}")
+@router.get("/metrics/{vault_id}", response_model=VaultMetadataResponse)
 def get_vault_metadata(session: SessionDep, vault_id: str):
     # Retrieve the vault
     vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
@@ -405,11 +406,11 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
         return {}
 
     # Aggregate all components into a single dictionary
-    return {
-        "vault_id": vault_metadata.vault_id,
-        "borrow_apr": vault_metadata.borrow_apr,
-        "health_factor": vault_metadata.health_factor,
-        "leverage": vault_metadata.leverage,
-        "open_position": vault_metadata.open_position,
-        "last_updated": vault_metadata.last_updated,
-    }
+    return VaultMetadataResponse(
+        vault_id=vault_metadata.vault_id,
+        borrow_apr=vault_metadata.borrow_apr,
+        health_factor=vault_metadata.health_factor,
+        leverage=vault_metadata.leverage,
+        open_position=vault_metadata.open_position,
+        last_updated=vault_metadata.last_updated,
+    )

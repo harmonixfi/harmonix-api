@@ -179,6 +179,9 @@ class Settings(BaseSettings):
     CAMELOT_EXCHANGE_API_URL: Optional[str] = "https://api.camelot.exchange"
 
     GOLD_LINK_API_URL: Optional[str] = "https://api.goldlink.io"
+    GOLD_LINK_NETWORK_ID_MAINNET: Optional[str] = (
+        "0xB4E29A1A0E6F9DB584447E988CE15D48A1381311"
+    )
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

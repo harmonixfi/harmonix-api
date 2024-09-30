@@ -329,7 +329,7 @@ def init_new_vault_metadata(session: Session):
             goldlink_trading_account="0x04df99681dd2c0d26598139afd517142430b1202",
             health_factor=0,
             last_updated=datetime.now(tz=timezone.utc),
-            open_position=0,
+            open_position_size=0,
         )
         session.add(vault_metadata)
         session.commit()
@@ -469,16 +469,16 @@ def seed_vaults(session: Session):
             slug="gold_link",
             routes=None,
             category="real_yield",
-            underlying_asset="rsETH",
+            underlying_asset="LINK",
             network_chain=NetworkChain.arbitrum_one,
             monthly_apy=0,
             weekly_apy=0,
             ytd_apy=0,
             apr=0,
             tvl=0,
-            tags="goldlink,new",
+            tags="",
             max_drawdown=0,
-            maturity_date="2024-12-26",
+            maturity_date="",
             owner_wallet_address="",
             is_active=False,
             strategy_name=constants.GOLD_LINK_STRATEGY,

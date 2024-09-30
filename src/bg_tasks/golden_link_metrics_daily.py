@@ -40,13 +40,13 @@ def update_vault_metadata(
     vault_metadata.borrow_apr = borrow_apr
     vault_metadata.health_factor = health_factor
     vault_metadata.leverage = leverage
-    vault_metadata.open_position = open_position
+    vault_metadata.open_position_size = open_position
     vault_metadata.last_updated = now
 
     session.commit()
 
 
-def process_vault(vault: Vault):
+def get_vault_metrics(vault: Vault):
     try:
         vault_metadata = get_vault_metadata(vault_id=vault.id)
 
@@ -89,7 +89,7 @@ def main():
         ).all()
 
         for vault in vaults:
-            process_vault(vault)
+            get_vault_metrics(vault)
 
     except Exception as e:
         logger.error(
