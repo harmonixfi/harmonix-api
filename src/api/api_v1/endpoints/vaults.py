@@ -411,6 +411,6 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
         borrow_apr=vault_metadata.borrow_apr,
         health_factor=vault_metadata.health_factor,
         leverage=vault_metadata.leverage,
-        open_position=vault_metadata.open_position,
+        open_position_size=vault_metadata.open_position_size,
         last_updated=vault_metadata.last_updated,
     )

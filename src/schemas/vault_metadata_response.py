@@ -9,5 +9,5 @@ class VaultMetadataResponse(BaseModel):
     borrow_apr: Optional[float] = None
     health_factor: Optional[float] = None
     leverage: Optional[float] = None
-    open_position: Optional[float] = None
+    open_position_size: Optional[float] = None
     last_updated: Optional[datetime] = None
