@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class VaultMetadataResponse(BaseModel):
-    vault_id: uuid.uuid4
+    vault_id: uuid.UUID
     borrow_apr: Optional[float] = None
     health_factor: Optional[float] = None
     leverage: Optional[float] = None
