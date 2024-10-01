@@ -11,8 +11,9 @@ from api.api_v1.deps import SessionDep
 from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain, VaultCategory
+from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.vault import GroupSchema, SupportedNetwork
+from schemas.vault_metadata_response import VaultMetadataResponse
 
 router = APIRouter()
 
@@ -384,3 +385,32 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     }
     data["apy"] = vault_apy.total_apy
     return data
+
+
+@router.get("/metrics/{vault_id}", response_model=VaultMetadataResponse)
+def get_vault_metadata(session: SessionDep, vault_id: str):
+    # Retrieve the vault
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if not vault:
+        raise HTTPException(
+            status_code=404,  # Use 404 to indicate "not found"
+            detail="Vault not found in the database.",
+        )
+
+    # Retrieve the vault metadata
+    vault_metadata = session.exec(
+        select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
+    ).first()
+
+    if not vault_metadata:
+        return {}
+
+    # Aggregate all components into a single dictionary
+    return VaultMetadataResponse(
+        vault_id=vault_metadata.vault_id,
+        borrow_apr=vault_metadata.borrow_apr,
+        health_factor=vault_metadata.health_factor,
+        leverage=vault_metadata.leverage,
+        open_position_size=vault_metadata.open_position_size,
+        last_updated=vault_metadata.last_updated,
+    )
