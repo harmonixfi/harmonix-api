@@ -68,7 +68,7 @@ def get_vault_metrics(vault: Vault):
         borrow_apr = get_borrow_apr() * 100
 
         size_in_tokens = get_position_size(vault_metadata.goldlink_trading_account)
-        link_price = get_price("LINKUSDT")
+        link_price = get_price(f"{vault.underlying_asset}USDT")
 
         update_vault_metadata(
             vault_metadata,
