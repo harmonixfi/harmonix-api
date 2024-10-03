@@ -68,14 +68,14 @@ def get_vault_metrics(vault: Vault):
         borrow_apr = get_borrow_apr() * 100
 
         size_in_tokens = get_position_size(vault_metadata.goldlink_trading_account)
-        link_price = get_price(f"{vault.underlying_asset}USDT")
+        token_price = get_price(f"{vault.underlying_asset}USDT")
 
         update_vault_metadata(
             vault_metadata,
             borrow_apr=borrow_apr,
             health_factor=health_factor_score,
             leverage=LEVERAGE,
-            open_position=size_in_tokens * link_price,
+            open_position=size_in_tokens * token_price,
         )
     except Exception as vault_error:
         logger.error(
