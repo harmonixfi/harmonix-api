@@ -8,7 +8,12 @@ from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.vaults import VaultMetadata
-from services.gold_link_service import get_borrow_apr, get_health_factor_score
+from services.gold_link_service import (
+    get_borrow_apr,
+    get_health_factor_score,
+    get_size_token,
+)
+from services.market_data import get_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -17,7 +22,6 @@ logger = logging.getLogger("golden_link_metrics_daily")
 session = Session(engine)
 
 LEVERAGE: float = 4
-OPEN_POSITIONS: float = 435.55
 
 
 def get_vault_metadata(vault_id: uuid.UUID) -> VaultMetadata:
@@ -63,12 +67,15 @@ def get_vault_metrics(vault: Vault):
         )
         borrow_apr = get_borrow_apr() * 100
 
+        size_in_tokens = get_size_token(vault_metadata.goldlink_trading_account)
+        link_price = get_price("LINKUSDT")
+
         update_vault_metadata(
             vault_metadata,
             borrow_apr=borrow_apr,
             health_factor=health_factor_score,
             leverage=LEVERAGE,
-            open_position=OPEN_POSITIONS,
+            open_position=size_in_tokens * link_price,
         )
     except Exception as vault_error:
         logger.error(

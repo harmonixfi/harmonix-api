@@ -100,3 +100,23 @@ def get_borrow_apr(
         return float(data.get("borrow_apr", "0")) / decimals
     else:
         raise Exception(f"Request failed with status {response.status_code}")
+
+
+def get_size_token(
+    trading_account: str,
+    decimals=1e18,
+):
+    params = f'["{trading_account}"]'
+
+    api_url = f"{url}/?method=goldlink/getAccountPositions&params={params}"
+    response = requests.get(api_url)
+
+    if response.status_code == 200:
+        size_in_tokens = 0
+        data = response.json()["result"]
+        for item in data:
+            size_in_tokens += float(item["size_in_tokens"]) / decimals
+
+        return size_in_tokens
+    else:
+        raise Exception(f"Request failed with status {response.status_code}")
