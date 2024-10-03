@@ -11,7 +11,7 @@ from models.vaults import VaultMetadata
 from services.gold_link_service import (
     get_borrow_apr,
     get_health_factor_score,
-    get_size_token,
+    get_position_size,
 )
 from services.market_data import get_price
 
@@ -67,7 +67,7 @@ def get_vault_metrics(vault: Vault):
         )
         borrow_apr = get_borrow_apr() * 100
 
-        size_in_tokens = get_size_token(vault_metadata.goldlink_trading_account)
+        size_in_tokens = get_position_size(vault_metadata.goldlink_trading_account)
         link_price = get_price("LINKUSDT")
 
         update_vault_metadata(

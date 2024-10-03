@@ -102,7 +102,7 @@ def get_borrow_apr(
         raise Exception(f"Request failed with status {response.status_code}")
 
 
-def get_size_token(
+def get_position_size(
     trading_account: str,
     decimals=1e18,
 ):
