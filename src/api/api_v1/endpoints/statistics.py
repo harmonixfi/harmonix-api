@@ -259,7 +259,6 @@ async def get_total_depositors(session: SessionDep):
         ]
     )
 
-    # Define the SQL query to get the total user count for 7 days, and 30 days
     raw_query = text(
         f"""
         WITH date_ranges AS (
