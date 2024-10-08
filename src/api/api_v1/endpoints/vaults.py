@@ -1,10 +1,12 @@
 import json
 from typing import List, Optional
+import uuid
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, and_, select, or_
 
+from models.pps_history import PricePerShareHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 import schemas
 from api.api_v1.deps import SessionDep
@@ -26,6 +28,16 @@ def _update_vault_apy(vault: Vault) -> schemas.Vault:
     else:
         schema_vault.apy = vault.monthly_apy
     return schema_vault
+
+
+def _get_last_price_per_share(session: Session, vault_id: uuid.UUID) -> float:
+    latest_pps = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.desc())
+    ).first()
+
+    return latest_pps.price_per_share if latest_pps else 0.0
 
 
 def get_vault_earned_point_by_partner(
@@ -149,6 +161,10 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+
+        schema_vault.price_per_share = _get_last_price_per_share(
+            session=session, vault_id=vault.id
+        )
 
         if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
             not vault.vault_group
