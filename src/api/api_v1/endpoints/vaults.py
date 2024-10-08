@@ -1,10 +1,12 @@
 import json
 from typing import List, Optional
+import uuid
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, and_, select, or_
 
+from models.pps_history import PricePerShareHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 import schemas
 from api.api_v1.deps import SessionDep
@@ -13,6 +15,7 @@ from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.vault import GroupSchema, SupportedNetwork
+from schemas.vault_metadata_response import VaultMetadataResponse
 
 router = APIRouter()
 
@@ -25,6 +28,16 @@ def _update_vault_apy(vault: Vault) -> schemas.Vault:
     else:
         schema_vault.apy = vault.monthly_apy
     return schema_vault
+
+
+def _get_last_price_per_share(session: Session, vault_id: uuid.UUID) -> float:
+    latest_pps = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.desc())
+    ).first()
+
+    return latest_pps.price_per_share if latest_pps else 0.0
 
 
 def get_vault_earned_point_by_partner(
@@ -148,6 +161,10 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+
+        schema_vault.price_per_share = _get_last_price_per_share(
+            session=session, vault_id=vault.id
+        )
 
         if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
             not vault.vault_group
@@ -386,7 +403,7 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     return data
 
 
-@router.get("/metrics/{vault_id}")
+@router.get("/metrics/{vault_id}", response_model=VaultMetadataResponse)
 def get_vault_metadata(session: SessionDep, vault_id: str):
     # Retrieve the vault
     vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
@@ -405,11 +422,11 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
         return {}
 
     # Aggregate all components into a single dictionary
-    return {
-        "vault_id": vault_metadata.vault_id,
-        "borrow_apr": vault_metadata.borrow_apr,
-        "health_factor": vault_metadata.health_factor,
-        "leverage": vault_metadata.leverage,
-        "open_position": vault_metadata.open_position,
-        "last_updated": vault_metadata.last_updated,
-    }
+    return VaultMetadataResponse(
+        vault_id=vault_metadata.vault_id,
+        borrow_apr=vault_metadata.borrow_apr,
+        health_factor=vault_metadata.health_factor,
+        leverage=vault_metadata.leverage,
+        open_position_size=vault_metadata.open_position_size,
+        last_updated=vault_metadata.last_updated,
+    )

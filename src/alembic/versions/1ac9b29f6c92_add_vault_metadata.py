@@ -1,8 +1,8 @@
 """add_vault_metadata
 
-Revision ID: 3e23b78e0491
+Revision ID: 1ac9b29f6c92
 Revises: 991468c3f633
-Create Date: 2024-09-29 15:00:24.814034
+Create Date: 2024-09-30 21:21:35.192751
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = "3e23b78e0491"
+revision: str = "1ac9b29f6c92"
 down_revision: Union[str, None] = "991468c3f633"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,7 +29,7 @@ def upgrade() -> None:
         sa.Column("leverage", sa.Float(), nullable=True),
         sa.Column("borrow_apr", sa.Float(), nullable=True),
         sa.Column("health_factor", sa.Float(), nullable=True),
-        sa.Column("open_position", sa.Float(), nullable=True),
+        sa.Column("open_position_size", sa.Float(), nullable=True),
         sa.Column(
             "goldlink_trading_account",
             sqlmodel.sql.sqltypes.AutoString(),

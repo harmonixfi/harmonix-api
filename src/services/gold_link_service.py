@@ -1,6 +1,5 @@
 import requests
 from web3 import Web3
-from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
@@ -90,7 +89,7 @@ def get_health_factor_score(trading_account: str) -> float:
 def get_borrow_apr(
     decimals=1e18,
 ):
-    params = f'["{constants.GOLD_LINK_NETWORK_ID_MAINNET}"]'
+    params = f'["{settings.GOLD_LINK_NETWORK_ID_MAINNET}"]'
 
     api_url = f"{url}/?method=goldlink/getStrategyInfo&params={params}"
     response = requests.get(api_url)
@@ -99,5 +98,25 @@ def get_borrow_apr(
         data = response.json()["result"]
 
         return float(data.get("borrow_apr", "0")) / decimals
+    else:
+        raise Exception(f"Request failed with status {response.status_code}")
+
+
+def get_position_size(
+    trading_account: str,
+    decimals=1e18,
+):
+    params = f'["{trading_account}"]'
+
+    api_url = f"{url}/?method=goldlink/getAccountPositions&params={params}"
+    response = requests.get(api_url)
+
+    if response.status_code == 200:
+        size_in_tokens = 0
+        data = response.json()["result"]
+        for item in data:
+            size_in_tokens += float(item["size_in_tokens"]) / decimals
+
+        return size_in_tokens
     else:
         raise Exception(f"Request failed with status {response.status_code}")
