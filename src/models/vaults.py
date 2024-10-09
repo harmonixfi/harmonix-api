@@ -10,6 +10,7 @@ import sqlmodel
 class VaultCategory(str, enum.Enum):
     real_yield = "real_yield"
     points = "points"
+    rewards = "rewards"
 
 
 # create network enum: Ethereum, BSC, ArbitrumOne, Base, Blast
