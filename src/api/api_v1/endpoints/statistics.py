@@ -241,6 +241,55 @@ async def get_total_user(session: SessionDep):
     }
 
 
+from fastapi import APIRouter, Query
+from sqlalchemy import text
+
+router = APIRouter()
+
+
+@router.get("/depositors/recent")
+async def get_total_depositors(session: SessionDep):
+    # Prepare the method IDs for the SQL query
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
+
+    raw_query = text(
+        f"""
+        WITH date_ranges AS (
+            SELECT
+                EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') AS seven_days_ago,
+                EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days') AS thirty_days_ago
+        )
+        SELECT
+            COUNT(CASE WHEN "timestamp" >= seven_days_ago THEN 1 END) AS total_deposit_7_days,
+            COUNT(CASE WHEN "timestamp" >= thirty_days_ago THEN 1 END) AS total_deposit_30_days
+        FROM
+            public.onchain_transaction_history,
+            date_ranges
+        WHERE
+            method_id IN ({method_ids});
+        """
+    )
+
+    result = session.exec(raw_query).one()
+
+    # Return the results for 7 days and 30 days
+    return {
+        "total_deposit_7_days": (
+            0 if result.total_deposit_7_days is None else result.total_deposit_7_days
+        ),
+        "total_deposit_30_days": (
+            0 if result.total_deposit_30_days is None else result.total_deposit_30_days
+        ),
+    }
+
+
 @router.get("/yield/summary")
 async def get_yield(session: SessionDep):
     raw_query = text(
@@ -600,6 +649,41 @@ async def get_user_chart_data(session: SessionDep):
     ]
 
     return yield_data
+
+
+@router.get("/api/deposit-data-chart")
+async def get_deposit_chart_data(session: SessionDep):
+    # Create a placeholder for the method IDs
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
+
+    raw_query = text(
+        f"""
+        SELECT 
+            to_timestamp("timestamp")::date AS date,
+            Count(id) AS total_deposit
+        FROM 
+            public.onchain_transaction_history
+        WHERE 
+            method_id IN ({method_ids})
+        GROUP BY 
+            date
+        ORDER BY 
+            date;
+        """
+    )
+
+    result = session.exec(raw_query)
+
+    deposit_data = [{"date": row[0], "total_deposit": row[1]} for row in result.all()]
+
+    return deposit_data
 
 
 # @router.get("/api/tvl-data-chart")

@@ -11,7 +11,7 @@ class OnchainTransactionHistory(SQLModel, table=True):
     timestamp: int = Field(index=True, nullable=True)
     from_address: str
     to_address: str
-    method_id: str
+    method_id: str = Field(index=True)
     input: str
     value: float
     chain: str = Field(default="arbitrum_one", index=True, nullable=True)
