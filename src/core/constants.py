@@ -10,6 +10,7 @@ EIGENLAYER = "eigenlayer"
 HARMONIX = "Harmonix"
 HYPERLIQUID = "Hyperliquid"
 BSX = "bsx"
+GOLDLINK = "goldlink"
 
 PARTNER_KELPDAOGAIN = "kelpdaogain"
 EARNED_POINT_LINEA = "linea"
