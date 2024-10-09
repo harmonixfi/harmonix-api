@@ -261,19 +261,23 @@ async def get_total_depositors(session: SessionDep):
 
     raw_query = text(
         f"""
-        WITH date_ranges AS (
-            SELECT
-                EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days') AS seven_days_ago,
-                EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days') AS thirty_days_ago
+        WITH unique_from_addresses_7_days AS (
+            SELECT DISTINCT ON (from_address) from_address
+            FROM public.onchain_transaction_history
+            WHERE method_id IN ({method_ids})
+              AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days')
+            ORDER BY from_address, "timestamp"
+        ),
+        unique_from_addresses_30_days AS (
+            SELECT DISTINCT ON (from_address) from_address
+            FROM public.onchain_transaction_history
+            WHERE method_id IN ({method_ids})
+              AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days')
+            ORDER BY from_address, "timestamp"
         )
         SELECT
-            COUNT(CASE WHEN "timestamp" >= seven_days_ago THEN 1 END) AS total_deposit_7_days,
-            COUNT(CASE WHEN "timestamp" >= thirty_days_ago THEN 1 END) AS total_deposit_30_days
-        FROM
-            public.onchain_transaction_history,
-            date_ranges
-        WHERE
-            method_id IN ({method_ids});
+            (SELECT COUNT(*) FROM unique_from_addresses_7_days) AS total_deposit_7_days,
+            (SELECT COUNT(*) FROM unique_from_addresses_30_days) AS total_deposit_30_days;
         """
     )
 
@@ -653,7 +657,7 @@ async def get_user_chart_data(session: SessionDep):
 
 @router.get("/api/deposit-data-chart")
 async def get_deposit_chart_data(session: SessionDep):
-    # Create a placeholder for the method IDs
+    # Prepare the method IDs for the SQL query
     method_ids = ", ".join(
         f"'{method_id}'"
         for method_id in [
@@ -667,7 +671,8 @@ async def get_deposit_chart_data(session: SessionDep):
         f"""
         SELECT 
             to_timestamp("timestamp")::date AS date,
-            Count(id) AS total_deposit
+            COUNT(DISTINCT from_address) AS total_deposit,
+            SUM(COUNT(DISTINCT from_address)) OVER (ORDER BY to_timestamp("timestamp")::date) AS cumulative_deposit
         FROM 
             public.onchain_transaction_history
         WHERE 
@@ -679,11 +684,21 @@ async def get_deposit_chart_data(session: SessionDep):
         """
     )
 
-    result = session.exec(raw_query)
+    result = session.exec(raw_query).all()
 
-    deposit_data = [{"date": row[0], "total_deposit": row[1]} for row in result.all()]
-
-    return deposit_data
+    # Return the results as a list of dictionaries
+    return [
+        {
+            "date": row.date,
+            "total_deposit": (
+                row.total_deposit if row.total_deposit is not None else 0
+            ),
+            "cumulative_deposit": (
+                row.cumulative_deposit if row.cumulative_deposit is not None else 0
+            ),
+        }
+        for row in result
+    ]
 
 
 # @router.get("/api/tvl-data-chart")
