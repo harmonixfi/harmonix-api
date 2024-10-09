@@ -651,6 +651,41 @@ async def get_user_chart_data(session: SessionDep):
     return yield_data
 
 
+@router.get("/api/deposit-data-chart")
+async def get_deposit_chart_data(session: SessionDep):
+    # Create a placeholder for the method IDs
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
+
+    raw_query = text(
+        f"""
+        SELECT 
+            to_timestamp("timestamp")::date AS date,
+            Count(id) AS total_deposit
+        FROM 
+            public.onchain_transaction_history
+        WHERE 
+            method_id IN ({method_ids})
+        GROUP BY 
+            date
+        ORDER BY 
+            date;
+        """
+    )
+
+    result = session.exec(raw_query)
+
+    deposit_data = [{"date": row[0], "total_deposit": row[1]} for row in result.all()]
+
+    return deposit_data
+
+
 # @router.get("/api/tvl-data-chart")
 # async def get_tvl_chart_data(session: SessionDep):
 #     statement = select(Vault).where(Vault.is_active)
