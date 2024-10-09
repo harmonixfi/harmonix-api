@@ -3,7 +3,7 @@ import sqlmodel
 from datetime import datetime as dt, timezone
 
 
-class VaultRewardHistory(sqlmodel.SQLModel):
+class VaultRewardHistory(sqlmodel.SQLModel, table=True):
     __tablename__ = "vault_reward_history"
 
     id: uuid.UUID = sqlmodel.Field(default_factory=uuid.uuid4, primary_key=True)
