@@ -285,10 +285,10 @@ async def get_total_depositors(session: SessionDep):
 
     # Return the results for 7 days and 30 days
     return {
-        "total_deposit_7_days": (
+        "total_depositors_7_days": (
             0 if result.total_deposit_7_days is None else result.total_deposit_7_days
         ),
-        "total_deposit_30_days": (
+        "total_depositors_30_days": (
             0 if result.total_deposit_30_days is None else result.total_deposit_30_days
         ),
     }
@@ -655,7 +655,7 @@ async def get_user_chart_data(session: SessionDep):
     return yield_data
 
 
-@router.get("/api/deposit-data-chart")
+@router.get("/api/depositors-data-chart")
 async def get_deposit_chart_data(session: SessionDep):
     # Prepare the method IDs for the SQL query
     method_ids = ", ".join(
@@ -690,10 +690,10 @@ async def get_deposit_chart_data(session: SessionDep):
     return [
         {
             "date": row.date,
-            "total_deposit": (
+            "total_depositors": (
                 row.total_deposit if row.total_deposit is not None else 0
             ),
-            "cumulative_deposit": (
+            "cumulative_depositors": (
                 row.cumulative_deposit if row.cumulative_deposit is not None else 0
             ),
         }
