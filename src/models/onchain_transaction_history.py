@@ -9,7 +9,7 @@ class OnchainTransactionHistory(SQLModel, table=True):
     tx_hash: str = Field(index=True, unique=True)
     block_number: int = Field(index=True)
     timestamp: int = Field(index=True, nullable=True)
-    from_address: str
+    from_address: str = Field(index=True)
     to_address: str
     method_id: str = Field(index=True)
     input: str
