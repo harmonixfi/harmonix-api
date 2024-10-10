@@ -22,11 +22,9 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
 from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
-from models.vault_rewards import VaultRewards
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
 from services import renzo_service, zircuit_service, kelpdao_service
-from services.market_data import get_price
 
 session = Session(engine)
 
@@ -41,19 +39,6 @@ GET_POINTS_SERVICE = {
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("restaking_point_calculation")
 logger.setLevel(logging.INFO)
-
-
-def get_points_earned(vault: Vault) -> EarnedRestakingPoints:
-    vault_reward = session.exec(
-        select(VaultRewards).where(VaultRewards.vault_id == vault.id)
-    ).first()
-
-    total_points = vault_reward if float(vault_reward.earned_rewards) else float(0.0)
-    return EarnedRestakingPoints(
-        wallet_address=vault.contract_address,
-        total_points=total_points,
-        partner_name=constants.GOLDLINK,
-    )
 
 
 def get_earned_points(vault_address: str, partner_name: str) -> EarnedRestakingPoints:
@@ -183,13 +168,7 @@ def calculate_point_distributions(vault: Vault):
             prev_point,
         )
 
-        if partner_name == constants.GOLDLINK:
-            total_earned_points = get_points_earned(vault)
-        else:
-            total_earned_points = get_earned_points(
-                vault.contract_address, partner_name
-            )
-
+        total_earned_points = get_earned_points(vault.contract_address, partner_name)
         total_earned_points.total_points = (
             total_earned_points.total_points
             if total_earned_points.total_points >= prev_point
