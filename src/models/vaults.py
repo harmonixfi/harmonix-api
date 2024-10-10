@@ -19,6 +19,7 @@ class NetworkChain(str, enum.Enum):
     arbitrum_one = "arbitrum_one"
     base = "base"
     blast = "blast"
+    sepolia = "sepolia"
 
 
 class VaultGroup(sqlmodel.SQLModel, table=True):
