@@ -25,12 +25,12 @@ logger = logging.getLogger("restaking_reward_calculation")
 logger.setLevel(logging.INFO)
 
 
-def get_rewards(vault: Vault) -> EarnedRestakingRewards:
+def get_rewards(vault: Vault, symbol: str = "ARBUSDT") -> EarnedRestakingRewards:
     vault_reward = session.exec(
         select(VaultRewards).where(VaultRewards.vault_id == vault.id)
     ).first()
 
-    price = get_price("ARBUSDT")
+    price = get_price(symbol)
     total_rewards = vault_reward.earned_rewards * price if vault_reward else 0.0
     return EarnedRestakingRewards(
         wallet_address=vault.contract_address,
@@ -82,27 +82,27 @@ def distribute_rewards_to_users(
             user_rewards.total_reward += earned_rewards * shares_pct
 
         else:
-            user_points = UserRewards(
+            user_rewards = UserRewards(
                 wallet_address=user.user_address,
-                points=earned_rewards * shares_pct,
+                total_reward=earned_rewards * shares_pct,
                 partner_name=partner_name,
                 vault_id=vault_id,
             )
 
         logger.info(
-            "User %s, Share pct = %s, Points: %s",
+            "User %s, Share pct = %s, total_reward: %s",
             user.user_address,
             shares_pct,
-            user_points.points,
+            user_rewards.total_reward,
         )
-        session.add(user_points)
+        session.add(user_rewards)
         session.commit()
 
         # add UserRewardAudit record
         audit = UserRewardAudit(
-            user_points_id=user_points.id,
+            user_points_id=user_rewards.id,
             old_value=old_reward_value,
-            new_value=user_points.points,
+            new_value=user_rewards.total_reward,
         )
         session.add(audit)
 
