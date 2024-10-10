@@ -28,3 +28,5 @@ from .vault_performance_history import VaultPerformanceHistory
 from .vault_apy_breakdown import VaultAPYBreakdown, VaultAPYComponent
 from .vault_rewards import VaultRewards
 from .vault_reward_history import VaultRewardHistory
+from .user_rewards import UserRewards, UserRewardAudit
+from .reward_distribution_history import RewardDistributionHistory

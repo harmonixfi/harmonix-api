@@ -1,25 +1,14 @@
-"""
-Implement the logic for calculating the restaking points for a user.
-In our system, we have multiple vaults that have VaultCategory = points, we need to calculate points for all the restaking vaults.
-
-1. define function to get earned points from vault address
-2. define function to calculate restaking point distributions for each vault to users.
-
-"""
-
 import json
 import logging
 from typing import Dict, List
 from uuid import UUID
-
-import seqlog
 from sqlmodel import Session, col, select
 
 from core import constants
 from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
-from models.point_distribution_history import PointDistributionHistory
+from models.reward_distribution_history import RewardDistributionHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
 from models.vault_rewards import VaultRewards
@@ -36,7 +25,7 @@ logger = logging.getLogger("restaking_reward_calculation")
 logger.setLevel(logging.INFO)
 
 
-def get_points_reward(vault: Vault) -> EarnedRestakingRewards:
+def get_rewards(vault: Vault) -> EarnedRestakingRewards:
     vault_reward = session.exec(
         select(VaultRewards).where(VaultRewards.vault_id == vault.id)
     ).first()
@@ -50,52 +39,52 @@ def get_points_reward(vault: Vault) -> EarnedRestakingRewards:
     )
 
 
-def get_previous_point_distribution(vault_id: UUID, partner_name: str) -> float:
+def get_previous_reward_distribution(vault_id: UUID, partner_name: str) -> float:
     # get point distribution history for the vault
-    prev_point_distribution = session.exec(
-        select(PointDistributionHistory)
-        .where(PointDistributionHistory.vault_id == vault_id)
-        .where(PointDistributionHistory.partner_name == partner_name)
-        .order_by(PointDistributionHistory.created_at.desc())
+    prev_reward_distribution = session.exec(
+        select(RewardDistributionHistory)
+        .where(RewardDistributionHistory.vault_id == vault_id)
+        .where(RewardDistributionHistory.partner_name == partner_name)
+        .order_by(RewardDistributionHistory.created_at.desc())
     ).first()
 
-    if prev_point_distribution is not None:
-        prev_point = prev_point_distribution.point
+    if prev_reward_distribution is not None:
+        prev_rewards = prev_reward_distribution.total_reward
     else:
-        prev_point = 0
+        prev_rewards = 0
 
-    return prev_point
+    return prev_rewards
 
 
-def distribute_points_to_users(
+def distribute_rewards_to_users(
     vault_id: UUID,
-    user_positions: List[EarnedRestakingRewards],
-    earned_points: float,
+    user_positions: List[UserPortfolio],
+    earned_rewards: float,
     partner_name: str,
 ):
     """
-    Distribute points to users based on their share percentages.
+    Distribute rewards to users based on their share percentages.
     """
     total_deposit_amount = sum([user.init_deposit for user in user_positions])
     for user in user_positions:
         shares_pct = user.init_deposit / total_deposit_amount
 
-        old_point_value = 0
-        user_points = session.exec(
+        old_reward_value = 0
+        user_rewards = session.exec(
             select(UserRewards)
             .where(UserRewards.wallet_address == user.user_address)
             .where(UserRewards.partner_name == partner_name)
             .where(UserRewards.vault_id == vault_id)
         ).first()
 
-        if user_points:
-            old_point_value = user_points.points
-            user_points.points += earned_points * shares_pct
+        if user_rewards:
+            old_reward_value = user_rewards.total_reward
+            user_rewards.total_reward += earned_rewards * shares_pct
 
         else:
             user_points = UserRewards(
                 wallet_address=user.user_address,
-                points=earned_points * shares_pct,
+                points=earned_rewards * shares_pct,
                 partner_name=partner_name,
                 vault_id=vault_id,
             )
@@ -112,45 +101,45 @@ def distribute_points_to_users(
         # add UserRewardAudit record
         audit = UserRewardAudit(
             user_points_id=user_points.id,
-            old_value=old_point_value,
+            old_value=old_reward_value,
             new_value=user_points.points,
         )
         session.add(audit)
 
 
-def distribute_points(
+def distribute_rewards(
     vault: Vault,
     partner_name: str,
     user_positions: List[UserPortfolio],
-    earned_points_in_period: float,
-    total_earned_points: EarnedRestakingRewards,
+    earned_rewards_in_period: float,
+    total_earned_rewards: EarnedRestakingRewards,
 ):
 
     # calculate user earn points in the period
-    distribute_points_to_users(
+    distribute_rewards_to_users(
         vault_id=vault.id,
         user_positions=user_positions,
-        earned_points=earned_points_in_period,
+        earned_rewards=earned_rewards_in_period,
         partner_name=partner_name,
     )
 
-    # save the point distribution history
-    point_distribution = PointDistributionHistory(
+    # save the reward distribution history
+    reward_distribution = RewardDistributionHistory(
         vault_id=vault.id,
         partner_name=partner_name,
-        point=(
-            total_earned_points.total_points
+        total_reward=(
+            total_earned_rewards.total_rewards
             if partner_name != constants.EIGENLAYER
-            else total_earned_points.eigen_layer_points
+            else total_earned_rewards.total_rewards
         ),
     )
-    session.add(point_distribution)
+    session.add(reward_distribution)
 
 
 def calculate_reward_distributions(vault: Vault):
     user_positions: List[UserPortfolio] = []
 
-    # get all users who have points in the vault
+    # get all users who have rewards in the vault
     user_positions = session.exec(
         select(UserPortfolio)
         .where(UserPortfolio.vault_id == vault.id)
@@ -161,38 +150,38 @@ def calculate_reward_distributions(vault: Vault):
     partners = json.loads(vault.routes)
 
     for partner_name in partners:
-        # get earned points for the partner
-        prev_point = get_previous_point_distribution(vault.id, partner_name)
+        # get earned rewards for the partner
+        prev_rewards = get_previous_reward_distribution(vault.id, partner_name)
         logger.info(
-            "Vault %s, partner: %s, Previous point distribution: %s",
+            "Vault %s, partner: %s, Previous reward distribution: %s",
             vault.name,
             partner_name,
-            prev_point,
+            prev_rewards,
         )
 
-        total_earned_points = get_points_reward(vault)
+        rewards = get_rewards(vault)
 
-        total_earned_points.total_rewards = (
-            total_earned_points.total_rewards
-            if total_earned_points.total_rewards >= prev_point
-            else prev_point
+        rewards.total_rewards = (
+            rewards.total_rewards
+            if rewards.total_rewards >= prev_rewards
+            else prev_rewards
         )
 
         logger.info(
             "Total earned points for partner %s: %s",
             partner_name,
-            total_earned_points,
+            rewards.total_rewards,
         )
 
         # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
-        earned_points_in_period = total_earned_points - prev_point
-        if earned_points_in_period > 0:
-            distribute_points(
+        earned_rewards_in_period = rewards.total_rewards - prev_rewards
+        if earned_rewards_in_period > 0:
+            distribute_rewards(
                 vault,
                 partner_name,
                 user_positions,
-                earned_points_in_period,
-                total_earned_points,
+                earned_rewards_in_period,
+                rewards,
             )
 
     session.commit()
