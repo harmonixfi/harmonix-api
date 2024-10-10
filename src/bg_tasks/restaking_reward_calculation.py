@@ -134,6 +134,7 @@ def distribute_rewards(
         ),
     )
     session.add(reward_distribution)
+    session.commit()
 
 
 def calculate_reward_distributions(vault: Vault):
