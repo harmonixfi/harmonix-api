@@ -295,6 +295,18 @@
             ],
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: APY Breakdown calulate2",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_goldlink_rewards_weekly",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
         }
     ]
 }

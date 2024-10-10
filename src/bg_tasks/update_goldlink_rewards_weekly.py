@@ -10,7 +10,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from core.db import engine
 from models.vault_reward_history import VaultRewardHistory
 from models.vault_rewards import VaultRewards
-from models.vaults import Vault
+from models.vaults import Vault, VaultMetadata
 from services.bsx_service import claim_point, get_list_claim_point
 from sqlmodel import Session, select
 
@@ -70,42 +70,56 @@ def upsert_vault_rewards(
     return
 
 
-def gold_link_claim_weelky():
+def update_goldlink_rewards_weekly():
     try:
-        logger.info("Starting Gold Link to claim")
+        logger.info("Starting Gold Link to store rewards")
         vaults = session.exec(
             select(Vault)
             .where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
             .where(Vault.is_active.is_(True))
         ).all()
 
-        logger.info("Starting Gold Link point claiming process")
+        logger.info("Starting Gold Link store rewards process")
         for vault in vaults:
             try:
+                vault_metadata = session.exec(
+                    select(VaultMetadata).where(VaultMetadata.vault_id == vault.id)
+                ).first()
+
+                if vault_metadata is None:
+                    logger.error(
+                        "No vault metadata found for vault %s. Skipping.", vault.id
+                    )  # Log error if None
+                    continue
+
                 contract = get_contract(vault)
                 earned_rewards = float(
                     contract.functions.rewardsOwed(
-                        Web3.to_checksum_address(vault.contract_address)
+                        Web3.to_checksum_address(
+                            vault_metadata.goldlink_trading_account
+                        )
                     ).call()
                     / 1e18
                 )
 
                 claimed_rewards = float(0.0)
-                upsert_vault_rewards(vault.id, earned_rewards, float(claimed_rewards))
+                upsert_vault_rewards(vault.id, earned_rewards, claimed_rewards)
 
-            except Exception as claim_error:
+            except Exception as rewards_error:
                 logger.error(
-                    "Error claiming point for vault %s: %s", vault.id, str(claim_error)
+                    "Error claiming point for vault %s: %s",
+                    vault.id,
+                    str(rewards_error),
                 )  # Fixed logger format
 
-        logger.info("Gold Link point claiming process completed.")
+        logger.info("Gold Link point store rewards completed.")
     except Exception as e:
         logger.error(
-            "Error occurred during Gold Link  point claiming process: %s", str(e)
+            "Error occurred during Gold Link store rewards process: %s", str(e)
         )  # Fixed logger format
 
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file("gold_link_claim_weelky", logger=logger)
-    gold_link_claim_weelky()
+    setup_logging_to_file("update_goldlink_rewards_weekly", logger=logger)
+    update_goldlink_rewards_weekly()
