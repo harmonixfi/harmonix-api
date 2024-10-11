@@ -1,9 +1,11 @@
+from datetime import datetime
 import json
 from typing import List, Optional
 import uuid
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import bindparam, text
 from sqlmodel import Session, and_, select, or_
 
 from models.pps_history import PricePerShareHistory
@@ -14,6 +16,7 @@ from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory, VaultMetadata
+from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
 
@@ -430,3 +433,60 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
         open_position_size=vault_metadata.open_position_size,
         last_updated=vault_metadata.last_updated,
     )
+
+
+@router.get("/pps_histories/details")
+def get_pps_histories(
+    session: SessionDep,
+    start_date: Optional[str] = Query(
+        None, description="Start date in YYYY-MM-DD format"
+    ),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+):
+    # Define the raw SQL query with placeholders
+    raw_query = text(
+        """
+        SELECT  
+            pps.id,
+            pps.vault_id,
+            pps.price_per_share,
+            pps.datetime
+        FROM 
+            pps_history pps
+        INNER JOIN 
+            vaults v ON v.id = pps.vault_id
+        WHERE 
+            v.is_active = TRUE
+            AND (CAST(:start_date AS TIMESTAMP) IS NULL OR pps.datetime >= CAST(:start_date AS TIMESTAMP))  -- Updated condition
+            AND (CAST(:end_date AS TIMESTAMP) IS NULL OR pps.datetime <= CAST(:end_date AS TIMESTAMP))  -- Updated condition
+        ORDER BY 
+            pps.datetime  -- Added ORDER BY clause
+        """
+    )
+
+    # Execute the query with parameters
+    result = session.exec(
+        raw_query.bindparams(
+            bindparam(
+                "start_date",
+                value=datetime.strptime(start_date, "%Y-%m-%d") if start_date else None,
+            ),
+            bindparam(
+                "end_date",
+                value=datetime.strptime(end_date, "%Y-%m-%d") if end_date else None,
+            ),
+        )
+    ).all()
+
+    # Map query result to response model
+    response = [
+        PricePerShareHistoryResponse(
+            id=row.id,
+            vault_id=row.vault_id,
+            price_per_share=row.price_per_share,
+            datetime=row.datetime,
+        )
+        for row in result
+    ]
+
+    return response
