@@ -438,8 +438,10 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
 @router.get("/pps_histories/details")
 def get_pps_histories(
     session: SessionDep,
-    start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
-    end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
+    start_date: Optional[str] = Query(
+        None, description="Start date in YYYY-MM-DD format"
+    ),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
 ):
     # Define the raw SQL query with placeholders
     raw_query = text(
@@ -455,16 +457,24 @@ def get_pps_histories(
             vaults v ON v.id = pps.vault_id
         WHERE 
             v.is_active = TRUE
-            AND pps.datetime >= :start_date
-            AND pps.datetime <= :end_date
+            AND (CAST(:start_date AS TIMESTAMP) IS NULL OR pps.datetime >= CAST(:start_date AS TIMESTAMP))  -- Updated condition
+            AND (CAST(:end_date AS TIMESTAMP) IS NULL OR pps.datetime <= CAST(:end_date AS TIMESTAMP))  -- Updated condition
+        ORDER BY 
+            pps.datetime  -- Added ORDER BY clause
         """
     )
 
     # Execute the query with parameters
     result = session.exec(
         raw_query.bindparams(
-            bindparam("start_date", value=datetime.strptime(start_date, "%Y-%m-%d")),
-            bindparam("end_date", value=datetime.strptime(end_date, "%Y-%m-%d")),
+            bindparam(
+                "start_date",
+                value=datetime.strptime(start_date, "%Y-%m-%d") if start_date else None,
+            ),
+            bindparam(
+                "end_date",
+                value=datetime.strptime(end_date, "%Y-%m-%d") if end_date else None,
+            ),
         )
     ).all()
 
