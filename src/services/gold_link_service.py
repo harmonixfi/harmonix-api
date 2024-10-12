@@ -1,7 +1,10 @@
+import uuid
 import requests
+from sqlmodel import Session, select
 from web3 import Web3
 from core.abi_reader import read_abi
 from core.config import settings
+from models.vault_rewards import VaultRewards
 from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
 
 url = settings.GOLD_LINK_API_URL
@@ -120,3 +123,11 @@ def get_position_size(
         return size_in_tokens
     else:
         raise Exception(f"Request failed with status {response.status_code}")
+
+
+def get_rewards_earned(session: Session, vault_id: uuid.UUID) -> float:
+    vault_reward = session.exec(
+        select(VaultRewards).where(VaultRewards.vault_id == vault_id)
+    ).first()
+
+    return vault_reward.earned_rewards if vault_reward else float(0.0)

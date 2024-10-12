@@ -29,6 +29,7 @@ from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
+from services.gold_link_service import get_rewards_earned
 from services.market_data import get_price
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
@@ -183,6 +184,13 @@ def calculate_performance(
         # Adjust the current PPS
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        rewards_earned = get_rewards_earned()
+        arb_price = get_price("ARBUSDT")
+        rewards_value = rewards_earned * arb_price
+        adjusted_tvl = total_balance + rewards_value
+        current_price_per_share = adjusted_tvl / vault_state.total_share
+
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -210,6 +218,9 @@ def calculate_performance(
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        current_price = get_price(f"{vault.underlying_asset}USDT")
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
