@@ -33,6 +33,7 @@ PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
 
 GOLD_LINK_STRATEGY = "gold_link_strategy"
+GOLD_LINK_SLUG = "goldlink-link"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"

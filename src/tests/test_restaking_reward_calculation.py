@@ -6,7 +6,7 @@ import uuid
 import pytest
 from sqlmodel import Session, select
 
-from bg_tasks.restaking_reward_calculation import (
+from bg_tasks.goldlink_arb_reward_calculation import (
     distribute_rewards,
     distribute_rewards_to_users,
     get_previous_reward_distribution,
@@ -20,7 +20,8 @@ from models.user_portfolio import UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault
-from schemas.earned_restaking_rewards import EarnedRewards
+from schemas.earned_rewards import EarnedRewards
+
 
 VAULT_ID = uuid.UUID("be740e89-c676-4d16-bead-133fcc844e96")
 

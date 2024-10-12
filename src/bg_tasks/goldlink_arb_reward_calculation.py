@@ -13,7 +13,7 @@ from models.user_portfolio import PositionStatus, UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault, VaultCategory
-from schemas import EarnedRewards
+from schemas.earned_rewards import EarnedRewards
 from services.market_data import get_price
 
 session = Session(engine)
@@ -21,7 +21,7 @@ session = Session(engine)
 
 # # Initialize logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("restaking_reward_calculation")
+logger = logging.getLogger("goldlink_arb_reward_calculation.")
 logger.setLevel(logging.INFO)
 
 
@@ -192,7 +192,7 @@ def main():
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
         select(Vault)
-        .where(Vault.category == VaultCategory.rewards)
+        .where(Vault.slug == constants.GOLD_LINK_SLUG)
         .where(Vault.is_active == True)
     ).all()
 
@@ -214,7 +214,7 @@ def main():
 if __name__ == "__main__":
     setup_logging_to_console()
     setup_logging_to_file(
-        app="restaking_reward_calculation", level=logging.INFO, logger=logger
+        app="goldlink_arb_reward_calculation", level=logging.INFO, logger=logger
     )
 
     main()

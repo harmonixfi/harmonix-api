@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import bindparam, func, text
 from sqlmodel import Session, create_engine, select
 
 from core import constants
@@ -465,10 +465,10 @@ def seed_vaults(session: Session):
             name="Gold Link",
             vault_capacity=4 * 1e3,
             vault_currency="USDC",
-            contract_address="",
-            slug="gold_link",
+            contract_address="0xa9BE190b8348F18466dC84cC2DE69C04673c5aca",
+            slug="goldlink-link",
             routes=None,
-            category="real_yield",
+            category="rewards",
             underlying_asset="LINK",
             network_chain=NetworkChain.arbitrum_one,
             monthly_apy=0,
@@ -481,7 +481,7 @@ def seed_vaults(session: Session):
             maturity_date="",
             owner_wallet_address="",
             is_active=False,
-            strategy_name=constants.GOLD_LINK_STRATEGY,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
             pt_address="",
             pendle_market_address="",
             update_frequency="",
@@ -531,7 +531,32 @@ def seed_options_wheel_vault(session: Session):
     seed_reward_thresholds(session)
 
 
+def seed_vault_category(session: Session):
+
+    def try_add_vault_category(session: Session, value_type: str):
+        stmt = text(
+            f"""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM pg_enum 
+                    WHERE enumlabel = '{value_type}'
+                    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'vaultcategory')
+                ) THEN
+                    ALTER TYPE vaultcategory ADD VALUE '{value_type}';
+                END IF;
+            END $$;
+            """
+        )
+        session.exec(stmt)
+
+    try_add_vault_category(session, "rewards")
+
+
 def init_db(session: Session) -> None:
+    seed_vault_category(session)
+
     seed_group(session)
     seed_vaults(session)
 
