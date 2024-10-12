@@ -288,5 +288,17 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Python: dddd",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "services.test",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }
