@@ -17,7 +17,7 @@ from services.market_data import get_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("golden_link_metrics_daily")
+logger = logging.getLogger("goldlink_metrics_daily")
 
 session = Session(engine)
 
@@ -108,5 +108,5 @@ def main():
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file("golden_link_metrics_daily", logger=logger)
+    setup_logging_to_file("goldlink_metrics_daily", logger=logger)
     main()
