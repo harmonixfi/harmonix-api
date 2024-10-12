@@ -1,10 +1,11 @@
-"""Update network chain
+"""update_network_chain
 
-Revision ID: 12f73b279f08
-Revises: 051f0339f486
-Create Date: 2024-10-10 14:08:07.065650
+Revision ID: a44c909f1b99
+Revises: 1f8cf8642e91
+Create Date: 2024-10-12 11:02:55.178609
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '12f73b279f08'
-down_revision: Union[str, None] = '051f0339f486'
+revision: str = "a44c909f1b99"
+down_revision: Union[str, None] = "1f8cf8642e91"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
