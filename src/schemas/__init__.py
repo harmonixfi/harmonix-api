@@ -9,4 +9,4 @@ from .earned_point import EarnedPoints
 from .userjoin import UserJoin
 from .reward_points_response import Rewards, Points
 from .reward_sessions import RewardSessions
-from .earned_restaking_rewards import EarnedRewards
+from .earned_rewards import EarnedRewards
