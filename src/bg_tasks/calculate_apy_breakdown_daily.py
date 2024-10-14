@@ -322,7 +322,7 @@ def main():
                     goldlink_component_service = GoldLinkApyComponentService(
                         vault.id,
                         current_apy,
-                        float(annualized_point_pnl),
+                        float(annualized_rewards_pnl),
                         float(funding_fee_value),
                         session,
                     )
