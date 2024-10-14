@@ -7,6 +7,7 @@ from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
 
+from core.abi_reader import read_abi
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
@@ -14,6 +15,8 @@ from core import constants
 from models.point_distribution_history import PointDistributionHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
+from models.vault_reward_history import VaultRewardHistory
+from models.vaults import VaultMetadata
 from services import (
     bsx_service,
     camelot_service,
@@ -25,11 +28,13 @@ from services import (
 from services.apy_component_service import (
     BSXApyComponentService,
     DeltaNeutralApyComponentService,
+    GoldLinkApyComponentService,
     KelpDaoApyComponentService,
     OptionWheelApyComponentService,
     PendleApyComponentService,
     RenzoApyComponentService,
 )
+from services.market_data import get_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -44,6 +49,21 @@ BSX_POINT_VAULE: float = 0.2
 OPTION_YIELD_VALUE: float = 5
 
 WEEKS_IN_YEAR = 52
+
+
+def get_contract(vault: Vault, abi_name="goldlink"):
+    web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
+
+    abi = read_abi(abi_name)
+    return web3.eth.contract(address=vault.contract_address, abi=abi)
+
+
+def get_earned_rewards(contract, trading_account: str) -> float:
+    """Fetches earned rewards for the provided trading account."""
+    return float(
+        contract.functions.rewardsOwed(Web3.to_checksum_address(trading_account)).call()
+        / 1e18
+    )
 
 
 def upsert_vault_apy(vault_id: uuid.UUID, total_apy: float) -> VaultAPYBreakdown:
@@ -184,12 +204,17 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    last_tuesday = datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday() + 6)
+                    last_tuesday = datetime.now(timezone.utc) - timedelta(
+                        days=datetime.now(timezone.utc).weekday() + 6
+                    )
                     point_dist_hist = session.exec(
                         select(PointDistributionHistory)
                         .where(PointDistributionHistory.vault_id == vault.id)
                         .where(PointDistributionHistory.partner_name == constants.BSX)
-                        .where(func.date(PointDistributionHistory.created_at) == last_tuesday.date())
+                        .where(
+                            func.date(PointDistributionHistory.created_at)
+                            == last_tuesday.date()
+                        )
                         .order_by(PointDistributionHistory.created_at.desc())
                     ).first()
 
@@ -250,6 +275,58 @@ def main():
                         session,
                     )
                     pendle_component_service.save()
+
+                elif vault.slug == constants.GOLD_LINK_SLUG:
+                    rewards_hist = session.exec(
+                        select(VaultRewardHistory)
+                        .where(VaultRewardHistory.vault_id == vault.id)
+                        .order_by(VaultRewardHistory.datetime.desc())
+                    ).first()
+
+                    vault_metadata = session.exec(
+                        select(VaultMetadata).where(VaultMetadata.vault_id == vault.id)
+                    ).first()
+
+                    if vault_metadata is None:
+                        logger.error(
+                            "Breakdown- No vault metadata found for vault %s. Skipping.",
+                            vault.id,
+                        )  # Log error if None
+                        continue
+
+                    contract = get_contract(vault)
+
+                    rewards_earned = get_earned_rewards(
+                        contract, vault_metadata.goldlink_trading_account
+                    )
+                    if rewards_hist:
+                        rewards_earned = rewards_earned - float(rewards_hist.point)
+
+                    arb_price = get_price("ARBUSDT")
+                    rewards_value = 0
+                    if rewards_earned >= 0:
+                        rewards_value = rewards_value * arb_price
+
+                    # bsx_point_value = float(102) * BSX_POINT_VAULE
+                    # Calculate weekly PnL in percentage
+                    weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
+                        rewards_value, vault.tvl
+                    )
+                    # Calculate annualized PnL based on weekly PnL
+                    annualized_rewards_pnl = (
+                        calculate_annualized_pnl(weekly_pnl_percentage, WEEKS_IN_YEAR)
+                        * 100
+                    )
+                    funding_fee_value = current_apy - annualized_rewards_pnl
+
+                    goldlink_component_service = GoldLinkApyComponentService(
+                        vault.id,
+                        current_apy,
+                        float(annualized_point_pnl),
+                        float(funding_fee_value),
+                        session,
+                    )
+                    goldlink_component_service.save()
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
 

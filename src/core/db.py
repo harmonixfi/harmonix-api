@@ -311,7 +311,7 @@ def init_new_vault(session: Session, vault: Vault):
 
 def init_new_vault_metadata(session: Session):
     existing_vault = session.exec(
-        select(Vault).where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
+        select(Vault).where(Vault.slug == constants.GOLD_LINK_SLUG)
     ).first()
     if existing_vault:
 
