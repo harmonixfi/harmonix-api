@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-def get_contract(vault: Vault, abi_name="goldlink"):
+def get_contract(vault: Vault, abi_name="goldlink_rewards"):
     web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
     abi = read_abi(abi_name)
@@ -75,7 +75,7 @@ def update_goldlink_rewards_weekly():
         logger.info("Starting Gold Link to store rewards")
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
+            .where(Vault.slug == constants.GOLD_LINK_SLUG)
             .where(Vault.is_active.is_(True))
         ).all()
 

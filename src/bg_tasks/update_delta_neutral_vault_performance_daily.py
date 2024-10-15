@@ -327,7 +327,10 @@ def main(chain: str):
 
         for vault in vaults:
             logger.info("Updating performance for %s...", vault.name)
-            vault_contract, _ = get_vault_contract(vault)
+            if vault.slug == constants.GOLD_LINK_SLUG:
+                vault_contract, _ = get_vault_contract(vault, "goldlink")
+            else:
+                vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
                 vault,

@@ -39,7 +39,12 @@ def main():
             if vault.slug == constants.SOLV_VAULT_SLUG:
                 abi = "solv"
                 decimals = 1e8
-            elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            elif vault.slug == constants.GOLD_LINK_SLUG:
+                abi = "goldlink"
+            elif (
+                vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
+                and vault.slug != constants.GOLD_LINK_SLUG
+            ):
                 abi = "RockOnyxDeltaNeutralVault"
             elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
                 abi = "rockonyxstablecoin"

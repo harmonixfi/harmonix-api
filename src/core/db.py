@@ -326,7 +326,7 @@ def init_new_vault_metadata(session: Session):
             vault_id=existing_vault.id,
             leverage=0,
             borrow_apr=0,
-            goldlink_trading_account="0x04df99681dd2c0d26598139afd517142430b1202",
+            goldlink_trading_account="0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa",
             health_factor=0,
             last_updated=datetime.now(tz=timezone.utc),
             open_position_size=0,
