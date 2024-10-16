@@ -1,10 +1,14 @@
+from datetime import datetime
 import json
 from typing import List, Optional
+import uuid
 
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import bindparam, text
 from sqlmodel import Session, and_, select, or_
 
+from models.pps_history import PricePerShareHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 import schemas
 from api.api_v1.deps import SessionDep
@@ -12,6 +16,7 @@ from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory
+from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 
 router = APIRouter()
@@ -25,6 +30,16 @@ def _update_vault_apy(vault: Vault) -> schemas.Vault:
     else:
         schema_vault.apy = vault.monthly_apy
     return schema_vault
+
+
+def _get_last_price_per_share(session: Session, vault_id: uuid.UUID) -> float:
+    latest_pps = session.exec(
+        select(PricePerShareHistory)
+        .where(PricePerShareHistory.vault_id == vault_id)
+        .order_by(PricePerShareHistory.datetime.desc())
+    ).first()
+
+    return latest_pps.price_per_share if latest_pps else 0.0
 
 
 def get_vault_earned_point_by_partner(
@@ -117,6 +132,10 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+
+        schema_vault.price_per_share = _get_last_price_per_share(
+            session=session, vault_id=vault.id
+        )
 
         if (vault.vault_group and vault.vault_group.default_vault_id == vault.id) or (
             not vault.vault_group
@@ -353,3 +372,62 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     }
     data["apy"] = vault_apy.total_apy
     return data
+
+@router.get("/{vault_id}/pps-histories")
+def get_pps_histories(
+    session: SessionDep,
+    vault_id: uuid.UUID,
+    start_date: Optional[str] = Query(
+        None, description="Start date in YYYY-MM-DD format"
+    ),
+    end_date: Optional[str] = Query(None, description="End date in YYYY-MM-DD format"),
+):
+    # Define the raw SQL query with placeholders
+    raw_query = text(
+        """
+        SELECT  
+            pps.id,
+            pps.vault_id,
+            pps.price_per_share,
+            pps.datetime
+        FROM 
+            pps_history pps
+        INNER JOIN 
+            vaults v ON v.id = pps.vault_id
+        WHERE 
+            v.is_active = TRUE
+            AND pps.vault_id = :vault_id
+            AND (CAST(:start_date AS TIMESTAMP) IS NULL OR pps.datetime >= CAST(:start_date AS TIMESTAMP))
+            AND (CAST(:end_date AS TIMESTAMP) IS NULL OR pps.datetime <= CAST(:end_date AS TIMESTAMP))
+        ORDER BY 
+            pps.datetime
+        """
+    )
+
+    # Execute the query with parameters
+    result = session.exec(
+        raw_query.bindparams(
+            bindparam("vault_id", value=vault_id),
+            bindparam(
+                "start_date",
+                value=datetime.strptime(start_date, "%Y-%m-%d") if start_date else None,
+            ),
+            bindparam(
+                "end_date",
+                value=datetime.strptime(end_date, "%Y-%m-%d") if end_date else None,
+            ),
+        )
+    ).all()
+
+    # Map query result to response model
+    response = [
+        PricePerShareHistoryResponse(
+            id=row.id,
+            vault_id=row.vault_id,
+            price_per_share=row.price_per_share,
+            datetime=row.datetime,
+        )
+        for row in result
+    ]
+
+    return response

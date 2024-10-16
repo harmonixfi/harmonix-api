@@ -60,6 +60,7 @@ class Vault(VaultInDBBase):
     supported_networks: List[SupportedNetwork] | None = None
     tags: List[str] | None = None
     pt_address: str | None = None
+    price_per_share: float = 0.0
 
     @validator("tags", pre=True, always=True)
     def split_str_to_list(cls, v):
