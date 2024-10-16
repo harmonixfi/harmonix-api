@@ -51,7 +51,7 @@ OPTION_YIELD_VALUE: float = 5
 WEEKS_IN_YEAR = 52
 
 
-def get_contract(vault: Vault, abi_name="goldlink"):
+def get_contract(vault: Vault, abi_name="goldlink_rewards"):
     web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
     abi = read_abi(abi_name)
@@ -300,7 +300,7 @@ def main():
                         contract, vault_metadata.goldlink_trading_account
                     )
                     if rewards_hist:
-                        rewards_earned = rewards_earned - float(rewards_hist.point)
+                        rewards_earned = rewards_earned - float(rewards_hist.earned_rewards)
 
                     arb_price = get_price("ARBUSDT")
                     rewards_value = 0
