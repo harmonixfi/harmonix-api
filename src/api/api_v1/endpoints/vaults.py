@@ -435,9 +435,10 @@ def get_vault_metadata(session: SessionDep, vault_id: str):
     )
 
 
-@router.get("/pps_histories/details")
+@router.get("/{vault_id}/pps-histories")
 def get_pps_histories(
     session: SessionDep,
+    vault_id: uuid.UUID,
     start_date: Optional[str] = Query(
         None, description="Start date in YYYY-MM-DD format"
     ),
@@ -457,16 +458,18 @@ def get_pps_histories(
             vaults v ON v.id = pps.vault_id
         WHERE 
             v.is_active = TRUE
-            AND (CAST(:start_date AS TIMESTAMP) IS NULL OR pps.datetime >= CAST(:start_date AS TIMESTAMP))  -- Updated condition
-            AND (CAST(:end_date AS TIMESTAMP) IS NULL OR pps.datetime <= CAST(:end_date AS TIMESTAMP))  -- Updated condition
+            AND pps.vault_id = :vault_id
+            AND (CAST(:start_date AS TIMESTAMP) IS NULL OR pps.datetime >= CAST(:start_date AS TIMESTAMP))
+            AND (CAST(:end_date AS TIMESTAMP) IS NULL OR pps.datetime <= CAST(:end_date AS TIMESTAMP))
         ORDER BY 
-            pps.datetime  -- Added ORDER BY clause
+            pps.datetime
         """
     )
 
     # Execute the query with parameters
     result = session.exec(
         raw_query.bindparams(
+            bindparam("vault_id", value=vault_id),
             bindparam(
                 "start_date",
                 value=datetime.strptime(start_date, "%Y-%m-%d") if start_date else None,

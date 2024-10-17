@@ -10,13 +10,15 @@ def nav_data_to_dataframe(nav_data):
     df = pd.DataFrame(nav_data)
     df["navDate"] = pd.to_datetime(df["navDate"])
     df["nav"] = df["nav"].astype(float) / 1e8  # Adjust for currency decimals
-    df["adjustedNav"] = df["adjustedNav"].astype(float) / 1e8  # Adjust for currency decimals
+    df["adjustedNav"] = (
+        df["adjustedNav"].astype(float) / 1e8
+    )  # Adjust for currency decimals
     return df[["navDate", "nav", "adjustedNav"]]
 
 
 def fetch_nav_data():
     url = "https://sft-api.com/graphql"
-    payload = '{"query":"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}","variables":{"filter":{"navType":"Investment","poolSlotInfoId":40},"pagination":{},"sort":{"field":"navDate","direction":"ASC"}}}'
+    payload = '{"query":"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}","variables":{"filter":{"navType":"Investment","poolSlotInfoId":32},"pagination":{},"sort":{"field":"navDate","direction":"ASC"}}}'
     headers = {
         "authority": "sft-api.com",
         "accept": "*/*",
