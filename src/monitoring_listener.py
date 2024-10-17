@@ -22,6 +22,7 @@ from notifications import telegram_bot
 from notifications.message_builder import build_message
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
+from web3_listener import EVENT_FILTERS
 
 
 # Initialize logger
@@ -117,40 +118,6 @@ async def handle_event(vault_address: str, entry, event_name):
         ),
         channel="transaction",
     )
-
-
-EVENT_FILTERS = {
-    settings.STABLECOIN_DEPOSIT_VAULT_FILTER_TOPICS: {
-        "event": "Deposit",
-    },
-    settings.STABLECOIN_INITIATE_WITHDRAW_VAULT_FILTER_TOPICS: {
-        "event": "InitiateWithdraw",
-    },
-    settings.STABLECOIN_COMPLETE_WITHDRAW_VAULT_FILTER_TOPICS: {
-        "event": "Withdrawn",
-    },
-    settings.DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: {
-        "event": "Deposit",
-    },
-    settings.MULTIPLE_STABLECOINS_DEPOSIT_EVENT_TOPIC: {
-        "event": "Deposit",
-    },
-    settings.DELTA_NEUTRAL_INITIATE_WITHDRAW_EVENT_TOPIC: {
-        "event": "InitiateWithdraw",
-    },
-    settings.DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: {
-        "event": "Withdrawn",
-    },
-    settings.SOLV_DEPOSIT_EVENT_TOPIC: {
-        "event": "Deposit",
-    },
-    settings.SOLV_INITIATE_WITHDRAW_EVENT_TOPIC: {
-        "event": "InitiateWithdraw",
-    },
-    settings.SOLV_COMPLETE_WITHDRAW_EVENT_TOPIC: {
-        "event": "Withdrawn",
-    },
-}
 
 
 class MonitoringListener(WebSocketManager):

@@ -73,6 +73,18 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: monitoring listener",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "monitoring_listener",
+            "args": [
+                "--network",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: check_transaction_missing_every_three_days",
             "type": "debugpy",
             "request": "launch",
