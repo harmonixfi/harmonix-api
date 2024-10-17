@@ -39,15 +39,14 @@ logger = logging.getLogger(__name__)
 chain_name = None
 
 
-def update_tvl(vault: Vault, deposit_amount: float):
+def update_tvl(session: Session, vault: Vault, deposit_amount: float):
     if vault.tvl is None:
         vault.tvl = 0.0
 
     vault.tvl += deposit_amount
     logger.info(f"TVL updated for vault {vault.name} {vault.tvl}")
-    with Session(engine) as session:
-        session.add(vault)
-        session.commit()
+    session.add(vault)
+    session.commit()
 
 
 def _extract_stablecoin_event(entry):
@@ -172,7 +171,7 @@ def handle_deposit_event(
 
     session.commit()
     # Update TVL realtime when user deposit to vault
-    update_tvl(vault, float(value))
+    update_tvl(session, vault, float(value))
 
     return user_portfolio
 
