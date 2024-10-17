@@ -29,8 +29,8 @@ from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
-from services.gold_link_service import get_rewards_earned
 from services.market_data import get_price
+from services.vault_rewards_servic import VaultRewardsService
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
@@ -185,7 +185,8 @@ def calculate_performance(
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
     if vault.slug == constants.GOLD_LINK_SLUG:
-        rewards_earned = get_rewards_earned()
+        rewards_service = VaultRewardsService(session)
+        rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
         arb_price = get_price("ARBUSDT")
         rewards_value = rewards_earned * arb_price
         adjusted_tvl = total_balance + rewards_value

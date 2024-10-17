@@ -34,6 +34,7 @@ from services.apy_component_service import (
     PendleApyComponentService,
     RenzoApyComponentService,
 )
+from services.gold_link_service import get_current_rewards_earned
 from services.market_data import get_price
 
 # Initialize logger
@@ -49,21 +50,6 @@ BSX_POINT_VAULE: float = 0.2
 OPTION_YIELD_VALUE: float = 5
 
 WEEKS_IN_YEAR = 52
-
-
-def get_contract(vault: Vault, abi_name="goldlink_rewards"):
-    web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
-
-    abi = read_abi(abi_name)
-    return web3.eth.contract(address=vault.contract_address, abi=abi)
-
-
-def get_earned_rewards(contract, trading_account: str) -> float:
-    """Fetches earned rewards for the provided trading account."""
-    return float(
-        contract.functions.rewardsOwed(Web3.to_checksum_address(trading_account)).call()
-        / 1e18
-    )
 
 
 def upsert_vault_apy(vault_id: uuid.UUID, total_apy: float) -> VaultAPYBreakdown:
@@ -294,13 +280,13 @@ def main():
                         )  # Log error if None
                         continue
 
-                    contract = get_contract(vault)
-
-                    rewards_earned = get_earned_rewards(
-                        contract, vault_metadata.goldlink_trading_account
+                    rewards_earned = get_current_rewards_earned(
+                        vault, vault_metadata.goldlink_trading_account
                     )
                     if rewards_hist:
-                        rewards_earned = rewards_earned - float(rewards_hist.earned_rewards)
+                        rewards_earned = rewards_earned - float(
+                            rewards_hist.earned_rewards
+                        )
 
                     arb_price = get_price("ARBUSDT")
                     rewards_value = 0

@@ -13,7 +13,7 @@ from models.user_portfolio import PositionStatus, UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault, VaultCategory
-from schemas.earned_rewards import EarnedRewards
+from schemas.earned_restaking_rewards import EarnedRestakingRewards
 from services.market_data import get_price
 
 session = Session(engine)
@@ -25,14 +25,14 @@ logger = logging.getLogger("goldlink_arb_reward_calculation.")
 logger.setLevel(logging.INFO)
 
 
-def get_rewards(vault: Vault, symbol: str = "ARBUSDT") -> EarnedRewards:
+def get_rewards(vault: Vault, symbol: str = "ARBUSDT") -> EarnedRestakingRewards:
     vault_reward = session.exec(
         select(VaultRewards).where(VaultRewards.vault_id == vault.id)
     ).first()
 
     price = get_price(symbol)
     total_rewards = vault_reward.earned_rewards * price if vault_reward else 0.0
-    return EarnedRewards(
+    return EarnedRestakingRewards(
         wallet_address=vault.contract_address,
         total_rewards=float(total_rewards),
         partner_name=constants.DELTA_NEUTRAL_STRATEGY,
@@ -112,7 +112,7 @@ def distribute_rewards(
     partner_name: str,
     user_positions: List[UserPortfolio],
     earned_rewards_in_period: float,
-    total_earned_rewards: EarnedRewards,
+    total_earned_rewards: EarnedRestakingRewards,
 ):
 
     # calculate user earn points in the period

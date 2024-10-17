@@ -20,7 +20,7 @@ from models.user_portfolio import UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault
-from schemas.earned_rewards import EarnedRewards
+from schemas.earned_restaking_rewards import EarnedRestakingRewards
 
 
 VAULT_ID = uuid.UUID("be740e89-c676-4d16-bead-133fcc844e96")
@@ -117,7 +117,7 @@ def test_distribute_rewards_to_users(db_session):
 def test_distribute_rewards(db_session):
     # Arrange
     vault = db_session.exec(select(Vault).where(Vault.id == VAULT_ID)).first()
-    total_earned_rewards = EarnedRewards(
+    total_earned_rewards = EarnedRestakingRewards(
         wallet_address=vault.contract_address,
         total_rewards=500,
         partner_name=constants.DELTA_NEUTRAL_STRATEGY,

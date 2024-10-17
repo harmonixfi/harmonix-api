@@ -2,17 +2,15 @@ import logging
 from datetime import datetime, timezone
 import uuid
 from sqlmodel import Session
-from web3 import Web3
-
 from core import constants
-from core.abi_reader import read_abi
 from log import setup_logging_to_console, setup_logging_to_file
 from core.db import engine
 from models.vault_reward_history import VaultRewardHistory
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault, VaultMetadata
-from services.bsx_service import claim_point, get_list_claim_point
 from sqlmodel import Session, select
+
+from services.gold_link_service import get_current_rewards_earned
 
 
 logging.basicConfig(level=logging.INFO)
@@ -20,13 +18,6 @@ logger = logging.getLogger(__name__)
 
 
 session = Session(engine)
-
-
-def get_contract(vault: Vault, abi_name="goldlink_rewards"):
-    web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
-
-    abi = read_abi(abi_name)
-    return web3.eth.contract(address=vault.contract_address, abi=abi)
 
 
 def upsert_vault_rewards(
@@ -92,14 +83,8 @@ def update_goldlink_rewards_weekly():
                     )  # Log error if None
                     continue
 
-                contract = get_contract(vault)
-                earned_rewards = float(
-                    contract.functions.rewardsOwed(
-                        Web3.to_checksum_address(
-                            vault_metadata.goldlink_trading_account
-                        )
-                    ).call()
-                    / 1e18
+                earned_rewards = get_current_rewards_earned(
+                    vault, vault_metadata.goldlink_trading_account
                 )
 
                 claimed_rewards = float(0.0)
@@ -107,12 +92,12 @@ def update_goldlink_rewards_weekly():
 
             except Exception as rewards_error:
                 logger.error(
-                    "Error claiming point for vault %s: %s",
+                    "Error claiming rewards for vault %s: %s",
                     vault.id,
                     str(rewards_error),
                 )  # Fixed logger format
 
-        logger.info("Gold Link point store rewards completed.")
+        logger.info("Gold Link rewards store rewards completed.")
     except Exception as e:
         logger.error(
             "Error occurred during Gold Link store rewards process: %s", str(e)

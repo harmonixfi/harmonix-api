@@ -2,9 +2,11 @@ import uuid
 import requests
 from sqlmodel import Session, select
 from web3 import Web3
+from core import constants
 from core.abi_reader import read_abi
 from core.config import settings
 from models.vault_rewards import VaultRewards
+from models.vaults import Vault
 from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
 
 url = settings.GOLD_LINK_API_URL
@@ -125,9 +127,18 @@ def get_position_size(
         raise Exception(f"Request failed with status {response.status_code}")
 
 
-def get_rewards_earned(session: Session, vault_id: uuid.UUID) -> float:
-    vault_reward = session.exec(
-        select(VaultRewards).where(VaultRewards.vault_id == vault_id)
-    ).first()
+def __get_contract(vault: Vault, abi_name="goldlink_rewards"):
+    web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
-    return vault_reward.earned_rewards if vault_reward else float(0.0)
+    abi = read_abi(abi_name)
+    return web3.eth.contract(address=vault.contract_address, abi=abi)
+
+
+def get_current_rewards_earned(
+    vault: Vault, trading_account: str, abi_name="goldlink_rewards", decimals=1e18
+) -> float:
+    contract = __get_contract(vault, abi_name)
+    return float(
+        contract.functions.rewardsOwed(Web3.to_checksum_address(trading_account)).call()
+        / decimals
+    )

@@ -19,6 +19,7 @@ from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
+from services.vault_rewards_servic import VaultRewardsService
 
 router = APIRouter()
 
@@ -136,6 +137,40 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     return earned_points
 
 
+def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
+    routes = (
+        json.loads(vault.routes) + [constants.EIGENLAYER]
+        if vault.routes is not None
+        else []
+    )
+    partners = routes + [
+        constants.HARMONIX,
+    ]
+
+    if vault.network_chain == NetworkChain.base:
+        partners.append(constants.BSX)
+
+    if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        partners.append(constants.HYPERLIQUID)
+
+    earned_rewards = []
+    rewards_service = VaultRewardsService(session)
+    for partner in partners:
+        rewards_dist_hist = rewards_service.get_vault_earned_point_by_partner(
+            vault.id, partner
+        )
+
+        earned_rewards.append(
+            schemas.EarnedRewards(
+                name=partner,
+                rewards=rewards_dist_hist.total_reward,
+                created_at=rewards_dist_hist.created_at,
+            )
+        )
+
+    return earned_rewards
+
+
 @router.get("/", response_model=List[schemas.GroupSchema])
 async def get_all_vaults(
     session: SessionDep,
@@ -164,6 +199,7 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
+        schema_vault.rewards = get_earned_rewards(session, vault)
 
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
@@ -185,6 +221,7 @@ async def get_all_vaults(
                 ),
                 "vaults": [schema_vault],
                 "points": {},
+                "rewards": {},
             }
         else:
             grouped_vaults[group_id]["vaults"].append(schema_vault)
@@ -200,6 +237,13 @@ async def get_all_vaults(
             else:
                 grouped_vaults[group_id]["points"][point.name] = point.point
 
+        # Aggregate rewards for each partner
+        for reward in schema_vault.rewards:
+            if reward.name in grouped_vaults[group_id]["rewards"]:
+                grouped_vaults[group_id]["rewards"][reward.name] += reward.rewards
+            else:
+                grouped_vaults[group_id]["rewards"][reward.name] = reward.rewards
+
     groups = [
         GroupSchema(
             id=group["id"],
@@ -210,6 +254,10 @@ async def get_all_vaults(
             points=[
                 schemas.EarnedPoints(name=partner, point=points)
                 for partner, points in group["points"].items()
+            ],
+            rewards=[
+                schemas.EarnedRewards(name=partner, rewards=rewards)
+                for partner, rewards in group["rewards"].items()
             ],
         )
         for group in grouped_vaults.values()
