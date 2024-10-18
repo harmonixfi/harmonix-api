@@ -39,10 +39,7 @@ logger = logging.getLogger(__name__)
 chain_name = None
 
 
-session = Session(engine)
-
-
-def update_tvl(vault: Vault, deposit_amount: float):
+def update_tvl(session: Session, vault: Vault, deposit_amount: float):
     if vault.tvl is None:
         vault.tvl = 0.0
 
@@ -130,6 +127,7 @@ def _extract_pendle_event(entry):
 
 
 def handle_deposit_event(
+    session: Session,
     user_portfolio: Optional[UserPortfolio],
     value,
     from_address,
@@ -173,12 +171,13 @@ def handle_deposit_event(
 
     session.commit()
     # Update TVL realtime when user deposit to vault
-    update_tvl(vault, float(value))
+    update_tvl(session, vault, float(value))
 
     return user_portfolio
 
 
 def handle_initiate_withdraw_event(
+    session: Session,
     user_portfolio: UserPortfolio,
     value,
     from_address,
@@ -212,7 +211,12 @@ def handle_initiate_withdraw_event(
 
 
 def handle_withdrawn_event(
-    user_portfolio: UserPortfolio, value, from_address, *args, **kwargs
+    session: Session,
+    user_portfolio: UserPortfolio,
+    value,
+    from_address,
+    *args,
+    **kwargs,
 ):
     if user_portfolio is not None:
         logger.info(f"User complete withdrawal {from_address} {value}")
@@ -242,7 +246,7 @@ event_handlers = {
 }
 
 
-def handle_event(vault_address: str, entry, event_name):
+def handle_event(session: Session, vault_address: str, entry, event_name):
     # Get the vault with ROCKONYX_ADDRESS
     vault = session.exec(
         select(Vault).where(Vault.contract_address == vault_address)
@@ -264,9 +268,6 @@ def handle_event(vault_address: str, entry, event_name):
             f"Transaction with txhash {entry['transactionHash']} already exists"
         )
     logger.info(f"Processing event {event_name} for vault {vault_address} {vault.name}")
-
-    # init kyberswap to get price
-    kyberswap_service = KyberSwapService(base_url=settings.KYBERSWAP_BASE_API_URL)
 
     # Get the latest pps from pps_history table
     latest_pps = session.exec(
@@ -314,6 +315,7 @@ def handle_event(vault_address: str, entry, event_name):
     # Call the appropriate handler based on the event name
     handler = event_handlers[event_name]
     user_portfolio = handler(
+        session,
         user_portfolio,
         value,
         from_address,
@@ -385,37 +387,40 @@ class Web3Listener(WebSocketManager):
     async def listen_for_events(self, network: NetworkChain):
         while True:
             try:
-                # query all active vaults
-                vaults = session.exec(
-                    select(Vault)
-                    .where(Vault.is_active == True)
-                    .where(Vault.network_chain == network)
-                ).all()
-                logger.info("Subcribing to %d vaults...", len(vaults))
+                with Session(engine) as session:
+                    # query all active vaults
+                    vaults = session.exec(
+                        select(Vault)
+                        .where(Vault.is_active == True)
+                        .where(Vault.network_chain == network)
+                    ).all()
+                    logger.info("Subcribing to %d vaults...", len(vaults))
 
-                for vault in vaults:
-                    # subscribe to new block headers
-                    subscription_id = await self.w3.eth.subscribe(
-                        "logs",
-                        {
-                            "address": vault.contract_address,
-                        },
-                    )
-                    logger.info(
-                        "Subscription %s - %s response: %s",
-                        vault.name,
-                        vault.contract_address,
-                        subscription_id,
-                    )
+                    for vault in vaults:
+                        # subscribe to new block headers
+                        subscription_id = await self.w3.eth.subscribe(
+                            "logs",
+                            {
+                                "address": vault.contract_address,
+                            },
+                        )
+                        logger.info(
+                            "Subscription %s - %s response: %s",
+                            vault.name,
+                            vault.contract_address,
+                            subscription_id,
+                        )
 
-                async for msg in self.read_messages():
-                    logger.info("Received message: %s", msg)
-                    # Handle the event
-                    # await self.handle_events()
-                    res = msg["result"]
-                    if res["topics"][0].hex() in EVENT_FILTERS.keys():
-                        event_filter = EVENT_FILTERS[res["topics"][0].hex()]
-                        handle_event(res["address"], res, event_filter["event"])
+                    async for msg in self.read_messages():
+                        logger.info("Received message: %s", msg)
+                        # Handle the event
+                        # await self.handle_events()
+                        res = msg["result"]
+                        if res["topics"][0].hex() in EVENT_FILTERS.keys():
+                            event_filter = EVENT_FILTERS[res["topics"][0].hex()]
+                            handle_event(
+                                session, res["address"], res, event_filter["event"]
+                            )
             except (ConnectionClosedError, ConnectionClosedOK) as e:
                 self.logger.error("Websocket connection close", exc_info=True)
                 self.logger.error(traceback.format_exc())
