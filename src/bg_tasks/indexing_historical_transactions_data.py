@@ -69,7 +69,7 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         address, latest_block + 1, MAX_BLOCK_NUMBER, page, offset=100
                     )
                     logger.info("Get list transactions %s", transactions)
-                    
+
                     if not transactions:
                         time.sleep(0.5)
                         break
@@ -140,6 +140,8 @@ def historical(chain: NetworkChain):
             Web3.to_checksum_address("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"),
             # Koi Paradise with Pendle
             Web3.to_checksum_address("0xE46C3BE33D0C682fCA5F965D244398E924000705"),
+            # Gold Link
+            Web3.to_checksum_address("0xa9BE190b8348F18466dC84cC2DE69C04673c5aca"),
         ]
     elif chain == NetworkChain.ethereum:
         contract_addresses = [

@@ -122,6 +122,12 @@ class VaultPerformanceHistoryService:
         ):
             return ["0xE46C3BE33D0C682fCA5F965D244398E924000705"]
 
+        # GoldLink
+        if (
+            vault.contract_address.lower()
+            == "0xa9BE190b8348F18466dC84cC2DE69C04673c5aca".lower()
+        ):
+            return ["0XA9BE190B8348F18466DC84CC2DE69C04673C5ACA"]
         return [vault.contract_address]
 
     def calculate_total_deposit(
