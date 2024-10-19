@@ -1,23 +1,15 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
-import json
 import logging
-from typing import Dict, List
-from uuid import UUID
+from typing import List
 from sqlmodel import Session, col, select
 from core import constants
-from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
-from models.reward_distribution_history import RewardDistributionHistory
-from models.user_portfolio import PositionStatus, UserPortfolio
-from models.user_rewards import UserRewardAudit, UserRewards
-from models.vault_rewards import VaultRewards
-from models.vaults import Vault, VaultCategory
+from models.vaults import Vault
 from notifications import telegram_bot
-from notifications.message_builder import build_message, build_transaction_message
-from schemas import EarnedRewards
+from notifications.message_builder import build_transaction_message
 import schemas
 from services.market_data import get_price
 from services.vault_contract_service import VaultContractService
