@@ -40,9 +40,9 @@ class InitiatedWithdrawalWatcherJob:
 
         utc_now = datetime.now(timezone.utc)
         self.start_date = utc_now + timedelta(hours=-4)
-        end_date = utc_now
+        self.end_date = utc_now
         self.start_date_timestamp = int(self.start_date.timestamp())
-        self.end_date_timestamp = int(end_date.timestamp())
+        self.end_date_timestamp = int(self.end_date.timestamp())
 
     def __get_active_vaults(self) -> List[Vault]:
         result = self.session.exec(select(Vault).where(Vault.is_active)).all()
@@ -88,7 +88,7 @@ class InitiatedWithdrawalWatcherJob:
                             item.block_number,
                         )
                         date = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
-                        age = convert_timedelta_to_time(date - self.start_date)
+                        age = convert_timedelta_to_time(self.end_date - date)
 
                         result.append(
                             schemas.OnchainTransactionHistory(
