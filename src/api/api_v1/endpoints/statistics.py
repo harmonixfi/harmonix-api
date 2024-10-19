@@ -29,6 +29,38 @@ from pytz import timezone
 router = APIRouter()
 
 
+def __get_total_depositors(session: SessionDep) -> int:
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
+
+    raw_query = text(
+        f"""
+        SELECT 
+            SUM(total_depositors) AS total_depositors_final
+        FROM (
+            SELECT 
+                COUNT(DISTINCT from_address) AS total_depositors
+            FROM 
+                public.onchain_transaction_history
+            WHERE 
+                method_id IN ({method_ids})
+            GROUP BY 
+                to_timestamp("timestamp")::date
+        ) AS daily_totals;
+        """
+    )
+
+    result = session.exec(raw_query).scalar()
+
+    return int(result) if result is not None else 0
+
+
 @router.get("/{vault_id}", response_model=schemas.Statistics)
 async def get_all_statistics(session: SessionDep, vault_id: str):
 
@@ -153,11 +185,7 @@ async def get_dashboard_statistics(session: SessionDep):
         data.append(statistic)
 
     # count all portfolio of vault
-    statement = select(func.count(distinct(UserPortfolio.user_address))).select_from(
-        UserPortfolio
-    )
-    count = session.scalar(statement)
-
+    count = __get_total_depositors(session=session)
     dashboard_stats = schemas.DashboardStats(
         tvl_in_all_vaults=tvl_in_all_vaults,
         total_depositors=count,
