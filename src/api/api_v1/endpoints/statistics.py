@@ -241,6 +241,53 @@ async def get_total_user(session: SessionDep):
     }
 
 
+@router.get("/depositors/recent")
+async def get_total_depositors(session: SessionDep):
+    # Prepare the method IDs for the SQL query
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
+
+    raw_query = text(
+        f"""
+        WITH unique_from_addresses_7_days AS (
+            SELECT DISTINCT ON (from_address) from_address
+            FROM public.onchain_transaction_history
+            WHERE method_id IN ({method_ids})
+              AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days')
+            ORDER BY from_address, "timestamp"
+        ),
+        unique_from_addresses_30_days AS (
+            SELECT DISTINCT ON (from_address) from_address
+            FROM public.onchain_transaction_history
+            WHERE method_id IN ({method_ids})
+              AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days')
+            ORDER BY from_address, "timestamp"
+        )
+        SELECT
+            (SELECT COUNT(*) FROM unique_from_addresses_7_days) AS total_deposit_7_days,
+            (SELECT COUNT(*) FROM unique_from_addresses_30_days) AS total_deposit_30_days;
+        """
+    )
+
+    result = session.exec(raw_query).one()
+
+    # Return the results for 7 days and 30 days
+    return {
+        "total_depositors_7_days": (
+            0 if result.total_deposit_7_days is None else result.total_deposit_7_days
+        ),
+        "total_depositors_30_days": (
+            0 if result.total_deposit_30_days is None else result.total_deposit_30_days
+        ),
+    }
+
+
 @router.get("/yield/summary")
 async def get_yield(session: SessionDep):
     raw_query = text(
@@ -602,76 +649,50 @@ async def get_user_chart_data(session: SessionDep):
     return yield_data
 
 
-# @router.get("/api/tvl-data-chart")
-# async def get_tvl_chart_data(session: SessionDep):
-#     statement = select(Vault).where(Vault.is_active)
-#     vaults = session.exec(statement).all()
-#     vault_ids = [vault.id for vault in vaults]
+@router.get("/api/depositors-data-chart")
+async def get_deposit_chart_data(session: SessionDep):
+    # Prepare the method IDs for the SQL query
+    method_ids = ", ".join(
+        f"'{method_id}'"
+        for method_id in [
+            constants.MethodID.DEPOSIT,
+            constants.MethodID.DEPOSIT2,
+            constants.MethodID.DEPOSIT3,
+        ]
+    )
 
-#     vaults_SOLV = [
-#         vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
-#     ]
+    raw_query = text(
+        f"""
+        SELECT 
+            to_timestamp("timestamp")::date AS date,
+            COUNT(DISTINCT from_address) AS total_deposit,
+            SUM(COUNT(DISTINCT from_address)) OVER (ORDER BY to_timestamp("timestamp")::date) AS cumulative_deposit
+        FROM 
+            public.onchain_transaction_history
+        WHERE 
+            method_id IN ({method_ids})
+        GROUP BY 
+            date
+        ORDER BY 
+            date;
+        """
+    )
 
-#     today = datetime.now(timezone.utc)
-#     last_sun_day = today - timedelta(days=(today.weekday() + 1) % 7)
-#     last_sun_day = last_sun_day.replace(
-#         hour=23, minute=59, second=59, microsecond=999999
-#     )
+    result = session.exec(raw_query).all()
 
-#     # Fetch the performance history for all vaults
-#     perf_hist = session.exec(
-#         select(VaultPerformance)
-#         .where(VaultPerformance.vault_id.in_(vault_ids))
-#         .where(VaultPerformance.datetime <= last_sun_day)
-#         .order_by(VaultPerformance.datetime.asc())
-#     ).all()
-
-#     if len(perf_hist) == 0:
-#         return []
-
-#     current_price = get_price("BTCUSDT")
-#     for perf in perf_hist:
-#         if perf.vault_id in vaults_SOLV:
-#             perf.total_locked_value += perf.total_locked_value * current_price
-
-#     # Convert the list of VaultPerformance objects to a DataFrame
-#     pps_history_df = pd.DataFrame([vars(rec) for rec in perf_hist])
-
-#     # Rename the datetime column to date
-#     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
-
-#     # Assume 'tvl' is based on 'total_locked_value' in VaultPerformance
-#     pps_history_df["tvl"] = pps_history_df["total_locked_value"]
-
-#     # Select only the necessary columns for the final output
-#     pps_history_df = pps_history_df[["date", "tvl", "vault_id"]]
-
-#     # Convert the date column to datetime format for resampling
-#     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-
-#     pps_history_df.set_index("date", inplace=True)
-#     pps_history_df = (
-#         pps_history_df.groupby([pd.Grouper(freq="W"), "vault_id"])["tvl"]
-#         .last()
-#         .reset_index()
-#     )
-#     # Sum the last TVL values for each vault per week
-#     weekly_tvl_df = pps_history_df.groupby("date")["tvl"].sum().reset_index()
-
-#     # Calculate the cumulative TVL
-#     weekly_tvl_df["weekly_tvl"] = weekly_tvl_df["tvl"] - weekly_tvl_df["tvl"].shift()
-
-#     # Convert the date column to string format for the response
-#     weekly_tvl_df["date"] = weekly_tvl_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
-#     weekly_tvl_df.fillna(0, inplace=True)
-
-#     # Rename 'tvl' to 'weekly_tvl' for clarity
-#     weekly_tvl_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
-
-#     # Convert the DataFrame to a dictionary and return it
-#     return weekly_tvl_df[["date", "weekly_tvl", "cumulative_tvl"]].to_dict(
-#         orient="records"
-#     )
+    # Return the results as a list of dictionaries
+    return [
+        {
+            "date": row.date,
+            "total_depositors": (
+                row.total_deposit if row.total_deposit is not None else 0
+            ),
+            "cumulative_depositors": (
+                row.cumulative_deposit if row.cumulative_deposit is not None else 0
+            ),
+        }
+        for row in result
+    ]
 
 
 @router.get("/api/tvl-data-chart")

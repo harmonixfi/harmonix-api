@@ -10,6 +10,13 @@ EIGENLAYER = "eigenlayer"
 HARMONIX = "Harmonix"
 HYPERLIQUID = "Hyperliquid"
 BSX = "bsx"
+GOLDLINK = "goldlink"
+
+PARTNER_KELPDAOGAIN = "kelpdaogain"
+EARNED_POINT_LINEA = "linea"
+EARNED_POINT_SCROLL = "scroll"
+EARNED_POINT_KARAK = "karak"
+EARNED_POINT_INFRA_PARTNER = "infra partner"
 
 REWARD_HIGH_PERCENTAGE = 0.08
 REWARD_DEFAULT_PERCENTAGE = 0.05
@@ -25,6 +32,7 @@ DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
 
+GOLD_LINK_STRATEGY = "gold_link_strategy"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"

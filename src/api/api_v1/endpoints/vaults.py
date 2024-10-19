@@ -15,9 +15,10 @@ from api.api_v1.deps import SessionDep
 from core import constants
 from models import PointDistributionHistory, Vault
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain, VaultCategory
+from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
+from schemas.vault_metadata_response import VaultMetadataResponse
 
 router = APIRouter()
 
@@ -84,18 +85,49 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
         if point_dist_hist is not None:
+            if partner != constants.PARTNER_KELPDAOGAIN:
+                earned_points.append(
+                    schemas.EarnedPoints(
+                        name=partner,
+                        point=point_dist_hist.point,
+                        created_at=point_dist_hist.created_at,
+                    )
+                )
+        else:
+            if partner != constants.PARTNER_KELPDAOGAIN:
+                # add default value 0
+                earned_points.append(
+                    schemas.EarnedPoints(
+                        name=partner,
+                        point=0.0,
+                        created_at=None,
+                    )
+                )
+        if partner == constants.PARTNER_KELPDAOGAIN:
             earned_points.append(
                 schemas.EarnedPoints(
-                    name=partner,
-                    point=point_dist_hist.point,
-                    created_at=point_dist_hist.created_at,
+                    name=constants.EARNED_POINT_LINEA,
+                    point=0.0,
+                    created_at=None,
                 )
             )
-        else:
-            # add default value 0
             earned_points.append(
                 schemas.EarnedPoints(
-                    name=partner,
+                    name=constants.EARNED_POINT_SCROLL,
+                    point=0.0,
+                    created_at=None,
+                )
+            )
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name=constants.EARNED_POINT_KARAK,
+                    point=0.0,
+                    created_at=None,
+                )
+            )
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name=constants.EARNED_POINT_INFRA_PARTNER,
                     point=0.0,
                     created_at=None,
                 )
@@ -206,11 +238,11 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
         # Get the selected network chain of all vaults in the group
         selected_networks = {
-            SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
+            v.network_chain: SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
             for v in group_vaults
             if v.network_chain
         }
-        schema_vault.supported_networks = list(selected_networks)
+        schema_vault.supported_networks = list(selected_networks.values())
     else:
         # If the vault doesn't have a group, get the network of this vault
         schema_vault.supported_networks = (
@@ -372,6 +404,36 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
     }
     data["apy"] = vault_apy.total_apy
     return data
+
+
+@router.get("/metrics/{vault_id}", response_model=VaultMetadataResponse)
+def get_vault_metadata(session: SessionDep, vault_id: str):
+    # Retrieve the vault
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if not vault:
+        raise HTTPException(
+            status_code=404,  # Use 404 to indicate "not found"
+            detail="Vault not found in the database.",
+        )
+
+    # Retrieve the vault metadata
+    vault_metadata = session.exec(
+        select(VaultMetadata).where(VaultMetadata.vault_id == vault_id)
+    ).first()
+
+    if not vault_metadata:
+        return {}
+
+    # Aggregate all components into a single dictionary
+    return VaultMetadataResponse(
+        vault_id=vault_metadata.vault_id,
+        borrow_apr=vault_metadata.borrow_apr,
+        health_factor=vault_metadata.health_factor,
+        leverage=vault_metadata.leverage,
+        open_position_size=vault_metadata.open_position_size,
+        last_updated=vault_metadata.last_updated,
+    )
+
 
 @router.get("/{vault_id}/pps-histories")
 def get_pps_histories(

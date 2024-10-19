@@ -33,7 +33,7 @@ def init_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             )
@@ -435,6 +435,50 @@ def seed_vaults(session: Session):
             pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
             pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
         ),
+        Vault(
+            name="Koi & Chill with Kelp Gain",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address="0xCf8Be38F161DB8241bbBDbaB4231f9DF62DBc820",
+            slug="ethereum-kelpgain-restaking-delta-neutral-vault",
+            routes='["kelpdao", "kelpdaogain"]',
+            category="points",
+            network_chain=NetworkChain.ethereum,
+            group_id=kelpdao_group.id if kelpdao_group else None,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            is_active=False,
+            max_drawdown=0,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+        ),
+        Vault(
+            name="Gold Link",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            contract_address="",
+            slug="arbitrum-leverage-delta-neutral-link",
+            routes=None,
+            category="real_yield",
+            underlying_asset="LINK",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            tags="",
+            max_drawdown=0,
+            maturity_date="",
+            owner_wallet_address="",
+            is_active=False,
+            strategy_name=constants.GOLD_LINK_STRATEGY,
+            pt_address="",
+            pendle_market_address="",
+            update_frequency="",
+        ),
     ]
 
     for vault in vaults:
@@ -517,3 +561,13 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26dec2024")
     ).first()
     init_new_vault(session, pendle_rs_26dec)
+
+    kelpgain_vault = session.exec(
+        select(Vault).where(Vault.slug == "ethereum-kelpgain-restaking-delta-neutral-vault")
+    ).first()
+    init_new_vault(session, kelpgain_vault)
+
+    goldlink_vault = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-leverage-delta-neutral-link")
+    ).first()
+    init_new_vault(session, goldlink_vault)

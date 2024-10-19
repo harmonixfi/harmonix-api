@@ -38,8 +38,8 @@ logger = logging.getLogger("calculate_apy_breakdown_daily")
 session = Session(engine)
 
 ALLOCATION_RATIO: float = 1 / 2
-AEUSD_VAULT_APY: float = 8
-RENZO_AEVO_VAULE: float = 8
+AEUSD_VAULT_APY: float = 6.5
+RENZO_AEVO_VAULE: float = 6.5
 BSX_POINT_VAULE: float = 0.2
 OPTION_YIELD_VALUE: float = 5
 

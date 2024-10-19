@@ -101,6 +101,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "restaking_reward_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.restaking_reward_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "update_solv_vault_performance",
             "type": "debugpy",
             "request": "launch",
