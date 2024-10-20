@@ -10,6 +10,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import NetworkChain, Vault
 from services import arbiscan_service, basescan_service, etherscan_service
+from sqlalchemy.exc import IntegrityError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +70,7 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                         address, latest_block + 1, MAX_BLOCK_NUMBER, page, offset=100
                     )
                     logger.info("Get list transactions %s", transactions)
-                    
+
                     if not transactions:
                         time.sleep(0.5)
                         break
@@ -79,9 +80,25 @@ def index_transactions(contract_addresses, chain: NetworkChain):
                             continue
 
                         tx_data = process_transaction(tx, chain)
-                        new_transaction = OnchainTransactionHistory(**tx_data)
-                        session.add(new_transaction)
-                    session.commit()
+                        # Check if transaction already exists
+                        existing_tx = session.exec(
+                            select(OnchainTransactionHistory).where(
+                                OnchainTransactionHistory.tx_hash == tx_data["tx_hash"]
+                            )
+                        ).first()
+
+                        if not existing_tx:
+                            new_transaction = OnchainTransactionHistory(**tx_data)
+                            session.add(new_transaction)
+
+                    try:
+                        session.commit()
+                    except IntegrityError:
+                        session.rollback()
+                        logger.warning(
+                            f"Transaction {tx_data['tx_hash']} already exists. Skipping."
+                        )
+                    
                     page += 1
                     time.sleep(0.5)
 
