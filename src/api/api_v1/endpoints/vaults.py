@@ -233,7 +233,7 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
     # Check if the vault is part of a group
     if vault.vault_group:
         # Query all vaults in the group
-        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id)
+        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group

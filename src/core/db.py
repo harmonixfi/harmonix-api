@@ -33,7 +33,7 @@ def init_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             )
