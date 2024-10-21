@@ -60,6 +60,8 @@ def calculate_tvl_last_30_days():
                 continue
 
             for onchain_transaction_history in onchain_transaction_histories:
+                vault_object = vaults_dict.get(onchain_transaction_history.to_address.lower())
+                
                 if (
                     onchain_transaction_history.method_id
                     == constants.MethodID.DEPOSIT.value
@@ -80,7 +82,8 @@ def calculate_tvl_last_30_days():
                     shares_deposited += deposit / pps
                 
                 elif(onchain_transaction_history.method_id
-                    == constants.MethodID.DEPOSIT2.value and vaults_dict[onchain_transaction_history.to_address.lower()].name == constants.VAULT_SOLV_NAME):
+                    == constants.MethodID.DEPOSIT2.value 
+                    and vault_object and vault_object.name == constants.VAULT_SOLV_NAME):
                     deposit = calculate_amount_value_for_solv(onchain_transaction_history)
                     balance_deposited += deposit
                     shares_deposited += deposit / pps
@@ -88,7 +91,7 @@ def calculate_tvl_last_30_days():
                     onchain_transaction_history.method_id
                     == constants.MethodID.WITHDRAW.value
                 ):
-                    if(vaults_dict[onchain_transaction_history.to_address.lower()].name == constants.VAULT_SOLV_NAME):
+                    if vault_object and vault_object.name == constants.VAULT_SOLV_NAME:
                         withdraw = calculate_amount_value_for_solv(onchain_transaction_history)
                     else:
                         amount = parse_hex_to_int(onchain_transaction_history.input[10:])
