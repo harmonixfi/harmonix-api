@@ -281,16 +281,16 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
     # Check if the vault is part of a group
     if vault.vault_group:
         # Query all vaults in the group
-        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id)
+        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group
         selected_networks = {
-            SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
+            v.network_chain: SupportedNetwork(chain=v.network_chain, vault_slug=v.slug)
             for v in group_vaults
             if v.network_chain
         }
-        schema_vault.supported_networks = list(selected_networks)
+        schema_vault.supported_networks = list(selected_networks.values())
     else:
         # If the vault doesn't have a group, get the network of this vault
         schema_vault.supported_networks = (

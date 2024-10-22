@@ -33,7 +33,7 @@ def init_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             )
@@ -462,11 +462,30 @@ def seed_vaults(session: Session):
             pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
         ),
         Vault(
+            name="Koi & Chill with Kelp Gain",
+            vault_capacity=4 * 1e6,
+            vault_currency="USDC",
+            contract_address="0xCf8Be38F161DB8241bbBDbaB4231f9DF62DBc820",
+            slug="ethereum-kelpgain-restaking-delta-neutral-vault",
+            routes='["kelpdao", "kelpdaogain"]',
+            category="points",
+            network_chain=NetworkChain.ethereum,
+            group_id=kelpdao_group.id if kelpdao_group else None,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            is_active=False,
+            max_drawdown=0,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+        ),
+        Vault(
             name="Gold Link",
             vault_capacity=4 * 1e3,
             vault_currency="USDC",
+            slug=constants.GOLD_LINK_SLUG,
             contract_address="0xa9BE190b8348F18466dC84cC2DE69C04673c5aca",
-            slug="goldlink-link",
             routes=None,
             category="rewards",
             underlying_asset="LINK",
@@ -594,4 +613,14 @@ def init_db(session: Session) -> None:
     ).first()
     init_new_vault(session, pendle_rs_26dec)
 
-    init_new_vault_metadata(session)
+    kelpgain_vault = session.exec(
+        select(Vault).where(
+            Vault.slug == "ethereum-kelpgain-restaking-delta-neutral-vault"
+        )
+    ).first()
+    init_new_vault(session, kelpgain_vault)
+
+    goldlink_vault = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-leverage-delta-neutral-link")
+    ).first()
+    init_new_vault(session, goldlink_vault)
