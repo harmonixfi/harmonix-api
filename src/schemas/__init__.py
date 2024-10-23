@@ -10,3 +10,4 @@ from .userjoin import UserJoin
 from .reward_points_response import Rewards, Points
 from .reward_sessions import RewardSessions
 from .earned_rewards import EarnedRewards
+from .onchain_transaction_history import OnchainTransactionHistory
