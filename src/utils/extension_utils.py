@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 from typing import List
 from core import constants
 from models.vaults import Vault
@@ -45,3 +45,29 @@ def get_init_dates() -> List[datetime]:
         current_date += timedelta(days=1)
 
     return date_list
+
+
+def convert_timedelta_to_time(time_difference: timedelta) -> time:
+    """
+    Converts a `timedelta` object into a `time` object representing the hours, minutes, and seconds of the difference.
+
+    Args:
+        time_difference (timedelta): The input time difference.
+
+    Returns:
+        time: A `time` object representing the hours, minutes, and seconds of the difference.
+    """
+    # Extract the total seconds from the time difference
+    total_seconds = int(time_difference.total_seconds())
+
+    # Handle negative differences by converting them to positive if needed
+    if total_seconds < 0:
+        total_seconds = abs(total_seconds)
+
+    # Calculate hours, minutes, and seconds from the total seconds
+    hours = total_seconds // 3600 % 24
+    minutes = (total_seconds // 60) % 60
+    seconds = total_seconds % 60
+
+    # Create and return a time object
+    return time(hours, minutes, seconds)
