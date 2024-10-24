@@ -24,7 +24,7 @@ from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
-from services import renzo_service, zircuit_service, kelpdao_service
+from services import renzo_service, zircuit_service, kelpdao_service, kelpgain_service
 
 session = Session(engine)
 
@@ -32,6 +32,7 @@ GET_POINTS_SERVICE = {
     constants.RENZO: renzo_service.get_points,
     constants.ZIRCUIT: zircuit_service.get_points,
     constants.KELPDAO: kelpdao_service.get_points,
+    constants.PARTNER_KELPDAOGAIN: kelpgain_service.get_points,
 }
 
 

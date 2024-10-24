@@ -19,6 +19,7 @@ from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
+from services import kelpgain_service
 
 router = APIRouter()
 
@@ -104,24 +105,27 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
                     )
                 )
         if partner == constants.PARTNER_KELPDAOGAIN:
+            kelpgain_point = kelpgain_service.get_detailed_restaking_points(
+                vault.contract_address
+            )
             earned_points.append(
                 schemas.EarnedPoints(
                     name=constants.EARNED_POINT_LINEA,
-                    point=0.0,
+                    point=kelpgain_point.linea_points,
                     created_at=None,
                 )
             )
             earned_points.append(
                 schemas.EarnedPoints(
                     name=constants.EARNED_POINT_SCROLL,
-                    point=0.0,
+                    point=kelpgain_point.scroll_points,
                     created_at=None,
                 )
             )
             earned_points.append(
                 schemas.EarnedPoints(
                     name=constants.EARNED_POINT_KARAK,
-                    point=0.0,
+                    point=kelpgain_point.karak_points,
                     created_at=None,
                 )
             )
@@ -233,7 +237,9 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
     # Check if the vault is part of a group
     if vault.vault_group:
         # Query all vaults in the group
-        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        group_vaults_statement = (
+            select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        )
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group

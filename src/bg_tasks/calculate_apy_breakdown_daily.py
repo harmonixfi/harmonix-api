@@ -21,6 +21,7 @@ from services import (
     lido_service,
     pendle_service,
     renzo_service,
+    kelpgain_service,
 )
 from services.apy_component_service import (
     BSXApyComponentService,
@@ -184,12 +185,17 @@ def main():
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
-                    last_tuesday = datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday() + 6)
+                    last_tuesday = datetime.now(timezone.utc) - timedelta(
+                        days=datetime.now(timezone.utc).weekday() + 6
+                    )
                     point_dist_hist = session.exec(
                         select(PointDistributionHistory)
                         .where(PointDistributionHistory.vault_id == vault.id)
                         .where(PointDistributionHistory.partner_name == constants.BSX)
-                        .where(func.date(PointDistributionHistory.created_at) == last_tuesday.date())
+                        .where(
+                            func.date(PointDistributionHistory.created_at)
+                            == last_tuesday.date()
+                        )
                         .order_by(PointDistributionHistory.created_at.desc())
                     ).first()
 
@@ -250,6 +256,23 @@ def main():
                         session,
                     )
                     pendle_component_service.save()
+
+                elif vault.slug in [constants.KEYDAO_GAIN_VAULT_SLUG]:
+                    rs_eth_value = kelpgain_service.get_apy() * ALLOCATION_RATIO
+
+                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, rs_eth_value, ae_usd_value
+                    )
+                    kelpdao_component_service = KelpDaoApyComponentService(
+                        vault.id,
+                        current_apy,
+                        rs_eth_value,
+                        ae_usd_value,
+                        float(funding_fee_value),
+                        session,
+                    )
+                    kelpdao_component_service.save()
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
 
