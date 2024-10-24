@@ -82,6 +82,15 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
         partners.append(constants.HYPERLIQUID)
 
+    if vault.slug == constants.KEYDAO_GAIN_VAULT_SLUG:
+        kelpgain_partners = [
+            constants.EARNED_POINT_LINEA,
+            constants.EARNED_POINT_SCROLL,
+            constants.EARNED_POINT_KARAK,
+            constants.EARNED_POINT_INFRA_PARTNER,
+        ]
+        partners.extend(kelpgain_partners)
+
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
@@ -94,25 +103,6 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
                     created_at=point_dist_hist.created_at,
                 )
             )
-        if partner == constants.PARTNER_KELPDAOGAIN:
-            kelpgain_partners = [
-                constants.EARNED_POINT_LINEA,
-                constants.EARNED_POINT_SCROLL,
-                constants.EARNED_POINT_KARAK,
-                constants.EARNED_POINT_INFRA_PARTNER,
-            ]
-
-            for kelpgain_partner in kelpgain_partners:
-                kelpgain_point = get_vault_earned_point_by_partner(
-                    session, vault, kelpgain_partner
-                )
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=kelpgain_partner,
-                        point=kelpgain_point.point,
-                        created_at=kelpgain_point.created_at,
-                    )
-                )
 
     return earned_points
 

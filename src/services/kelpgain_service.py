@@ -4,8 +4,6 @@ from core.config import settings
 from schemas import EarnedRestakingPoints
 from core import constants
 
-WALLET_ADDRESS = "0xe1B4d34E8754600962Cd944B535180Bd758E6c2e"
-
 
 def get_points(user_address: str) -> EarnedRestakingPoints:
     url = f"{settings.KELPGAIN_BASE_API_URL}gain/user/{user_address}"
@@ -17,7 +15,7 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
 
     data = response.json()
 
-    point_res = data[WALLET_ADDRESS]
+    point_res = data[constants.AGETH_ADDRESS["ethereum"]]
     return EarnedRestakingPoints(
         wallet_address=user_address,
         total_points=float(point_res["km"]),

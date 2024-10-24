@@ -147,24 +147,6 @@ def distribute_points(
     session.add(point_distribution)
 
 
-def save_kelpdaogain_points(vault: Vault, total_earned_points: EarnedRestakingPoints):
-    kelpdaogain_distributions = [
-        (constants.EARNED_POINT_LINEA, total_earned_points.linea_points),
-        (constants.EARNED_POINT_SCROLL, total_earned_points.scroll_points),
-        (constants.EARNED_POINT_KARAK, total_earned_points.karak_points),
-        (constants.EARNED_POINT_INFRA_PARTNER, 0),
-    ]
-
-    for partner_name, points in kelpdaogain_distributions:
-        point_distribution = PointDistributionHistory(
-            vault_id=vault.id,
-            partner_name=partner_name,
-            point=points or 0,
-        )
-        session.add(point_distribution)
-        session.commit()
-
-
 def calculate_point_distributions(vault: Vault):
     user_positions: List[UserPortfolio] = []
 
@@ -211,7 +193,54 @@ def calculate_point_distributions(vault: Vault):
                 total_earned_points,
             )
 
-        if partner_name in {constants.RENZO, constants.KELPDAO}:
+        if partner_name in {
+            constants.RENZO,
+            constants.KELPDAO,
+            constants.PARTNER_KELPDAOGAIN,
+        }:
+            if partner_name == constants.PARTNER_KELPDAOGAIN:
+                kelpgain_partners = [
+                    (constants.EARNED_POINT_LINEA, total_earned_points.linea_points),
+                    (constants.EARNED_POINT_SCROLL, total_earned_points.scroll_points),
+                    (constants.EARNED_POINT_KARAK, total_earned_points.karak_points),
+                    (constants.EARNED_POINT_INFRA_PARTNER, 0),
+                ]
+
+                for kelpgain_partner, kelpgain_point in kelpgain_partners:
+                    # distribute eigenlayer points to user
+                    prev_eigen_point = get_previous_point_distribution(
+                        vault.id, constants.EIGENLAYER
+                    )
+                    logger.info(
+                        "Vault %s, partner: %s, Previous point distribution: %s",
+                        vault.name,
+                        constants.EIGENLAYER,
+                        prev_eigen_point,
+                    )
+
+                    total_earned_point_kelpgain = (
+                        kelpgain_point
+                        if kelpgain_point >= prev_eigen_point
+                        else prev_eigen_point
+                    )
+
+                    earned_eigen_points_in_period = kelpgain_point - prev_eigen_point
+                    logger.info(
+                        "Total earned points for partner %s: %s",
+                        partner_name,
+                        total_earned_points.eigen_layer_points,
+                    )
+
+                    if earned_eigen_points_in_period > 0:
+                        total_earned_points.total_points = total_earned_point_kelpgain
+                        distribute_points(
+                            vault,
+                            kelpgain_partner,
+                            user_positions,
+                            earned_eigen_points_in_period,
+                            total_earned_points,
+                        )
+
             # distribute eigenlayer points to user
             prev_eigen_point = get_previous_point_distribution(
                 vault.id, constants.EIGENLAYER
@@ -247,9 +276,6 @@ def calculate_point_distributions(vault: Vault):
                     earned_eigen_points_in_period,
                     total_earned_points,
                 )
-
-        if partner_name == constants.PARTNER_KELPDAOGAIN:
-            save_kelpdaogain_points(vault, total_earned_points)
 
     session.commit()
 
