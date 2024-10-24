@@ -3,7 +3,6 @@ from typing import Dict, Any
 from core.config import settings
 from schemas import EarnedRestakingPoints
 from core import constants
-from schemas.kelpgain_earned_restaking_points import KelpGainEarnedRestakingPoints
 
 WALLET_ADDRESS = "0xe1B4d34E8754600962Cd944B535180Bd758E6c2e"
 
@@ -24,24 +23,6 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
         total_points=float(point_res["km"]),
         eigen_layer_points=float(point_res["el"]),
         partner_name=constants.KELPDAO,
-    )
-
-
-def get_detailed_restaking_points(user_address: str) -> KelpGainEarnedRestakingPoints:
-    url = f"{settings.KELPGAIN_BASE_API_URL}gain/user/{user_address}"
-    headers = {"Accept-Encoding": "gzip"}
-    response = requests.get(url, headers=headers)
-
-    if response.status_code != 200:
-        raise Exception(f"Request failed with status {response.status_code}")
-
-    data = response.json()
-
-    point_res = data[WALLET_ADDRESS]
-    return KelpGainEarnedRestakingPoints(
-        wallet_address=user_address,
-        total_points=float(point_res["km"]),
-        eigen_layer_points=float(point_res["el"]),
         scroll_points=float(point_res["scrollPoints"]),
         karak_points=float(point_res["karakPoints"]),
         linea_points=float(point_res["lineaPoints"]),

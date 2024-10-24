@@ -85,57 +85,34 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
-        if point_dist_hist is not None:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=point_dist_hist.point,
-                        created_at=point_dist_hist.created_at,
-                    )
+
+        if partner != constants.PARTNER_KELPDAOGAIN:
+            earned_points.append(
+                schemas.EarnedPoints(
+                    name=partner,
+                    point=point_dist_hist.point,
+                    created_at=point_dist_hist.created_at,
                 )
-        else:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                # add default value 0
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=0.0,
-                        created_at=None,
-                    )
-                )
+            )
         if partner == constants.PARTNER_KELPDAOGAIN:
-            kelpgain_point = kelpgain_service.get_detailed_restaking_points(
-                vault.contract_address
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_LINEA,
-                    point=kelpgain_point.linea_points,
-                    created_at=None,
+            kelpgain_partners = [
+                constants.EARNED_POINT_LINEA,
+                constants.EARNED_POINT_SCROLL,
+                constants.EARNED_POINT_KARAK,
+                constants.EARNED_POINT_INFRA_PARTNER,
+            ]
+
+            for kelpgain_partner in kelpgain_partners:
+                kelpgain_point = get_vault_earned_point_by_partner(
+                    session, vault, kelpgain_partner
                 )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_SCROLL,
-                    point=kelpgain_point.scroll_points,
-                    created_at=None,
+                earned_points.append(
+                    schemas.EarnedPoints(
+                        name=kelpgain_partner,
+                        point=kelpgain_point.point,
+                        created_at=kelpgain_point.created_at,
+                    )
                 )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_KARAK,
-                    point=kelpgain_point.karak_points,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_INFRA_PARTNER,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
 
     return earned_points
 

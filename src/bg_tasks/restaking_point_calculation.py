@@ -143,7 +143,26 @@ def distribute_points(
             else total_earned_points.eigen_layer_points
         ),
     )
+
     session.add(point_distribution)
+
+
+def save_kelpdaogain_points(vault: Vault, total_earned_points: EarnedRestakingPoints):
+    kelpdaogain_distributions = [
+        (constants.EARNED_POINT_LINEA, total_earned_points.linea_points),
+        (constants.EARNED_POINT_SCROLL, total_earned_points.scroll_points),
+        (constants.EARNED_POINT_KARAK, total_earned_points.karak_points),
+        (constants.EARNED_POINT_INFRA_PARTNER, 0),
+    ]
+
+    for partner_name, points in kelpdaogain_distributions:
+        point_distribution = PointDistributionHistory(
+            vault_id=vault.id,
+            partner_name=partner_name,
+            point=points or 0,
+        )
+        session.add(point_distribution)
+        session.commit()
 
 
 def calculate_point_distributions(vault: Vault):
@@ -228,6 +247,9 @@ def calculate_point_distributions(vault: Vault):
                     earned_eigen_points_in_period,
                     total_earned_points,
                 )
+
+        if partner_name == constants.PARTNER_KELPDAOGAIN:
+            save_kelpdaogain_points(vault, total_earned_points)
 
     session.commit()
 
