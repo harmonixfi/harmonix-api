@@ -1,4 +1,5 @@
 import logging
+import traceback
 import uuid
 
 from sqlmodel import Session, select
@@ -59,6 +60,7 @@ def main():
             logger.info(f"Updated TVL for Vault {vault.name} to {current_tvl}")
 
     except Exception as e:
+        print(traceback.print_exc())
         logger.error(
             "An error occurred while updating TVL: %s",
             e,

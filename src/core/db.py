@@ -624,3 +624,4 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-leverage-delta-neutral-link")
     ).first()
     init_new_vault(session, goldlink_vault)
+    init_new_vault_metadata(session)
