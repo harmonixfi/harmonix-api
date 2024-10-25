@@ -19,6 +19,7 @@ from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
+from services import kelpgain_service
 
 router = APIRouter()
 
@@ -81,55 +82,25 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
         partners.append(constants.HYPERLIQUID)
 
+    if vault.slug == constants.KEYDAO_GAIN_VAULT_SLUG:
+        kelpgain_partners = [
+            constants.EARNED_POINT_LINEA,
+            constants.EARNED_POINT_SCROLL,
+            constants.EARNED_POINT_KARAK,
+            constants.EARNED_POINT_INFRA_PARTNER,
+        ]
+        partners.extend(kelpgain_partners)
+
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
-        if point_dist_hist is not None:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=point_dist_hist.point,
-                        created_at=point_dist_hist.created_at,
-                    )
-                )
-        else:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                # add default value 0
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=0.0,
-                        created_at=None,
-                    )
-                )
-        if partner == constants.PARTNER_KELPDAOGAIN:
+
+        if partner != constants.PARTNER_KELPDAOGAIN:
             earned_points.append(
                 schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_LINEA,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_SCROLL,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_KARAK,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_INFRA_PARTNER,
-                    point=0.0,
-                    created_at=None,
+                    name=partner,
+                    point=point_dist_hist.point,
+                    created_at=point_dist_hist.created_at,
                 )
             )
 
@@ -233,7 +204,9 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
     # Check if the vault is part of a group
     if vault.vault_group:
         # Query all vaults in the group
-        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        group_vaults_statement = (
+            select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        )
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group

@@ -143,7 +143,7 @@ class Settings(BaseSettings):
     ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
     KELPDAO_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
     KYBERSWAP_BASE_API_URL: Optional[str] = "https://aggregator-api.kyberswap.com"
-
+    KELPGAIN_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
     # Seq log
     SEQ_SERVER_URL: Optional[str] = None
     SEQ_SERVER_API_KEY: Optional[str] = None
