@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 async def send_alert(message, channel="transaction"):
     try:
         if channel == "transaction":
-            # g_id = settings.TRANSACTION_ALERTS_GROUP_CHATID
-            g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
+            g_id = settings.TRANSACTION_ALERTS_GROUP_CHATID
+            # g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
         elif channel == "error":
             g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
 
