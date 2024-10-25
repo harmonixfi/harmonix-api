@@ -31,7 +31,7 @@ class InitiatedWithdrawalWatcherJob:
         self.session = session
 
         utc_now = datetime.now(timezone.utc)
-        self.start_date = utc_now + timedelta(hours=-4)
+        self.start_date = utc_now + timedelta(hours=-8)
         self.end_date = utc_now
         self.start_date_timestamp = int(self.start_date.timestamp())
         self.end_date_timestamp = int(self.end_date.timestamp())
