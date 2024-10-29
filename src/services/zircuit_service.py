@@ -25,7 +25,12 @@ def get_points(user_address: str) -> EarnedRestakingPoints:
 
     data = response.json()
 
-    total_points = sum([float(x["points"]) for x in data])
+    total_points = sum(
+        float(item["points"])
+        for sublist in data.values()
+        for item in sublist
+        if "points" in item
+    )
 
     return EarnedRestakingPoints(
         wallet_address=user_address,
