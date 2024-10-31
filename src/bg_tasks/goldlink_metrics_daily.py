@@ -91,7 +91,7 @@ def main():
         logger.info("Start fetch info Gold Link metrics daily for vaults...")
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.GOLD_LINK_STRATEGY)
+            .where(Vault.slug == constants.GOLD_LINK_SLUG)
             .where(Vault.is_active.is_(True))
         ).all()
 

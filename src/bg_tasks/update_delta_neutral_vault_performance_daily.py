@@ -91,17 +91,27 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state(vault_contract: Contract, owner_address: str):
+def get_vault_state(vault_contract: Contract, owner_address: str, vault: Vault):
     state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_address)}
     )
-    vault_state = VaultState(
-        withdraw_pool_amount=state[0] / 1e6,
-        pending_deposit=state[1] / 1e6,
-        total_share=state[2] / 1e6,
-        total_fee_pool_amount=state[3] / 1e6,
-        last_update_management_fee_date=state[4],
-    )
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[2] / 1e6,
+            pending_deposit=state[3] / 1e6,
+            total_share=state[4] / 1e6,
+            total_fee_pool_amount=state[5] / 1e6,
+            last_update_management_fee_date=state[6],
+        )
+    else:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[0] / 1e6,
+            pending_deposit=state[1] / 1e6,
+            total_share=state[2] / 1e6,
+            total_fee_pool_amount=state[3] / 1e6,
+            last_update_management_fee_date=state[4],
+        )
     return vault_state
 
 
@@ -166,7 +176,9 @@ def calculate_performance(
     current_price_per_share = get_current_pps(vault_contract)
     total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
-    vault_state = get_vault_state(vault_contract, owner_address=owner_address)
+    vault_state = get_vault_state(
+        vault_contract, owner_address=owner_address, vault=vault
+    )
 
     if vault.slug == constants.BSX_VAULT_SLUG:
         points_earned = get_points_earned()
