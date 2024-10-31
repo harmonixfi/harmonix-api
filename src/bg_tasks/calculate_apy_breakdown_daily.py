@@ -24,6 +24,7 @@ from services import (
     lido_service,
     pendle_service,
     renzo_service,
+    kelpgain_service,
 )
 from services.apy_component_service import (
     BSXApyComponentService,
@@ -261,6 +262,23 @@ def main():
                         session,
                     )
                     pendle_component_service.save()
+
+                elif vault.slug in [constants.KEYDAO_GAIN_VAULT_SLUG]:
+                    rs_eth_value = kelpgain_service.get_apy() * ALLOCATION_RATIO
+
+                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                    funding_fee_value = calculate_funding_fees(
+                        current_apy, rs_eth_value, ae_usd_value
+                    )
+                    kelpdao_component_service = KelpDaoApyComponentService(
+                        vault.id,
+                        current_apy,
+                        rs_eth_value,
+                        ae_usd_value,
+                        float(funding_fee_value),
+                        session,
+                    )
+                    kelpdao_component_service.save()
 
                 elif vault.slug == constants.GOLD_LINK_SLUG:
                     rewards_hist = session.exec(

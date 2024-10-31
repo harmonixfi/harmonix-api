@@ -296,7 +296,7 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
-             {
+        {
             "name": "Python: update_tvl_for_vaults",
             "type": "debugpy",
             "request": "launch",

@@ -54,3 +54,29 @@ def build_error_message(
     message += "\n</pre>"
 
     return message
+
+
+def build_transaction_message(fields: List[Tuple[str, str]]) -> str:
+    # Start with the HTML preformatted block
+    total_requests = len(fields)
+
+    # Start the message with the header and total request count
+    message = "<pre>\n"
+    message += f"Initiated  Withdrawal Requests:\n\n"
+    message += f"Total request: {total_requests}\n"
+    message += f"Transactions:\n"
+
+    # Add table header with new columns
+    message += "| tx_hash                                                            | date       | amount  | age    |\n"
+    message += "|--------------------------------------------------------------------|------------|---------|--------|\n"
+
+    # Add table rows
+    for field in fields:
+        message += (
+            f"| {field[0]:<61} | {field[1]:<10} | {field[2]:<7} | {field[3]:<6} |\n"
+        )
+
+    # Close the HTML preformatted block
+    message += "</pre>"
+
+    return message
