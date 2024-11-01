@@ -1,4 +1,4 @@
-[
+ [
     {
       "inputs": [],
       "name": "AccessControlBadConfirmation",
@@ -309,6 +309,19 @@
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "borrowAmount",
+          "type": "uint256"
+        }
+      ],
+      "name": "borrowFunds",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address[]",
           "name": "markets",
           "type": "address[]"
@@ -380,7 +393,7 @@
       ],
       "name": "decreaseOrder",
       "outputs": [],
-      "stateMutability": "nonpayable",
+      "stateMutability": "payable",
       "type": "function"
     },
     {
@@ -523,12 +536,92 @@
     },
     {
       "inputs": [],
+      "name": "getStrategyAccountHoldingsAfterPayingInterest",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "collateral",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "loan",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "interestIndexLast",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct IStrategyBank.StrategyAccountHoldings",
+          "name": "",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "getUserWithdrawlShares",
       "outputs": [
         {
           "internalType": "uint256",
           "name": "",
           "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "getVaultState",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "pps",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalVaultAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "withdrawPoolAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "pendingDepositAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalShares",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "totalFeePoolAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "lastUpdateManagementFeeDate",
+              "type": "uint256"
+            }
+          ],
+          "internalType": "struct VaultState",
+          "name": "",
+          "type": "tuple"
         }
       ],
       "stateMutability": "view",
@@ -648,6 +741,11 @@
           "internalType": "uint256",
           "name": "_networkCost",
           "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "_swapAggregatorAddress",
+          "type": "address"
         }
       ],
       "name": "initialize",
@@ -709,6 +807,19 @@
         }
       ],
       "name": "renounceRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "repayLoan",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -787,6 +898,24 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "useSoftWithdrawal",
+          "type": "bool"
+        }
+      ],
+      "name": "withdrawCollateral",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {

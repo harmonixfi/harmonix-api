@@ -99,17 +99,5 @@ class VaultContractService:
                 "0x18994527E6FfE7e91F1873eCA53e900CE0D0f276",
                 "0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5",
             ]
-        if (
-            vault.contract_address.lower()
-            == "0xE46C3BE33D0C682fCA5F965D244398E924000705".lower()
-        ):
-            return ["0xE46C3BE33D0C682fCA5F965D244398E924000705"]
 
-        # GoldLink
-        if (
-            vault.contract_address.lower()
-            == "0x0d856b121cA1Cf862837Cb2BB03D181E25E9e892".lower()
-        ):
-            return ["0x0d856b121cA1Cf862837Cb2BB03D181E25E9e892"]
-
-        return [vault.contract_address]
+        return [vault.contract_address.lower()]

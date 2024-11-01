@@ -30,7 +30,7 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
 from services.market_data import get_price
-from services.vault_rewards_servic import VaultRewardsService
+from services.vault_rewards_service import VaultRewardsService
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger

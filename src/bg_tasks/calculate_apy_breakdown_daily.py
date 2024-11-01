@@ -263,7 +263,7 @@ def main():
                     )
                     pendle_component_service.save()
 
-                elif vault.slug in [constants.KEYDAO_GAIN_VAULT_SLUG]:
+                elif vault.slug in [constants.KELPDAO_GAIN_VAULT_SLUG]:
                     rs_eth_value = kelpgain_service.get_apy() * ALLOCATION_RATIO
 
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO

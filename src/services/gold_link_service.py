@@ -137,8 +137,13 @@ def __get_contract(vault: Vault, abi_name="goldlink_rewards"):
 def get_current_rewards_earned(
     vault: Vault, trading_account: str, abi_name="goldlink_rewards", decimals=1e18
 ) -> float:
-    contract = __get_contract(vault, abi_name)
-    return float(
-        contract.functions.rewardsOwed(Web3.to_checksum_address(trading_account)).call()
-        / decimals
-    )
+    try:
+        contract = __get_contract(vault, abi_name)
+        return float(
+            contract.functions.rewardsOwed(
+                Web3.to_checksum_address(trading_account)
+            ).call()
+            / decimals
+        )
+    except Exception:
+        return 0.0

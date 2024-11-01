@@ -20,7 +20,7 @@ from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
 from services import kelpgain_service
-from services.vault_rewards_servic import VaultRewardsService
+from services.vault_rewards_service import VaultRewardsService
 
 router = APIRouter()
 
@@ -83,7 +83,7 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
         partners.append(constants.HYPERLIQUID)
 
-    if vault.slug == constants.KEYDAO_GAIN_VAULT_SLUG:
+    if vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG:
         kelpgain_partners = [
             constants.EARNED_POINT_LINEA,
             constants.EARNED_POINT_SCROLL,
@@ -170,7 +170,9 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
-        schema_vault.rewards = get_earned_rewards(session, vault)
+
+        if vault.slug == constants.GOLD_LINK_SLUG:
+            schema_vault.rewards = get_earned_rewards(session, vault)
 
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
