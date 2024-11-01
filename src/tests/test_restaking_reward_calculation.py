@@ -22,7 +22,6 @@ from models.vault_rewards import VaultRewards
 from models.vaults import Vault
 from schemas.earned_restaking_rewards import EarnedRestakingRewards
 
-
 VAULT_ID = uuid.UUID("be740e89-c676-4d16-bead-133fcc844e96")
 
 
