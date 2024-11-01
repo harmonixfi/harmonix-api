@@ -30,6 +30,7 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
 from services.market_data import get_price
+from services.vault_rewards_service import VaultRewardsService
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
@@ -90,17 +91,27 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state(vault_contract: Contract, owner_address: str):
+def get_vault_state(vault_contract: Contract, owner_address: str, vault: Vault):
     state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_address)}
     )
-    vault_state = VaultState(
-        withdraw_pool_amount=state[0] / 1e6,
-        pending_deposit=state[1] / 1e6,
-        total_share=state[2] / 1e6,
-        total_fee_pool_amount=state[3] / 1e6,
-        last_update_management_fee_date=state[4],
-    )
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[2] / 1e6,
+            pending_deposit=state[3] / 1e6,
+            total_share=state[4] / 1e6,
+            total_fee_pool_amount=state[5] / 1e6,
+            last_update_management_fee_date=state[6],
+        )
+    else:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[0] / 1e6,
+            pending_deposit=state[1] / 1e6,
+            total_share=state[2] / 1e6,
+            total_fee_pool_amount=state[3] / 1e6,
+            last_update_management_fee_date=state[4],
+        )
     return vault_state
 
 
@@ -165,7 +176,9 @@ def calculate_performance(
     current_price_per_share = get_current_pps(vault_contract)
     total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
-    vault_state = get_vault_state(vault_contract, owner_address=owner_address)
+    vault_state = get_vault_state(
+        vault_contract, owner_address=owner_address, vault=vault
+    )
 
     if vault.slug == constants.BSX_VAULT_SLUG:
         points_earned = get_points_earned()
@@ -181,6 +194,14 @@ def calculate_performance(
         adjusted_tvl = total_balance + points_value
 
         # Adjust the current PPS
+        current_price_per_share = adjusted_tvl / vault_state.total_share
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        rewards_service = VaultRewardsService(session)
+        rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
+        arb_price = get_price("ARBUSDT")
+        rewards_value = rewards_earned * arb_price
+        adjusted_tvl = total_balance + rewards_value
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
     # Calculate Monthly APY
@@ -210,6 +231,9 @@ def calculate_performance(
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        current_price = get_price(f"{vault.underlying_asset}USDT")
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
@@ -316,7 +340,10 @@ def main(chain: str):
 
         for vault in vaults:
             logger.info("Updating performance for %s...", vault.name)
-            vault_contract, _ = get_vault_contract(vault)
+            if vault.slug == constants.GOLD_LINK_SLUG:
+                vault_contract, _ = get_vault_contract(vault, "goldlink")
+            else:
+                vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
                 vault,

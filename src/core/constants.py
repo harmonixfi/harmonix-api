@@ -31,8 +31,7 @@ OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"
 DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
-
-GOLD_LINK_STRATEGY = "gold_link_strategy"
+GOLD_LINK_SLUG = "arbitrum-leverage-delta-neutral-link"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
@@ -56,7 +55,7 @@ RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
 DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
 OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
 PENDLE_VAULT_VAULT_SLUG = "arbitrum-pendle-rseth-26sep2024"
-KEYDAO_GAIN_VAULT_SLUG = "ethereum-kelpdao-gain-restaking-delta-neutral-vault"
+KELPDAO_GAIN_VAULT_SLUG = "ethereum-kelpdao-gain-restaking-delta-neutral-vault"
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,

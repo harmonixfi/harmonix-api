@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import func
+from sqlalchemy import bindparam, func, text
 from sqlmodel import Session, create_engine, select
 
 from core import constants
@@ -13,7 +13,7 @@ from models.reward_sessions import RewardSessions
 from models.reward_thresholds import RewardThresholds
 from models.user import User
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain, Vault, VaultGroup
+from models.vaults import NetworkChain, Vault, VaultGroup, VaultMetadata
 
 engine = create_engine(str(settings.SQLALCHEMY_DATABASE_URI), pool_pre_ping=True)
 
@@ -309,6 +309,32 @@ def init_new_vault(session: Session, vault: Vault):
         init_vault_performance(session, vault)
 
 
+def init_new_vault_metadata(session: Session):
+    existing_vault = session.exec(
+        select(Vault).where(Vault.slug == constants.GOLD_LINK_SLUG)
+    ).first()
+    if existing_vault:
+
+        existing_vault_metadata = session.exec(
+            select(VaultMetadata).where(VaultMetadata.vault_id == existing_vault.id)
+        ).first()
+
+        if existing_vault_metadata:
+            return
+
+        vault_metadata = VaultMetadata(
+            vault_id=existing_vault.id,
+            leverage=0,
+            borrow_apr=0,
+            goldlink_trading_account="0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa",
+            health_factor=0,
+            last_updated=datetime.now(tz=timezone.utc),
+            open_position_size=0,
+        )
+        session.add(vault_metadata)
+        session.commit()
+
+
 def seed_vaults(session: Session):
     kelpdao_group = session.exec(
         select(VaultGroup).where(VaultGroup.name == "Koi & Chill with Kelp DAO")
@@ -458,10 +484,10 @@ def seed_vaults(session: Session):
             name="Gold Link",
             vault_capacity=4 * 1e3,
             vault_currency="USDC",
-            contract_address="",
-            slug="arbitrum-leverage-delta-neutral-link",
+            slug=constants.GOLD_LINK_SLUG,
+            contract_address="0x0d856b121cA1Cf862837Cb2BB03D181E25E9e892",
             routes=None,
-            category="real_yield",
+            category="rewards",
             underlying_asset="LINK",
             network_chain=NetworkChain.arbitrum_one,
             monthly_apy=0,
@@ -472,9 +498,9 @@ def seed_vaults(session: Session):
             tags="",
             max_drawdown=0,
             maturity_date="",
-            owner_wallet_address="",
+            owner_wallet_address="0xba90101dDFc56D1bdbb0CfBDD4E716BD03E14424",
             is_active=False,
-            strategy_name=constants.GOLD_LINK_STRATEGY,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
             pt_address="",
             pendle_market_address="",
             update_frequency="",
@@ -524,7 +550,32 @@ def seed_options_wheel_vault(session: Session):
     seed_reward_thresholds(session)
 
 
+def seed_vault_category(session: Session):
+
+    def try_add_vault_category(session: Session, value_type: str):
+        stmt = text(
+            f"""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM pg_enum 
+                    WHERE enumlabel = '{value_type}'
+                    AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'vaultcategory')
+                ) THEN
+                    ALTER TYPE vaultcategory ADD VALUE '{value_type}';
+                END IF;
+            END $$;
+            """
+        )
+        session.exec(stmt)
+
+    try_add_vault_category(session, "rewards")
+
+
 def init_db(session: Session) -> None:
+    seed_vault_category(session)
+
     seed_group(session)
     seed_vaults(session)
 
@@ -571,3 +622,4 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == "arbitrum-leverage-delta-neutral-link")
     ).first()
     init_new_vault(session, goldlink_vault)
+    init_new_vault_metadata(session)

@@ -1,8 +1,8 @@
+from datetime import datetime
 from pydantic import BaseModel
 
 
 class EarnedRewards(BaseModel):
-    wallet_address: str | None = None
-    total_rewards: float
-    partner_name: str
-    eigen_layer_rewards: float | None = None
+    name: str
+    rewards: float
+    created_at: datetime | None = None

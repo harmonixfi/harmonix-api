@@ -210,3 +210,23 @@ class PendleApyComponentService(APYComponentService):
             APYComponent.BSX_POINT: self.hyperliquid_point_value,
             APYComponent.FUNDING_FEES: self.funding_fee_value,
         }
+
+
+class GoldLinkApyComponentService(APYComponentService):
+    def __init__(
+        self,
+        vault_id: uuid.UUID,
+        current_apy: float,
+        arb_reward_value: float,
+        funding_fee_value: float,
+        session: Session,
+    ):
+        super().__init__(vault_id, current_apy, session)
+        self.arb_reward_value = arb_reward_value
+        self.funding_fee_value = funding_fee_value
+
+    def get_component_values(self) -> dict:
+        return {
+            APYComponent.ARB_REWARDS: self.arb_reward_value,
+            APYComponent.FUNDING_FEES: self.funding_fee_value,
+        }
