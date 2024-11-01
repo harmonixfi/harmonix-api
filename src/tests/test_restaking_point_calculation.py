@@ -1,15 +1,31 @@
+import os
 from typing import List
+from unittest import mock
 from unittest.mock import patch
+import uuid
 
 import pytest
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
-from bg_tasks.restaking_point_calculation import main
+from bg_tasks.restaking_point_calculation import (
+    GET_POINTS_SERVICE,
+    distribute_points,
+    distribute_points_to_users,
+    get_earned_points,
+    main,
+    get_previous_point_distribution,
+    process_point_distribution,
+)
 from core import constants
 from core.db import engine
 from models import UserPoints, UserPortfolio, Vault, PointDistributionHistory
 from models.user_points import UserPointAudit
+from models.user_portfolio import PositionStatus
+from models.vaults import VaultCategory
 from schemas import EarnedRestakingPoints
+from core.constants import RENZO, ZIRCUIT, KELPDAO, PARTNER_KELPDAOGAIN, EIGENLAYER
+
+VAULT_ID = uuid.UUID("be740e89-c676-4d16-bead-133fcc844e96")
 
 
 @pytest.fixture(scope="module")
@@ -20,6 +36,7 @@ def db_session():
 
 @pytest.fixture(autouse=True)
 def clean_user_portfolio(db_session: Session):
+    assert os.getenv("POSTGRES_DB") == "test"
     db_session.query(PointDistributionHistory).delete()
     db_session.query(UserPointAudit).delete()
     db_session.query(UserPoints).delete()
@@ -28,168 +45,135 @@ def clean_user_portfolio(db_session: Session):
     db_session.commit()
 
 
-def insert_test_data_case_1(session: Session):
-    # Insert test data into Vaults table
+@pytest.fixture(scope="function")
+def mock_vault(db_session):
     vault = Vault(
-        name="Renzo Arb",
-        contract_address="0x55c4c840f9ac2e62efa3f12bba1b57a12086f5",
-        routes='["renzo"]',
-        category="points",
-        network_chain="arbitrum_one",
+        id=VAULT_ID,
+        name="Test Vault",
+        contract_address="0x1234567890abcdef",
+        category=VaultCategory.points,
+        is_active=True,
     )
-    session.add(vault)
+    db_session.add(vault)
+    db_session.commit()
+    return vault
 
-    # Insert test data into UserPortfolio table
-    user_portfolio = UserPortfolio(
-        vault_id=vault.id,
-        user_address="0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa",
-        total_balance=1000,
-        init_deposit=1000,
-        total_shares=1000,
+
+@pytest.fixture(scope="function")
+def mock_user_position(db_session, mock_vault) -> List[UserPortfolio]:
+    user_position = UserPortfolio(
+        vault_id=mock_vault.id,
+        user_address="0xABCDEF123456",
+        init_deposit=1000.0,
+        status=PositionStatus.ACTIVE,
+        total_balance=75,
+        total_shares=0,
     )
-    session.add(user_portfolio)
-
-    session.commit()
-
-
-@patch("bg_tasks.restaking_point_calculation.get_earned_points")
-def test_calculate_points_case1(mock_get_points, db_session: Session):
-    insert_test_data_case_1(db_session)
-
-    # Arrange
-    mock_get_points.return_value = EarnedRestakingPoints(
-        total_points=100, eigen_layer_points=50, partner_name=constants.RENZO
+    db_session.add(user_position)
+    db_session.commit()
+    user_position2 = UserPortfolio(
+        vault_id=mock_vault.id,
+        user_address="user_address2",
+        init_deposit=500.0,
+        status=PositionStatus.ACTIVE,
+        total_balance=40,
+        total_shares=0,
     )
-    user_address = "0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa"
-    vault_id = "ac14be54-f9bf-43c5-ac3d-e7fb23f19e7e"
+    db_session.add(user_position2)
+    db_session.commit()
 
-    # Act
-    main()
+    return [user_position, user_position2]
 
-    # Assert
-    renzo_points = (
-        db_session.query(UserPoints)
-        .filter_by(wallet_address=user_address, partner_name=constants.RENZO)
-        .first()
+
+def fake_earned_restaking_points(
+    partner_name: str = constants.RENZO,
+) -> EarnedRestakingPoints:
+    expected_points = EarnedRestakingPoints(
+        wallet_address="0xABCDEF123456",
+        total_points=100,
+        eigen_layer_points=50,
+        partner_name=partner_name,
     )
-    assert renzo_points.points == 100
+    return expected_points
 
-    eigenlayer_points = (
-        db_session.query(UserPoints)
-        .filter_by(wallet_address=user_address, partner_name=constants.EIGENLAYER)
-        .first()
+
+@pytest.fixture
+def mock_services():
+    """Fixture to set up mock services in GET_POINTS_SERVICE."""
+    with patch.dict(
+        GET_POINTS_SERVICE,
+        {
+            constants.RENZO: mock.Mock(
+                return_value=fake_earned_restaking_points(constants.RENZO)
+            ),
+            constants.ZIRCUIT: mock.Mock(
+                return_value=fake_earned_restaking_points(constants.ZIRCUIT)
+            ),
+            constants.KELPDAO: mock.Mock(
+                return_value=fake_earned_restaking_points(constants.KELPDAO)
+            ),
+            constants.PARTNER_KELPDAOGAIN: mock.Mock(
+                return_value=fake_earned_restaking_points(constants.PARTNER_KELPDAOGAIN)
+            ),
+        },
+    ) as mock_services:
+        yield mock_services
+
+
+def test_get_earned_points_valid_partner(mock_services, mock_vault):
+    """Test get_earned_points with a valid partner."""
+    partner_name = constants.RENZO
+    points = get_earned_points(mock_vault.contract_address, partner_name)
+    assert points == fake_earned_restaking_points(partner_name)
+    mock_services[partner_name].assert_called_once_with(mock_vault.contract_address)
+
+
+def test_get_previous_point_distribution(db_session, mock_vault):
+    history_entry = PointDistributionHistory(
+        vault_id=mock_vault.id, partner_name=RENZO, point=100
     )
-    assert eigenlayer_points.points == 50
+    db_session.add(history_entry)
+    db_session.commit()
 
-    point_distribution = (
-        db_session.query(PointDistributionHistory)
-        .filter_by(partner_name=constants.RENZO)
-        .first()
+    result = get_previous_point_distribution(mock_vault.id, RENZO)
+    assert result == 100
+
+
+def test_distribute_points_to_users(db_session, mock_vault, mock_user_position):
+    distribute_points_to_users(
+        vault_id=mock_vault.id,
+        user_positions=mock_user_position,
+        earned_points=150,
+        partner_name=RENZO,
     )
-    assert point_distribution.point == 100
 
-    point_distribution = (
-        db_session.query(PointDistributionHistory)
-        .filter_by(partner_name=constants.EIGENLAYER)
-        .first()
+    user1_points = (
+        db_session.query(UserPoints).filter_by(wallet_address="0xABCDEF123456").first()
     )
-    assert point_distribution.point == 50
+    assert user1_points.points == 100  # Adjust as per distribution logic
 
-
-def insert_test_data_case_2(session: Session):
-    # Insert test data into Vaults table
-    vault = Vault(
-        name="Renzo Arb",
-        contract_address="0x55c4c840f9ac2e62efa3f12bba1b57a12086f5",
-        routes='["renzo", "zircuit"]',
-        category="points",
-        network_chain="arbitrum_one",
+    user2_points = (
+        db_session.query(UserPoints).filter_by(wallet_address="user_address2").first()
     )
-    session.add(vault)
-
-    # Insert test data into UserPortfolio table
-    user_portfolios = [
-        UserPortfolio(
-            vault_id=vault.id,
-            user_address="0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa",
-            total_balance=1000,
-            init_deposit=1000,
-            total_shares=1000,
-        ),
-        UserPortfolio(
-            vault_id=vault.id,
-            user_address="0xBC05da14287317FE12B1a2b5a0E1d756Ff1802Aa",
-            total_balance=500,
-            init_deposit=500,
-            total_shares=500,
-        ),
-    ]
-    for user_portfolio in user_portfolios:
-        session.add(user_portfolio)
-
-    session.commit()
+    assert user2_points.points == 50
 
 
-def mock_get_earned_points(vault_address: str, partner_name: str):
-    if partner_name == constants.RENZO:
-        return EarnedRestakingPoints(
-            total_points=100,
-            eigen_layer_points=100,
-            partner_name=partner_name,
-        )
-    elif partner_name == constants.ZIRCUIT:
-        return EarnedRestakingPoints(
-            total_points=100,
-            eigen_layer_points=100,
-            partner_name=partner_name,
-        )
-
-
-# Test case
-@patch(
-    "bg_tasks.restaking_point_calculation.get_earned_points",
-    new=mock_get_earned_points,
-)
-def test_calculate_points_case2(db_session: Session):
-    insert_test_data_case_2(db_session)
-
-    # Act
-    main()
-
-    user1 = "0xBC05da14287317FE12B1a2b5a0E1d756Ff1801Aa"
-    user2 = "0xBC05da14287317FE12B1a2b5a0E1d756Ff1802Aa"
-    user1_points = db_session.query(UserPoints).filter_by(wallet_address=user1).all()
-    # filter user1_points by renzo
-    assert len(user1_points) > 0
-    renzo_points = next(
-        filter(lambda x: x.partner_name == constants.RENZO, user1_points)
+def test_process_point_distribution(db_session, mock_vault, mock_user_position):
+    earned_points = fake_earned_restaking_points(PARTNER_KELPDAOGAIN)
+    process_point_distribution(
+        vault=mock_vault,
+        partner_name=PARTNER_KELPDAOGAIN,
+        user_positions=mock_user_position,
+        total_earned_points=earned_points,
+        earned_point_value=150,
     )
-    assert round(renzo_points.points, 2) == 66.67
 
-    zircuit_points = next(
-        filter(lambda x: x.partner_name == constants.ZIRCUIT, user1_points)
+    user1_points = (
+        db_session.query(UserPoints).filter_by(wallet_address="0xABCDEF123456").first()
     )
-    assert round(zircuit_points.points, 2) == 66.67
+    assert user1_points.points == 100  # Adjust as per distribution logic
 
-    eigen_points = next(
-        filter(lambda x: x.partner_name == constants.EIGENLAYER, user1_points)
+    user2_points = (
+        db_session.query(UserPoints).filter_by(wallet_address="user_address2").first()
     )
-    assert round(eigen_points.points, 2) == 66.67
-
-    user2_points = db_session.query(UserPoints).filter_by(wallet_address=user2).all()
-    # filter user1_points by renzo
-    assert len(user2_points) > 0
-    renzo_points = next(
-        filter(lambda x: x.partner_name == constants.RENZO, user2_points)
-    )
-    assert round(renzo_points.points, 2) == 33.33
-
-    zircuit_points = next(
-        filter(lambda x: x.partner_name == constants.ZIRCUIT, user2_points)
-    )
-    assert round(zircuit_points.points, 2) == 33.33
-
-    eigen_points = next(
-        filter(lambda x: x.partner_name == constants.EIGENLAYER, user2_points)
-    )
-    assert round(eigen_points.points, 2) == 33.33
+    assert user2_points.points == 50
