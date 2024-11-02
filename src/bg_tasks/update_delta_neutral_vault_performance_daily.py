@@ -242,44 +242,44 @@ def calculate_performance(
     apy_ytd = apy_ytd * 100
 
     # query last 7 days VaultPerformance
-    if update_freq == "daily":
-        last_7_day = datetime.now(timezone.utc) - timedelta(days=7)
+    # if update_freq == "daily":
+    #     last_7_day = datetime.now(timezone.utc) - timedelta(days=7)
 
-        last_6_days = session.exec(
-            select(VaultPerformance)
-            .where(VaultPerformance.vault_id == vault.id)
-            .where(VaultPerformance.datetime >= last_7_day)
-            .order_by(VaultPerformance.datetime.desc())
-        ).all()
+    #     last_6_days = session.exec(
+    #         select(VaultPerformance)
+    #         .where(VaultPerformance.vault_id == vault.id)
+    #         .where(VaultPerformance.datetime >= last_7_day)
+    #         .order_by(VaultPerformance.datetime.desc())
+    #     ).all()
 
-        # convert last 6 days apy to dataframe
-        last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
-        if len(last_6_days_df) > 0:
-            last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
+    #     # convert last 6 days apy to dataframe
+    #     last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
+    #     if len(last_6_days_df) > 0:
+    #         last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
 
-            # append latest apy
-            new_row = pd.DataFrame(
-                [
-                    {
-                        "datetime": today,
-                        "apy_1m": apy_1m,
-                        "apy_1w": apy_1w,
-                    }
-                ]
-            )
-            last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
+    #         # append latest apy
+    #         new_row = pd.DataFrame(
+    #             [
+    #                 {
+    #                     "datetime": today,
+    #                     "apy_1m": apy_1m,
+    #                     "apy_1w": apy_1w,
+    #                 }
+    #             ]
+    #         )
+    #         last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
 
-            # resample last_6_days_df to daily frequency
-            last_6_days_df["datetime"] = pd.to_datetime(
-                last_6_days_df["datetime"], utc=True
-            )
-            last_6_days_df.set_index("datetime", inplace=True)
-            last_6_days_df = last_6_days_df.resample("D").mean()
+    #         # resample last_6_days_df to daily frequency
+    #         last_6_days_df["datetime"] = pd.to_datetime(
+    #             last_6_days_df["datetime"], utc=True
+    #         )
+    #         last_6_days_df.set_index("datetime", inplace=True)
+    #         last_6_days_df = last_6_days_df.resample("D").mean()
 
-            if len(last_6_days_df) >= 7:
-                # calculate average 7 days apy_1m included today
-                apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
-                apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
+    #         if len(last_6_days_df) >= 7:
+    #             # calculate average 7 days apy_1m included today
+    #             apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
+    #             apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault.id
