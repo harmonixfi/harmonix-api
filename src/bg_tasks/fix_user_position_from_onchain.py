@@ -14,6 +14,8 @@ totalBalance = shares * pps
 
 """
 
+from datetime import datetime, timedelta, timezone
+from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
@@ -21,8 +23,10 @@ from web3.contract import Contract
 from core import constants
 from core.abi_reader import read_abi
 from core.db import engine
+from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault
+from services.vault_contract_service import VaultContractService
 
 session = Session(engine)
 
@@ -93,7 +97,7 @@ def fix_user_position_for_vault(vault: Vault):
         session.add(user_portfolio)
         session.commit()
         print(f"User {user_portfolio.user_address} position updated")
-    
+
     print(f"Vault {vault.contract_address} user positions updated")
 
 
@@ -111,22 +115,20 @@ def fix_user_position_by_address(vault: Vault, user_address: str):
         else "rockonyxstablecoin"
     )
     vault_contract, w3 = get_vault_contract(vault, abi_name)
-    
+
     user_state = get_user_state(vault_contract, user_address)
     pps = get_pps(vault_contract)
     total_balance = (user_state[1] * pps) / 1e12
 
-    pending_withdrawal = get_pending_withdrawal_shares(
-        vault_contract, user_address
-    )
+    pending_withdrawal = get_pending_withdrawal_shares(vault_contract, user_address)
     if user_portfolio is None:
         user_portfolio = UserPortfolio(
             vault_id=vault.id,
             user_address=user_address,
             init_deposit=user_state[0] / 1e6,
-            total_shares= user_state[1] / 1e6,
+            total_shares=user_state[1] / 1e6,
             total_balance=total_balance,
-            pending_withdrawal=pending_withdrawal / 1e6
+            pending_withdrawal=pending_withdrawal / 1e6,
         )
     else:
         user_portfolio.init_deposit = user_state[0] / 1e6
@@ -137,6 +139,7 @@ def fix_user_position_by_address(vault: Vault, user_address: str):
     session.add(user_portfolio)
     session.commit()
 
+
 def main():
     # vaults = session.exec(
     #     select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
@@ -144,11 +147,57 @@ def main():
     # for vault in vaults:
     #     fix_user_position_for_vault(vault)
 
-    vault = session.exec(
-        select(Vault).where(Vault.id == '65f75bd7-a2d2-4764-ae31-78e4bb132c62')
-    ).first()
+    vault_contract_service = VaultContractService()
+    three_days_ago_timestamp = int(
+        (datetime.now(tz=timezone.utc) - timedelta(days=3)).timestamp()
+    )
+    subquery = (
+        select(
+            OnchainTransactionHistory.from_address,
+            func.max(OnchainTransactionHistory.timestamp).label("max_timestamp"),
+        )
+        .where(OnchainTransactionHistory.timestamp >= three_days_ago_timestamp)
+        .group_by(OnchainTransactionHistory.from_address)
+        .subquery()
+    )
+    deposits_query = (
+        select(OnchainTransactionHistory)
+        .where(
+            OnchainTransactionHistory.method_id.in_(
+                [
+                    constants.MethodID.DEPOSIT2.value,
+                    constants.MethodID.DEPOSIT.value,
+                    constants.MethodID.DEPOSIT3.value,
+                ]
+            )
+        )
+        .join(
+            subquery,
+            (OnchainTransactionHistory.from_address == subquery.c.from_address)
+            & (OnchainTransactionHistory.timestamp == subquery.c.max_timestamp),
+        )
+    )
 
-    fix_user_position_by_address(vault, '0x864608EFC402E4714b07BC52a49120FF74387a0B'.lower())
+    deposits = session.exec(deposits_query).all()
+
+    for deposit in deposits:
+        
+        user_portfolio = session.exec(
+            select(UserPortfolio)
+            .where(UserPortfolio.user_address.lower() == deposit.from_address.lower())
+            .where(UserPortfolio.status == PositionStatus.ACTIVE)
+        ).first()
+        
+        if user_portfolio is None:
+            
+        
+    # vault = session.exec(
+    #     select(Vault).where(Vault.id == "65f75bd7-a2d2-4764-ae31-78e4bb132c62")
+    # ).first()
+
+    # fix_user_position_by_address(
+    #     vault, "0x864608EFC402E4714b07BC52a49120FF74387a0B".lower()
+    # )
 
 
 if __name__ == "__main__":
