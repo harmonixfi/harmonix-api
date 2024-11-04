@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
 from more_itertools import tabulate
+import pandas as pd
 from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
@@ -193,6 +194,18 @@ if __name__ == "__main__":
         f"{'Wallet':<20} {'Total deposit':<15} {'Init withdraw shares today':<20} {'Init withdraw amount today':<20} {'Init withdraw shares':<20} {'Init withdraw amount':<20}{'Complete withdraw amount':<25}"
     )
 
+    columns = [
+        "Wallet",
+        "Total deposit",
+        "Init withdraw shares today",
+        "Init withdraw amount today",
+        "Init withdraw shares",
+        "Init withdraw amount",
+        "Complete withdraw amount",
+    ]
+
+    # Fetching data
+    data_list = []
     for addrss in data:
         (
             address,
@@ -203,6 +216,19 @@ if __name__ == "__main__":
             init_withdraw_amount,
             complete_withdraw_amount,
         ) = handler(addrss)
-        print(
-            f"{address:<20} {total_deposit:<15} {init_withdraw_shares_today:<20} {init_withdraw_amount_today:<20} {init_withdraw_shares:<20} {init_withdraw_amount:<20}{complete_withdraw_amount:<25}"
+        data_list.append(
+            [
+                address,
+                total_deposit,
+                init_withdraw_shares_today,
+                init_withdraw_amount_today,
+                init_withdraw_shares,
+                init_withdraw_amount,
+                complete_withdraw_amount,
+            ]
         )
+
+    # Creating DataFrame
+    df = pd.DataFrame(data_list, columns=columns)
+    # Writing to CSV
+    df.to_csv("./output/check_deposit_withdraw_balance.csv", index=False)
