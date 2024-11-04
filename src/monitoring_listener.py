@@ -10,6 +10,7 @@ from web3 import Web3
 from web3._utils.filters import AsyncFilter
 from websockets import ConnectionClosedError, ConnectionClosedOK
 
+from bg_tasks.fix_user_position_from_onchain import get_user_state
 from core import constants
 from core.config import settings
 from core.db import engine
@@ -17,6 +18,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models import (
     Vault,
 )
+from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import NetworkChain
 from notifications import telegram_bot
 from notifications.message_builder import build_message
@@ -106,6 +108,34 @@ async def handle_event(vault_address: str, entry, event_name):
     if event_name == "Withdrawn":
         event_name_send_bot == "Complete Withdraw"
 
+    user_portfolio = session.exec(
+        select(UserPortfolio)
+        .where(UserPortfolio.user_address == from_address)
+        .where(UserPortfolio.vault_id == vault.id)
+        .where(UserPortfolio.status == PositionStatus.ACTIVE)
+    ).first()
+
+    if user_portfolio:
+        try:
+            user_state = get_user_state(
+                vault.contract_address, user_portfolio.user_address
+            )
+            if user_state:
+                deposit_amount = user_state[0] / 1e6
+                total_shares = user_state[1] / 1e6
+                user_position_fields = [
+                    ("Deposit Amount", deposit_amount),
+                    ("Shares", total_shares),
+                ]
+            else:
+                user_position_fields = [("Deposit Amount", 0), ("Shares", 0)]
+        except Exception as e:
+
+            print(f"Error retrieving user state: {e}")
+            user_position_fields = [("Deposit Amount", 0), ("Shares", 0)]
+    else:
+        user_position_fields = None
+
     await telegram_bot.send_alert(
         build_message(
             fields=[
@@ -113,7 +143,10 @@ async def handle_event(vault_address: str, entry, event_name):
                 ["Strategy", vault.name],
                 ["Contract", vault_address],
                 ["Value", value],
-            ]
+                ["From Address ", from_address],
+                ["Tx Hash ", entry["data"].hex()],
+            ],
+            user_position_fields=user_position_fields,
         ),
         channel="transaction",
     )

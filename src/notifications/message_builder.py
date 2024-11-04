@@ -15,25 +15,44 @@ then render table using rich library like:
 
 import html
 import io
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from rich.table import Table
 from rich.console import Console
 
 
-def build_message(fields: List[Tuple[str, str]]) -> str:
-    # Start with the HTML preformatted block
-    message = "<pre>\n"
+def build_message(
+    fields: List[Tuple[str, str]],
+    user_position_fields: Optional[List[Tuple[str, str]]] = None,
+) -> str:
+    # Start the message with the main section title
+    message = "<b>Main Section</b>\n<pre>\n"
 
-    # Add table header
-    message += "| Name     | Value      |\n"
-    message += "|----------|------------|\n"
+    # Add main section table header
+    message += "| Name               | Value               |\n"
+    message += "|--------------------|---------------------|\n"
 
-    # Add table rows
+    # Add rows for the main section
     for field in fields:
-        message += f"| {field[0]:<8} | {field[1]:<10} |\n"
+        message += f"| {field[0]:<18} | {field[1]:<19} |\n"
 
-    # Close the HTML preformatted block
-    message += "</pre>"
+    # Close the main section table
+    message += "</pre>\n"
+
+    # Check if user_position_fields is provided
+    if user_position_fields:
+        # Start the User position section with a title
+        message += "<b>User Position</b>\n<pre>\n"
+
+        # Add User position table header
+        message += "| Name               | Value               |\n"
+        message += "|--------------------|---------------------|\n"
+
+        # Add rows for the User position section
+        for field in user_position_fields:
+            message += f"| {field[0]:<18} | {field[1]:<19} |\n"
+
+        # Close the User position section
+        message += "</pre>"
 
     return message
 
