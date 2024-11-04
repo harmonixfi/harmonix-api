@@ -375,10 +375,13 @@ def main(chain: str):
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
             vault.next_close_round_date = None
-            logger.info(
-                "Vault %s: tvl = %s, apy %s", vault.name, vault.tvl, vault.monthly_apy
-            )
             update_tvl(vault.id, new_performance_rec.total_locked_value)
+            logger.info(
+                "Vault %s: tvl = %s, apy %s",
+                vault.name,
+                new_performance_rec.total_locked_value,
+                vault.monthly_apy,
+            )
             session.commit()
     except Exception as e:
         logger.error(
