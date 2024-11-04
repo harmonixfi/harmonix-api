@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 from itertools import groupby
 import json
 from operator import itemgetter
+import traceback
 from typing import List
 import uuid
 
@@ -141,48 +142,52 @@ async def get_dashboard_statistics(session: SessionDep):
 
     data = []
     for group in grouped_vaults.values():
-        default_vault = group["default_vault"]
-        total_tvl = group["total_tvl"]
+        try:
+            default_vault = group["default_vault"]
+            total_tvl = group["total_tvl"]
 
-        if not default_vault:
-            continue  # skip if there's no default vault (shouldn't happen)
+            if not default_vault:
+                continue  # skip if there's no default vault (shouldn't happen)
 
-        statement = (
-            select(VaultPerformance)
-            .where(VaultPerformance.vault_id == default_vault.id)
-            .order_by(VaultPerformance.datetime.desc())
-        )
-        performance = session.exec(statement).first()
+            statement = (
+                select(VaultPerformance)
+                .where(VaultPerformance.vault_id == default_vault.id)
+                .order_by(VaultPerformance.datetime.desc())
+            )
+            performance = session.exec(statement).first()
 
-        pps_history = session.exec(
-            select(PricePerShareHistory)
-            .where(PricePerShareHistory.vault_id == default_vault.id)
-            .order_by(PricePerShareHistory.datetime.desc())
-        ).first()
+            pps_history = session.exec(
+                select(PricePerShareHistory)
+                .where(PricePerShareHistory.vault_id == default_vault.id)
+                .order_by(PricePerShareHistory.datetime.desc())
+            ).first()
 
-        last_price_per_share = pps_history.price_per_share if pps_history else 0
+            last_price_per_share = pps_history.price_per_share if pps_history else 0
 
-        statistic = schemas.VaultStats(
-            name=default_vault.name,
-            price_per_share=last_price_per_share,
-            apy_1y=(
-                performance.apy_ytd
-                if default_vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                else performance.apy_1m
-            ),
-            risk_factor=performance.risk_factor,
-            total_value_locked=total_tvl,
-            slug=default_vault.slug,
-            id=default_vault.id,
-        )
+            statistic = schemas.VaultStats(
+                name=default_vault.name,
+                price_per_share=last_price_per_share,
+                apy_1y=(
+                    performance.apy_ytd
+                    if default_vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
+                    else performance.apy_1m
+                ),
+                risk_factor=performance.risk_factor,
+                total_value_locked=total_tvl,
+                slug=default_vault.slug,
+                id=default_vault.id,
+            )
 
-        if default_vault.slug == constants.SOLV_VAULT_SLUG:
-            current_price = get_price("BTCUSDT")
-            tvl_in_all_vaults += total_tvl * current_price
-        else:
-            tvl_in_all_vaults += total_tvl
-        tvl_composition[default_vault.name] = total_tvl
-        data.append(statistic)
+            if default_vault.slug == constants.SOLV_VAULT_SLUG:
+                current_price = get_price("BTCUSDT")
+                tvl_in_all_vaults += total_tvl * current_price
+            else:
+                tvl_in_all_vaults += total_tvl
+            tvl_composition[default_vault.name] = total_tvl
+            data.append(statistic)
+        except Exception as e:
+            print(f"Failed to calculate stats for {vault.id}, {vault.name}")
+            print(traceback.format_exc())
 
     # count all portfolio of vault
     count = __get_total_depositors(session=session)

@@ -7,7 +7,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -333,7 +333,12 @@ def main(chain: str):
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+            .where(
+                or_(
+                    Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY,
+                    Vault.slug == constants.GOLD_LINK_SLUG
+                )
+            )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
         ).all()
