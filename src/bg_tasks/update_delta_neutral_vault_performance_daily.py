@@ -48,6 +48,13 @@ def update_tvl(vault_id: uuid.UUID, current_tvl: float):
         session.commit()
 
 
+def update_tvl(vault_id: uuid.UUID, current_tvl: float):
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if vault:
+        vault.tvl = current_tvl
+        session.commit()
+
+
 def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
     pps_history = session.exec(
         select(PricePerShareHistory)
