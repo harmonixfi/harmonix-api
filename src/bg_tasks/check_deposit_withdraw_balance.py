@@ -134,7 +134,7 @@ def handler(address: str) -> Tuple[str, float, float, float]:
     withdraw = session.exec(withdraw_query).all()
     _, total_withdrawal_value = calculate_withdrawals(withdraw)
 
-    init_withdraw_query = (
+    init_withdraw_query_today = (
         select(OnchainTransactionHistory)
         .where(
             OnchainTransactionHistory.method_id.in_([constants.MethodID.WITHDRAW.value])
@@ -143,13 +143,28 @@ def handler(address: str) -> Tuple[str, float, float, float]:
         .where(OnchainTransactionHistory.timestamp >= today_timestamp)
     )
 
+    init_withdraw_today = session.exec(init_withdraw_query_today).all()
+
+    total_share_today, init_withdraw_vaule_today = calculate_withdrawals(
+        init_withdraw_today
+    )
+
+    init_withdraw_query = (
+        select(OnchainTransactionHistory)
+        .where(
+            OnchainTransactionHistory.method_id.in_([constants.MethodID.WITHDRAW.value])
+        )
+        .where(func.lower(OnchainTransactionHistory.from_address) == address.lower())
+    )
+
     init_withdraw = session.exec(init_withdraw_query).all()
 
     total_share, init_withdraw_vaule = calculate_withdrawals(init_withdraw)
-
     return (
         address,
         total_deposit_value,
+        total_share_today,
+        init_withdraw_vaule_today,
         total_share,
         init_withdraw_vaule,
         total_withdrawal_value,
@@ -175,17 +190,19 @@ if __name__ == "__main__":
         "0x770fbEC8AD2A23eDf8D6df75DDf272FBd1e880A0",
     ]
     print(
-        f"{'Wallet':<20} {'Total deposit':<15} {'Init withdraw shares':<20} {'Init withdraw amount':<20} {'Complete withdraw amount':<25}"
+        f"{'Wallet':<20} {'Total deposit':<15} {'Init withdraw shares today':<20} {'Init withdraw amount today':<20} {'Init withdraw shares':<20} {'Init withdraw amount':<20}{'Complete withdraw amount':<25}"
     )
 
     for addrss in data:
         (
             address,
             total_deposit,
+            init_withdraw_shares_today,
+            init_withdraw_amount_today,
             init_withdraw_shares,
             init_withdraw_amount,
             complete_withdraw_amount,
         ) = handler(addrss)
         print(
-            f"{address:<20} {total_deposit:<15} {init_withdraw_shares:<20} {init_withdraw_amount:<20} {complete_withdraw_amount:<25}"
+            f"{address:<20} {total_deposit:<15} {init_withdraw_shares_today:<20} {init_withdraw_amount_today:<20} {init_withdraw_shares:<20} {init_withdraw_amount:<20}{complete_withdraw_amount:<25}"
         )
