@@ -81,6 +81,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Check_deposit_withdraw_balance",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.check_deposit_withdraw_balance",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "restaking_point_calculation",
             "type": "debugpy",
             "request": "launch",
