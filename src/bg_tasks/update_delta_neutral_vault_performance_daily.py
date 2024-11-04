@@ -41,6 +41,13 @@ session = Session(engine)
 token_abi = read_abi("ERC20")
 
 
+def update_tvl(vault_id: uuid.UUID, current_tvl: float):
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if vault:
+        vault.tvl = current_tvl
+        session.commit()
+
+
 def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
     pps_history = session.exec(
         select(PricePerShareHistory)
@@ -336,7 +343,7 @@ def main(chain: str):
             .where(
                 or_(
                     Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY,
-                    Vault.slug == constants.GOLD_LINK_SLUG
+                    Vault.slug == constants.GOLD_LINK_SLUG,
                 )
             )
             .where(Vault.is_active == True)
@@ -371,7 +378,7 @@ def main(chain: str):
             logger.info(
                 "Vault %s: tvl = %s, apy %s", vault.name, vault.tvl, vault.monthly_apy
             )
-
+            update_tvl(vault.id, new_performance_rec.total_locked_value)
             session.commit()
     except Exception as e:
         logger.error(
