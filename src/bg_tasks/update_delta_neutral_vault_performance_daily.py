@@ -196,13 +196,13 @@ def calculate_performance(
         # Adjust the current PPS
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
-    if vault.slug == constants.GOLD_LINK_SLUG:
-        rewards_service = VaultRewardsService(session)
-        rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
-        arb_price = get_price("ARBUSDT")
-        rewards_value = rewards_earned * arb_price
-        adjusted_tvl = total_balance + rewards_value
-        current_price_per_share = adjusted_tvl / vault_state.total_share
+    # if vault.slug == constants.GOLD_LINK_SLUG:
+    #     rewards_service = VaultRewardsService(session)
+    #     rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
+    #     arb_price = get_price("ARBUSDT")
+    #     rewards_value = rewards_earned * arb_price
+    #     adjusted_tvl = total_balance + rewards_value
+    #     current_price_per_share = adjusted_tvl / vault_state.total_share
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
@@ -215,6 +215,9 @@ def calculate_performance(
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        monthly_apy += float(0.2)
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
@@ -336,7 +339,7 @@ def main(chain: str):
             .where(
                 or_(
                     Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY,
-                    Vault.slug == constants.GOLD_LINK_SLUG
+                    Vault.slug == constants.GOLD_LINK_SLUG,
                 )
             )
             .where(Vault.is_active == True)
