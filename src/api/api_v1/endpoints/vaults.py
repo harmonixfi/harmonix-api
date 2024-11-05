@@ -200,9 +200,9 @@ async def get_all_vaults(
         # Aggregate rewards for each partner
         for reward in schema_vault.rewards:
             if reward.name in grouped_vaults[group_id]["rewards"]:
-                grouped_vaults[group_id]["rewards"][reward.name] += reward.rewards
+                grouped_vaults[group_id]["rewards"][reward.name] += reward.arb_rewards
             else:
-                grouped_vaults[group_id]["rewards"][reward.name] = reward.rewards
+                grouped_vaults[group_id]["rewards"][reward.name] = reward.arb_rewards
 
     groups = [
         GroupSchema(
