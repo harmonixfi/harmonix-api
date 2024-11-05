@@ -15,6 +15,7 @@ totalBalance = shares * pps
 """
 
 from datetime import datetime, timedelta, timezone
+import logging
 from sqlalchemy import func
 from sqlmodel import Session, select
 from web3 import Web3
@@ -23,12 +24,17 @@ from web3.contract import Contract
 from core import constants
 from core.abi_reader import read_abi
 from core.db import engine
+from log import setup_logging_to_console
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault
 from services.vault_contract_service import VaultContractService
 
 session = Session(engine)
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("fix_user_position_from_onchain")
 
 
 def get_vault_contract(vault: Vault, contract_abi_name) -> tuple[Contract, Web3]:
@@ -67,100 +73,8 @@ def get_pps(vault_contract: Contract) -> int:
     return pps
 
 
-def fix_user_position_for_vault(vault: Vault):
-    abi_name = (
-        "rockonyxdeltaneutralvault"
-        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
-        else "rockonyxstablecoin"
-    )
-    vault_contract, w3 = get_vault_contract(vault, abi_name)
-
-    user_positions = session.exec(
-        select(UserPortfolio)
-        .where(UserPortfolio.vault_id == vault.id)
-        .where(UserPortfolio.status == PositionStatus.ACTIVE)
-    ).all()
-
-    for user_portfolio in user_positions:
-        user_state = get_user_state(vault_contract, user_portfolio.user_address)
-        pps = get_pps(vault_contract)
-        total_balance = (user_state[1] * pps) / 1e12
-        user_portfolio.init_deposit = user_state[0] / 1e6
-        user_portfolio.total_shares = user_state[1] / 1e6
-        user_portfolio.total_balance = total_balance
-
-        pending_withdrawal = get_pending_withdrawal_shares(
-            vault_contract, user_portfolio.user_address
-        )
-        user_portfolio.pending_withdrawal = pending_withdrawal / 1e6
-
-        session.add(user_portfolio)
-        session.commit()
-        print(f"User {user_portfolio.user_address} position updated")
-
-    print(f"Vault {vault.contract_address} user positions updated")
-
-
-def fix_user_position_by_address(vault: Vault, user_address: str):
-    user_portfolio = session.exec(
-        select(UserPortfolio)
-        .where(UserPortfolio.user_address == user_address.lower())
-        .where(UserPortfolio.vault_id == vault.id)
-        .where(UserPortfolio.status == PositionStatus.ACTIVE)
-    ).first()
-
-    abi_name = (
-        "rockonyxdeltaneutralvault"
-        if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
-        else "rockonyxstablecoin"
-    )
-    vault_contract, w3 = get_vault_contract(vault, abi_name)
-
-    user_state = get_user_state(vault_contract, user_address)
-    pps = get_pps(vault_contract)
-    total_balance = (user_state[1] * pps) / 1e12
-
-    pending_withdrawal = get_pending_withdrawal_shares(vault_contract, user_address)
-    if user_portfolio is None:
-        user_portfolio = UserPortfolio(
-            vault_id=vault.id,
-            user_address=user_address,
-            init_deposit=user_state[0] / 1e6,
-            total_shares=user_state[1] / 1e6,
-            total_balance=total_balance,
-            pending_withdrawal=pending_withdrawal / 1e6,
-        )
-    else:
-        user_portfolio.init_deposit = user_state[0] / 1e6
-        user_portfolio.total_shares = user_state[1] / 1e6
-        user_portfolio.total_balance = total_balance
-        user_portfolio.pending_withdrawal = pending_withdrawal / 1e6
-
-    session.add(user_portfolio)
-    session.commit()
-
-
-def main():
-    # vaults = session.exec(
-    #     select(Vault).where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
-    # ).all()
-    # for vault in vaults:
-    #     fix_user_position_for_vault(vault)
-
-    vault_contract_service = VaultContractService()
-    three_days_ago_timestamp = int(
-        (datetime.now(tz=timezone.utc) - timedelta(days=3)).timestamp()
-    )
-    subquery = (
-        select(
-            OnchainTransactionHistory.from_address,
-            func.max(OnchainTransactionHistory.timestamp).label("max_timestamp"),
-        )
-        .where(OnchainTransactionHistory.timestamp >= three_days_ago_timestamp)
-        .group_by(OnchainTransactionHistory.from_address)
-        .subquery()
-    )
-    deposits_query = (
+def get_recent_deposits_query(subquery):
+    return (
         select(OnchainTransactionHistory)
         .where(
             OnchainTransactionHistory.method_id.in_(
@@ -178,27 +92,103 @@ def main():
         )
     )
 
+
+def fetch_vault(deposit, vault_contract_service):
+    vault_address = vault_contract_service.get_vault_address_by_contract(
+        deposit.to_address.lower()
+    )
+    return session.exec(
+        select(Vault).where(
+            func.lower(Vault.contract_address).in_(
+                func.lower(addr) for addr in vault_address
+            )
+        )
+    ).first()
+
+
+def update_or_create_user_portfolio(vault, deposit, vault_contract):
+    user_state = get_user_state(vault_contract, deposit.from_address)
+    pps = get_pps(vault_contract)
+    pending_withdrawal = get_pending_withdrawal_shares(
+        vault_contract, deposit.from_address
+    )
+    total_balance = (user_state[1] * pps) / 1e12
+
+    user_portfolio = session.exec(
+        select(UserPortfolio).where(
+            (func.lower(UserPortfolio.user_address) == func.lower(deposit.from_address))
+            & (UserPortfolio.vault_id == vault.id)
+            & (UserPortfolio.status == PositionStatus.ACTIVE)
+        )
+    ).first()
+
+    if user_portfolio is None:
+        user_portfolio = UserPortfolio(
+            vault_id=vault.id,
+            user_address=deposit.from_address,
+            init_deposit=user_state[0] / 1e6,
+            total_shares=user_state[1] / 1e6,
+            total_balance=total_balance,
+            pending_withdrawal=pending_withdrawal / 1e6,
+        )
+    else:
+        user_portfolio.init_deposit = user_state[0] / 1e6
+        user_portfolio.total_shares = user_state[1] / 1e6
+        user_portfolio.total_balance = total_balance
+        user_portfolio.pending_withdrawal = pending_withdrawal / 1e6
+
+    session.add(user_portfolio)
+    session.commit()
+
+
+def main():
+    vault_contract_service = VaultContractService()
+    three_days_ago_timestamp = int(
+        (datetime.now(tz=timezone.utc) - timedelta(days=14)).timestamp()
+    )
+
+    subquery = (
+        select(
+            OnchainTransactionHistory.from_address,
+            func.max(OnchainTransactionHistory.timestamp).label("max_timestamp"),
+        )
+        .where(OnchainTransactionHistory.timestamp >= three_days_ago_timestamp)
+        .group_by(OnchainTransactionHistory.from_address)
+        .subquery()
+    )
+
+    deposits_query = get_recent_deposits_query(subquery)
     deposits = session.exec(deposits_query).all()
 
-    for deposit in deposits:
-        
-        user_portfolio = session.exec(
-            select(UserPortfolio)
-            .where(UserPortfolio.user_address.lower() == deposit.from_address.lower())
-            .where(UserPortfolio.status == PositionStatus.ACTIVE)
-        ).first()
-        
-        if user_portfolio is None:
-            
-        
-    # vault = session.exec(
-    #     select(Vault).where(Vault.id == "65f75bd7-a2d2-4764-ae31-78e4bb132c62")
-    # ).first()
+    logger.info("Starting to process fix_user_position_from_onchain...")
 
-    # fix_user_position_by_address(
-    #     vault, "0x864608EFC402E4714b07BC52a49120FF74387a0B".lower()
-    # )
+    for deposit in deposits:
+        try:
+            vault = fetch_vault(deposit, vault_contract_service)
+            abi_name = vault_contract_service.get_vault_abi(vault=vault)
+            vault_contract, _ = get_vault_contract(vault, abi_name)
+
+            update_or_create_user_portfolio(
+                vault,
+                deposit,
+                vault_contract,
+            )
+            logger.info(
+                "Successfully processed fix_user_position_from_onchain for address: %s",
+                deposit.from_address,
+            )
+
+        except Exception as e:
+            logger.error(
+                "Error processing fix_user_position_from_onchain for address %s: %s",
+                deposit.from_address,
+                str(e),
+                exc_info=True,
+            )
+
+    logger.info("Finished processing all fix_user_position_from_onchain.")
 
 
 if __name__ == "__main__":
+    setup_logging_to_console()
     main()
