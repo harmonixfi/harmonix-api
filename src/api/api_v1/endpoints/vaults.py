@@ -120,8 +120,8 @@ def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRew
 
     earned_rewards.append(
         schemas.EarnedRewards(
-            name=rewards_dist_hist.partner_name,
-            arb_rewards=rewards_dist_hist.total_reward,
+            name="arb_rewards",
+            rewards=rewards_dist_hist.total_reward,
             created_at=rewards_dist_hist.created_at,
         )
     )
@@ -200,9 +200,9 @@ async def get_all_vaults(
         # Aggregate rewards for each partner
         for reward in schema_vault.rewards:
             if reward.name in grouped_vaults[group_id]["rewards"]:
-                grouped_vaults[group_id]["rewards"][reward.name] += reward.arb_rewards
+                grouped_vaults[group_id]["rewards"][reward.name] += reward.rewards
             else:
-                grouped_vaults[group_id]["rewards"][reward.name] = reward.arb_rewards
+                grouped_vaults[group_id]["rewards"][reward.name] = reward.rewards
 
     groups = [
         GroupSchema(
@@ -216,7 +216,7 @@ async def get_all_vaults(
                 for partner, points in group["points"].items()
             ],
             rewards=[
-                schemas.EarnedRewards(name=partner, arb_rewards=rewards)
+                schemas.EarnedRewards(name="arb_rewards", rewards=rewards)
                 for partner, rewards in group["rewards"].items()
             ],
         )
