@@ -12,6 +12,8 @@ HYPERLIQUID = "Hyperliquid"
 BSX = "bsx"
 GOLDLINK = "goldlink"
 
+PARTNER_GODLINK = "goldlink"
+
 PARTNER_KELPDAOGAIN = "kelpdaogain"
 EARNED_POINT_LINEA = "linea"
 EARNED_POINT_SCROLL = "scroll"

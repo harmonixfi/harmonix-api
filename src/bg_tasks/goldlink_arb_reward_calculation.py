@@ -39,12 +39,11 @@ def get_rewards(vault: Vault, symbol: str = "ARBUSDT") -> EarnedRestakingRewards
     )
 
 
-def get_previous_reward_distribution(vault_id: UUID, partner_name: str) -> float:
+def get_previous_reward_distribution(vault_id: UUID) -> float:
     # get point distribution history for the vault
     prev_reward_distribution = session.exec(
         select(RewardDistributionHistory)
         .where(RewardDistributionHistory.vault_id == vault_id)
-        .where(RewardDistributionHistory.partner_name == partner_name)
         .order_by(RewardDistributionHistory.created_at.desc())
     ).first()
 
@@ -57,10 +56,7 @@ def get_previous_reward_distribution(vault_id: UUID, partner_name: str) -> float
 
 
 def distribute_rewards_to_users(
-    vault_id: UUID,
-    user_positions: List[UserPortfolio],
-    earned_rewards: float,
-    partner_name: str,
+    vault_id: UUID, user_positions: List[UserPortfolio], earned_rewards: float
 ):
     """
     Distribute rewards to users based on their share percentages.
@@ -73,7 +69,6 @@ def distribute_rewards_to_users(
         user_rewards = session.exec(
             select(UserRewards)
             .where(UserRewards.wallet_address == user.user_address)
-            .where(UserRewards.partner_name == partner_name)
             .where(UserRewards.vault_id == vault_id)
         ).first()
 
@@ -85,7 +80,7 @@ def distribute_rewards_to_users(
             user_rewards = UserRewards(
                 wallet_address=user.user_address,
                 total_reward=earned_rewards * shares_pct,
-                partner_name=partner_name,
+                partner_name=constants.PARTNER_GODLINK,
                 vault_id=vault_id,
             )
 
@@ -109,7 +104,6 @@ def distribute_rewards_to_users(
 
 def distribute_rewards(
     vault: Vault,
-    partner_name: str,
     user_positions: List[UserPortfolio],
     earned_rewards_in_period: float,
     total_earned_rewards: EarnedRestakingRewards,
@@ -120,18 +114,13 @@ def distribute_rewards(
         vault_id=vault.id,
         user_positions=user_positions,
         earned_rewards=earned_rewards_in_period,
-        partner_name=partner_name,
     )
 
     # save the reward distribution history
     reward_distribution = RewardDistributionHistory(
         vault_id=vault.id,
-        partner_name=partner_name,
-        total_reward=(
-            total_earned_rewards.total_rewards
-            if partner_name != constants.EIGENLAYER
-            else total_earned_rewards.total_rewards
-        ),
+        partner_name=constants.PARTNER_GODLINK,
+        total_reward=total_earned_rewards.total_rewards,
     )
     session.add(reward_distribution)
     session.commit()
@@ -148,44 +137,34 @@ def calculate_reward_distributions(vault: Vault):
     ).all()
     logger.info("Total user positions of vault %s: %s", vault.name, len(user_positions))
 
-    partners = json.loads(vault.routes)
+    prev_rewards = get_previous_reward_distribution(vault.id)
+    logger.info(
+        "Vault %s, Previous reward distribution: %s",
+        vault.name,
+        prev_rewards,
+    )
 
-    for partner_name in partners:
-        # get earned rewards for the partner
-        prev_rewards = get_previous_reward_distribution(vault.id, partner_name)
-        logger.info(
-            "Vault %s, partner: %s, Previous reward distribution: %s",
-            vault.name,
-            partner_name,
-            prev_rewards,
+    rewards = get_rewards(vault)
+
+    rewards.total_rewards = (
+        rewards.total_rewards if rewards.total_rewards >= prev_rewards else prev_rewards
+    )
+    logger.info(
+        "Total earned rewards for  %s",
+        rewards.total_rewards,
+    )
+
+    # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
+    earned_rewards_in_period = rewards.total_rewards - prev_rewards
+    if earned_rewards_in_period > 0:
+        distribute_rewards(
+            vault,
+            user_positions,
+            earned_rewards_in_period,
+            rewards,
         )
 
-        rewards = get_rewards(vault)
-
-        rewards.total_rewards = (
-            rewards.total_rewards
-            if rewards.total_rewards >= prev_rewards
-            else prev_rewards
-        )
-
-        logger.info(
-            "Total earned points for partner %s: %s",
-            partner_name,
-            rewards.total_rewards,
-        )
-
-        # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
-        earned_rewards_in_period = rewards.total_rewards - prev_rewards
-        if earned_rewards_in_period > 0:
-            distribute_rewards(
-                vault,
-                partner_name,
-                user_positions,
-                earned_rewards_in_period,
-                rewards,
-            )
-
-    session.commit()
+        session.commit()
 
 
 def main():

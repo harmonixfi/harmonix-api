@@ -109,35 +109,22 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
 
 
 def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
-    routes = (
-        json.loads(vault.routes) + [constants.EIGENLAYER]
-        if vault.routes is not None
-        else []
-    )
-    partners = routes + [
-        constants.HARMONIX,
-    ]
-
-    if vault.network_chain == NetworkChain.base:
-        partners.append(constants.BSX)
-
-    if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-        partners.append(constants.HYPERLIQUID)
+    if vault.slug != constants.GOLD_LINK_SLUG:
+        return []
 
     earned_rewards = []
     rewards_service = VaultRewardsService(session)
-    for partner in partners:
-        rewards_dist_hist = rewards_service.get_vault_earned_point_by_partner(
-            vault.id, partner
-        )
+    rewards_dist_hist = rewards_service.get_vault_earned_reward_by_partner(
+        vault.id,
+    )
 
-        earned_rewards.append(
-            schemas.EarnedRewards(
-                name=partner,
-                rewards=rewards_dist_hist.total_reward,
-                created_at=rewards_dist_hist.created_at,
-            )
+    earned_rewards.append(
+        schemas.EarnedRewards(
+            name=rewards_dist_hist.partner_name,
+            arb_rewards=rewards_dist_hist.total_reward,
+            created_at=rewards_dist_hist.created_at,
         )
+    )
 
     return earned_rewards
 
@@ -229,7 +216,7 @@ async def get_all_vaults(
                 for partner, points in group["points"].items()
             ],
             rewards=[
-                schemas.EarnedRewards(name=partner, rewards=rewards)
+                schemas.EarnedRewards(name=partner, arb_rewards=rewards)
                 for partner, rewards in group["rewards"].items()
             ],
         )
