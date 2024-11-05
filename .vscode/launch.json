@@ -297,10 +297,10 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
-            "name": "Python: update_tvl_for_vaults2",
+            "name": "Python: update_tvl_for_vaults",
             "type": "debugpy",
             "request": "launch",
-            "module": "bg_tasks.calculate_apy_breakdown_daily",
+            "module": "bg_tasks.update_tvl_for_vaults",
             "args": [
                 "--chain",
                 "arbitrum_one"
