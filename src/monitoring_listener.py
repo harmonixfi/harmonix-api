@@ -132,7 +132,7 @@ async def handle_event(vault_address: str, entry, event_name):
         except Exception as e:
 
             print(f"Error retrieving user state: {e}")
-            user_position_fields = [("Deposit Amount", 0), ("Shares", 0)]
+            user_position_fields = None
     else:
         user_position_fields = None
 
