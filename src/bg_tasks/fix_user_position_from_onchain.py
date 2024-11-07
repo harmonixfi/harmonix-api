@@ -29,6 +29,7 @@ from models.onchain_transaction_history import OnchainTransactionHistory
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault
 from services.vault_contract_service import VaultContractService
+import time
 
 session = Session(engine)
 
@@ -158,7 +159,8 @@ def update_or_create_user_portfolio(
 def fix_incorrect_user_portfolio():
     vault_contract_service = VaultContractService()
     subquery = select(UserPortfolio).where(
-        UserPortfolio.status == PositionStatus.ACTIVE
+        UserPortfolio.status == PositionStatus.ACTIVE,
+        UserPortfolio.vault_id == "1679bfd4-48eb-4b77-bf27-c2dae0712f91",
     )
 
     user_portfolio = session.exec(subquery).all()
@@ -179,6 +181,11 @@ def fix_incorrect_user_portfolio():
                 continue  # Skip to the next user if vault is not found
 
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
+            if abi_name == "rockonyxstablecoin":
+                continue
+            if abi_name == "RockOnyxDeltaNeutralVault":
+                print("hehe")
+            print(abi_name, user.user_address)
             vault_contract, _ = get_vault_contract(vault, abi_name)
             init_deposit, total_shares, total_balance, pending_withdrawal = (
                 get_user_portfolio_data(vault_contract, user.user_address)
@@ -197,6 +204,7 @@ def fix_incorrect_user_portfolio():
                 str(e),
                 exc_info=True,
             )
+
     session.commit()
 
 
@@ -225,6 +233,9 @@ def fix_user_position_from_onchain():
         try:
             vault = fetch_vault(deposit, vault_contract_service)
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
+            if abi_name == "rockonyxstablecoin":
+                continue
+
             vault_contract, _ = get_vault_contract(vault, abi_name)
 
             update_or_create_user_portfolio(
