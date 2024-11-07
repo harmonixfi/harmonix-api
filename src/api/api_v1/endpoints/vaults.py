@@ -237,6 +237,7 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault)
     schema_vault.points = get_earned_points(session, vault)
+    schema_vault.rewards = get_earned_rewards(session, vault)
 
     # Check if the vault is part of a group
     if vault.vault_group:
