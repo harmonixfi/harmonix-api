@@ -35,6 +35,39 @@ chain_name = None
 session = Session(engine)
 
 
+def _extract_pendle_event(entry):
+    # Parse the account parameter from the topics field
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+
+    # token_in = None
+    # if len(entry["topics"]) >= 3:
+    #     token_in = f'0x{entry["topics"][2].hex()[26:]}'
+
+    # Parse the amount and shares parameters from the data field
+    data = entry["data"].hex()
+    logger.info("Raw data: %s", data)
+
+    if entry["topics"][0].hex() == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
+        pt_amount = int(data[2:66], 16) / 1e18
+        sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
+        eth_amount = 0
+    else:
+        pt_amount = int(data[2:66], 16) / 1e18
+        eth_amount = int(data[66 : 66 + 64], 16) / 1e18
+        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
+        shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+        logger.info(
+            f"pt_amount: {pt_amount}, eth_amount: {eth_amount}, sc_amount: {sc_amount}, total_amount: {total_amount}, shares: {shares}"
+        )
+
+    return pt_amount, eth_amount, sc_amount, total_amount, shares, from_address
+
+
 def _extract_stablecoin_event(entry):
     # Decode the data field
     data = entry["data"].hex()
@@ -97,6 +130,10 @@ async def handle_event(vault_address: str, entry, event_name):
         value, shares, from_address = _extract_delta_neutral_event(entry)
     elif vault.slug == constants.SOLV_VAULT_SLUG:
         value, shares, from_address = _extract_solv_event(entry)
+    elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        _, eth_amount, sc_amount, value, shares, from_address = _extract_pendle_event(
+            entry
+        )
     else:
         raise ValueError("Invalid vault address")
 
