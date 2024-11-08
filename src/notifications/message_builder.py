@@ -13,6 +13,7 @@ then render table using rich library like:
 
 """
 
+from datetime import datetime, timezone
 import html
 import io
 from typing import List, Optional, Tuple
@@ -99,3 +100,19 @@ def build_transaction_message(fields: List[Tuple[str, str]]) -> str:
     message += "</pre>"
 
     return message
+
+
+def send_telegram_alert(alert_details):
+    # Format message
+    message = (
+        f"🚨 *SYSTEM ALERT: Server Down* 🚨\n\n"
+        f"📄 *Details:*\n_{alert_details}_\n\n"
+        f"⚠️ *Status:* _Urgent_\n\n"
+        f"⏰ *Time:* `{get_current_time()}`\n\n"
+        f"🔔 _Immediate attention required to bring the server back online._"
+    )
+    return message
+
+
+def get_current_time():
+    return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

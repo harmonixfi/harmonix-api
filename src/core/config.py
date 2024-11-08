@@ -144,6 +144,10 @@ class Settings(BaseSettings):
     KELPDAO_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
     KYBERSWAP_BASE_API_URL: Optional[str] = "https://aggregator-api.kyberswap.com"
     KELPGAIN_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
+
+    SNS_SYSTEM_MONITORING_URL: Optional[str] = (
+        "https://sqs.ap-southeast-1.amazonaws.com/471112945627/system-monitoring-queue"
+    )
     # Seq log
     SEQ_SERVER_URL: Optional[str] = None
     SEQ_SERVER_API_KEY: Optional[str] = None
