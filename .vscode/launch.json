@@ -308,5 +308,17 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+           {
+            "name": "Python: fix_user_position_from_onchain",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.fix_user_position_from_onchain",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

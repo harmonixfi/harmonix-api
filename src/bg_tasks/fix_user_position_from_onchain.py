@@ -160,11 +160,12 @@ def fix_incorrect_user_portfolio():
     vault_contract_service = VaultContractService()
     subquery = select(UserPortfolio).where(
         UserPortfolio.status == PositionStatus.ACTIVE,
-        UserPortfolio.vault_id == "1679bfd4-48eb-4b77-bf27-c2dae0712f91",
+        UserPortfolio.vault_id != "1679bfd4-48eb-4b77-bf27-c2dae0712f91",
     )
 
     user_portfolio = session.exec(subquery).all()
 
+    logger.info("Starting to process fix_incorrect_user_portfolio...")
     for user in user_portfolio:
         try:
             vault = session.exec(
@@ -181,11 +182,8 @@ def fix_incorrect_user_portfolio():
                 continue  # Skip to the next user if vault is not found
 
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
-            if abi_name == "rockonyxstablecoin":
+            if abi_name != "RockOnyxDeltaNeutralVault":
                 continue
-            if abi_name == "RockOnyxDeltaNeutralVault":
-                print("hehe")
-            print(abi_name, user.user_address)
             vault_contract, _ = get_vault_contract(vault, abi_name)
             init_deposit, total_shares, total_balance, pending_withdrawal = (
                 get_user_portfolio_data(vault_contract, user.user_address)
@@ -232,8 +230,12 @@ def fix_user_position_from_onchain():
     for deposit in deposits:
         try:
             vault = fetch_vault(deposit, vault_contract_service)
+
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
-            if abi_name == "rockonyxstablecoin":
+            if (
+                abi_name != "RockOnyxDeltaNeutralVault"
+                or vault.id != "1679bfd4-48eb-4b77-bf27-c2dae0712f91"
+            ):
                 continue
 
             vault_contract, _ = get_vault_contract(vault, abi_name)
@@ -261,5 +263,5 @@ def fix_user_position_from_onchain():
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    # fix_user_position_from_onchain()
+    fix_user_position_from_onchain()
     fix_incorrect_user_portfolio()
