@@ -148,6 +148,9 @@ class Settings(BaseSettings):
     SNS_SYSTEM_MONITORING_URL: Optional[str] = (
         "https://sqs.ap-southeast-1.amazonaws.com/471112945627/system-monitoring-queue"
     )
+    SNS_SYSTEM_API_KEY: Optional[str] = ""
+    SNS_SYSTEM_API_SECRET: Optional[str] = ""
+
     # Seq log
     SEQ_SERVER_URL: Optional[str] = None
     SEQ_SERVER_API_KEY: Optional[str] = None

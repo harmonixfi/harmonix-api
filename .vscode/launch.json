@@ -32,7 +32,7 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
-         {
+        {
             "name": "Python: Update Pendle Vault Performance",
             "type": "debugpy",
             "request": "launch",
@@ -308,7 +308,7 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
-           {
+        {
             "name": "Python: fix_user_position_from_onchain",
             "type": "debugpy",
             "request": "launch",
@@ -317,6 +317,14 @@
                 "--chain",
                 "arbitrum_one"
             ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: system_monitoring_sqs_listener",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.system_monitoring_sqs_listener",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

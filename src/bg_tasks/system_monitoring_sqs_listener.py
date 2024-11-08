@@ -4,25 +4,29 @@ import boto3
 import json
 import time
 
-from core.config import Settings
+from core.config import settings
 from log import setup_logging_to_console
 from notifications import telegram_bot
 from notifications.message_builder import send_telegram_alert
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-sqs_client = boto3.client("sqs")
-queue_url = Settings.SNS_SYSTEM_MONITORING_URL
+sqs_client = boto3.client(
+    "sqs",
+    aws_access_key_id=settings.SNS_SYSTEM_API_KEY,
+    aws_secret_access_key=settings.SNS_SYSTEM_API_SECRET,
+    region_name="ap-southeast-1"
+)
+queue_url = settings.SNS_SYSTEM_MONITORING_URL
 
 
 async def process_message(message_body):
     try:
-        sns_message = json.loads(message_body["Message"])
-        logger.info("Received SNS message: %s", sns_message)
+        logger.info("Received SNS message: %s", message_body)
         alert_details = "CPU usage on Server A has exceeded 90%."
         await telegram_bot.send_alert(
             send_telegram_alert(alert_details),
-            channel="transaction",
+            channel="error",
         )
     except Exception as e:
         logger.error("Error processing message system_monitoring_sqs_listener: %s", e)
