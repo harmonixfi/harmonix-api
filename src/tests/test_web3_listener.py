@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import math
 import os
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 import uuid
 
 from hexbytes import HexBytes
@@ -18,7 +18,8 @@ from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vault_performance import VaultPerformance
 from models.vaults import Vault
-from web3_listener import handle_event
+import schemas
+from web3_listener import handle_event, handle_withdrawn_event
 
 
 @pytest.fixture(scope="module")
@@ -367,3 +368,65 @@ def test_handle_solv_events(event_data, db_session: Session):
     assert user_portfolio is not None
     assert user_portfolio.pending_withdrawal == 936810457735051 / 1e18
     assert user_portfolio.init_deposit == 0.002
+
+
+@pytest.fixture
+def mock_session():
+    return Mock()
+
+
+@pytest.fixture
+def mock_user_portfolio():
+    user_portfolio = Mock()
+    user_portfolio.total_balance = 1000
+    user_portfolio.pending_withdrawal = 500
+    user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
+    user_portfolio.status = PositionStatus.ACTIVE  # Assuming OPEN is a valid status
+    return user_portfolio
+
+
+@pytest.fixture
+def mock_vault():
+    vault = Mock()
+    vault.name = "Test Vault"
+    vault.tvl = 1000.0
+    return vault
+
+
+def test_handle_withdrawn_event_updates_tvl(
+    mock_session, mock_user_portfolio, mock_vault
+):
+    value = 500
+    from_address = "0x1234"
+
+    with patch("web3_listener.logger") as mock_logger, patch(
+        "web3_listener.update_tvl"
+    ) as mock_update_tvl:
+
+        # Call the function
+        handle_withdrawn_event(
+            session=mock_session,
+            user_portfolio=mock_user_portfolio,
+            value=value,
+            from_address=from_address,
+            vault=mock_vault,
+        )
+
+        # Verify that update_tvl was called with correct parameters
+        mock_update_tvl.assert_called_once_with(mock_session, mock_vault, -500.0)
+
+        # Check that user_portfolio attributes were updated correctly
+        assert mock_user_portfolio.total_balance == 500
+        assert mock_user_portfolio.pending_withdrawal == 0
+        assert mock_user_portfolio.initiated_withdrawal_at is None
+
+        # Verify that session.add was called with the updated user_portfolio
+        mock_session.add.assert_called_once_with(mock_user_portfolio)
+
+        # Verify logger info calls
+        mock_logger.info.assert_any_call(
+            f"User complete withdrawal {from_address} {value}"
+        )
+        mock_logger.info.assert_any_call(
+            f"User with address {from_address} updated in user_portfolio table"
+        )
