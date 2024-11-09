@@ -157,6 +157,8 @@ def historical(chain: NetworkChain):
             Web3.to_checksum_address("0x55c4c840F9Ac2e62eFa3f12BaBa1B57A1208B6F5"),
             # Koi Paradise with Pendle
             Web3.to_checksum_address("0xE46C3BE33D0C682fCA5F965D244398E924000705"),
+            # Gold Link
+            Web3.to_checksum_address("0x0d856b121cA1Cf862837Cb2BB03D181E25E9e892"),
         ]
     elif chain == NetworkChain.ethereum:
         contract_addresses = [

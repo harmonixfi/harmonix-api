@@ -1,4 +1,5 @@
 import logging
+import traceback
 import uuid
 
 from sqlmodel import Session, select
@@ -39,7 +40,12 @@ def main():
             if vault.slug == constants.SOLV_VAULT_SLUG:
                 abi = "solv"
                 decimals = 1e8
-            elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            elif vault.slug == constants.GOLD_LINK_SLUG:
+                abi = "goldlink"
+            elif (
+                vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
+                and vault.slug != constants.GOLD_LINK_SLUG
+            ):
                 abi = "RockOnyxDeltaNeutralVault"
             elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
                 abi = "rockonyxstablecoin"
@@ -54,6 +60,7 @@ def main():
             logger.info(f"Updated TVL for Vault {vault.name} to {current_tvl}")
 
     except Exception as e:
+        print(traceback.print_exc())
         logger.error(
             "An error occurred while updating TVL: %s",
             e,

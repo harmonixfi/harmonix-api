@@ -12,6 +12,8 @@ HYPERLIQUID = "Hyperliquid"
 BSX = "bsx"
 GOLDLINK = "goldlink"
 
+PARTNER_GODLINK = "goldlink"
+
 PARTNER_KELPDAOGAIN = "kelpdaogain"
 EARNED_POINT_LINEA = "linea"
 EARNED_POINT_SCROLL = "scroll"
@@ -31,8 +33,7 @@ OPTIONS_WHEEL_STRATEGY = "options_wheel_strategy"
 DELTA_NEUTRAL_STRATEGY = "delta_neutral_strategy"
 PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
-
-GOLD_LINK_STRATEGY = "gold_link_strategy"
+GOLD_LINK_SLUG = "arbitrum-leverage-delta-neutral-link"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
@@ -56,6 +57,7 @@ RENZO_VAULT_SLUG = "renzo-zircuit-restaking-delta-neutral-vault"
 DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
 OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
 PENDLE_VAULT_VAULT_SLUG = "arbitrum-pendle-rseth-26sep2024"
+KELPDAO_GAIN_VAULT_SLUG = "ethereum-kelpdao-gain-restaking-delta-neutral-vault"
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
@@ -83,6 +85,11 @@ RSETH_ADDRESS: dict = {
     CHAIN_ARBITRUM: "0x4186BFC76E2E237523CBC30FD220FE055156b41F",
     CHAIN_ETHER_MAINNET: "0xA1290d69c65A6Fe4DF752f95823fae25cB99e5A7",
 }
+
+AGETH_ADDRESS: dict = {
+    CHAIN_ETHER_MAINNET: "0xe1B4d34E8754600962Cd944B535180Bd758E6c2e",
+}
+
 
 USDC_ADDRESS: dict = {
     CHAIN_ARBITRUM: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",

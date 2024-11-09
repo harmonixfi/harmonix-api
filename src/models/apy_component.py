@@ -12,3 +12,4 @@ class APYComponent(Enum):
     BSX_POINT = "BSX_POINT"
     ETH_GAINS = "ETH_GAINS"
     FIXED_YIELD = "FIXED_YIELD"
+    ARB_REWARDS = "ARB_REWARDS"

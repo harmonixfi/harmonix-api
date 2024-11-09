@@ -19,6 +19,8 @@ from models.vaults import NetworkChain, VaultCategory, VaultMetadata
 from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
+from services import kelpgain_service
+from services.vault_rewards_service import VaultRewardsService
 
 router = APIRouter()
 
@@ -81,59 +83,50 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
         partners.append(constants.HYPERLIQUID)
 
+    if vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG:
+        kelpgain_partners = [
+            constants.EARNED_POINT_LINEA,
+            constants.EARNED_POINT_SCROLL,
+            constants.EARNED_POINT_KARAK,
+            constants.EARNED_POINT_INFRA_PARTNER,
+        ]
+        partners.extend(kelpgain_partners)
+
     earned_points = []
     for partner in partners:
         point_dist_hist = get_vault_earned_point_by_partner(session, vault, partner)
-        if point_dist_hist is not None:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=point_dist_hist.point,
-                        created_at=point_dist_hist.created_at,
-                    )
-                )
-        else:
-            if partner != constants.PARTNER_KELPDAOGAIN:
-                # add default value 0
-                earned_points.append(
-                    schemas.EarnedPoints(
-                        name=partner,
-                        point=0.0,
-                        created_at=None,
-                    )
-                )
-        if partner == constants.PARTNER_KELPDAOGAIN:
+
+        if partner != constants.PARTNER_KELPDAOGAIN:
             earned_points.append(
                 schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_LINEA,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_SCROLL,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_KARAK,
-                    point=0.0,
-                    created_at=None,
-                )
-            )
-            earned_points.append(
-                schemas.EarnedPoints(
-                    name=constants.EARNED_POINT_INFRA_PARTNER,
-                    point=0.0,
-                    created_at=None,
+                    name=partner,
+                    point=point_dist_hist.point,
+                    created_at=point_dist_hist.created_at,
                 )
             )
 
     return earned_points
+
+
+def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
+    if vault.slug != constants.GOLD_LINK_SLUG:
+        return []
+
+    earned_rewards = []
+    rewards_service = VaultRewardsService(session)
+    rewards_dist_hist = rewards_service.get_vault_earned_reward_by_partner(
+        vault.id,
+    )
+
+    earned_rewards.append(
+        schemas.EarnedRewards(
+            name="arb_rewards",
+            rewards=rewards_dist_hist.total_reward,
+            created_at=rewards_dist_hist.created_at,
+        )
+    )
+
+    return earned_rewards
 
 
 @router.get("/", response_model=List[schemas.GroupSchema])
@@ -165,6 +158,9 @@ async def get_all_vaults(
         schema_vault = _update_vault_apy(vault)
         schema_vault.points = get_earned_points(session, vault)
 
+        if vault.slug == constants.GOLD_LINK_SLUG:
+            schema_vault.rewards = get_earned_rewards(session, vault)
+
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
         )
@@ -185,6 +181,7 @@ async def get_all_vaults(
                 ),
                 "vaults": [schema_vault],
                 "points": {},
+                "rewards": {},
             }
         else:
             grouped_vaults[group_id]["vaults"].append(schema_vault)
@@ -200,6 +197,13 @@ async def get_all_vaults(
             else:
                 grouped_vaults[group_id]["points"][point.name] = point.point
 
+        # Aggregate rewards for each partner
+        for reward in schema_vault.rewards:
+            if reward.name in grouped_vaults[group_id]["rewards"]:
+                grouped_vaults[group_id]["rewards"][reward.name] += reward.rewards
+            else:
+                grouped_vaults[group_id]["rewards"][reward.name] = reward.rewards
+
     groups = [
         GroupSchema(
             id=group["id"],
@@ -210,6 +214,10 @@ async def get_all_vaults(
             points=[
                 schemas.EarnedPoints(name=partner, point=points)
                 for partner, points in group["points"].items()
+            ],
+            rewards=[
+                schemas.EarnedRewards(name="arb_rewards", rewards=rewards)
+                for partner, rewards in group["rewards"].items()
             ],
         )
         for group in grouped_vaults.values()
@@ -229,11 +237,14 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault)
     schema_vault.points = get_earned_points(session, vault)
+    schema_vault.rewards = get_earned_rewards(session, vault)
 
     # Check if the vault is part of a group
     if vault.vault_group:
         # Query all vaults in the group
-        group_vaults_statement = select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        group_vaults_statement = (
+            select(Vault).where(Vault.group_id == vault.group_id).where(Vault.is_active)
+        )
         group_vaults = session.exec(group_vaults_statement).all()
 
         # Get the selected network chain of all vaults in the group

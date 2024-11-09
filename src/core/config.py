@@ -143,6 +143,13 @@ class Settings(BaseSettings):
     ZIRCUIT_BASE_API_URL: Optional[str] = "https://stake.zircuit.com/api/"
     KELPDAO_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
     KYBERSWAP_BASE_API_URL: Optional[str] = "https://aggregator-api.kyberswap.com"
+    KELPGAIN_BASE_API_URL: Optional[str] = "https://common.kelpdao.xyz/"
+
+    SNS_SYSTEM_MONITORING_URL: Optional[str] = (
+        "https://sqs.ap-southeast-1.amazonaws.com/471112945627/system-monitoring-queue"
+    )
+    SNS_SYSTEM_API_KEY: Optional[str] = ""
+    SNS_SYSTEM_API_SECRET: Optional[str] = ""
 
     # Seq log
     SEQ_SERVER_URL: Optional[str] = None
@@ -182,6 +189,7 @@ class Settings(BaseSettings):
     GOLD_LINK_NETWORK_ID_MAINNET: Optional[str] = (
         "0xB4E29A1A0E6F9DB584447E988CE15D48A1381311"
     )
+    GOLDLINK_REWARD_CONTRACT_ADDRESS: str = "0xa9BE190b8348F18466dC84cC2DE69C04673c5aca"
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

@@ -7,7 +7,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -30,6 +30,7 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
 from services.market_data import get_price
+from services.vault_rewards_service import VaultRewardsService
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
@@ -38,6 +39,13 @@ logger = logging.getLogger("update_delta_neutral_vault_performance_daily")
 
 session = Session(engine)
 token_abi = read_abi("ERC20")
+
+
+def update_tvl(vault_id: uuid.UUID, current_tvl: float):
+    vault = session.exec(select(Vault).where(Vault.id == vault_id)).first()
+    if vault:
+        vault.tvl = current_tvl
+        session.commit()
 
 
 def get_price_per_share_history(vault_id: uuid.UUID) -> pd.DataFrame:
@@ -90,17 +98,27 @@ def get_fee_info():
     return json_fee_info
 
 
-def get_vault_state(vault_contract: Contract, owner_address: str):
+def get_vault_state(vault_contract: Contract, owner_address: str, vault: Vault):
     state = vault_contract.functions.getVaultState().call(
         {"from": Web3.to_checksum_address(owner_address)}
     )
-    vault_state = VaultState(
-        withdraw_pool_amount=state[0] / 1e6,
-        pending_deposit=state[1] / 1e6,
-        total_share=state[2] / 1e6,
-        total_fee_pool_amount=state[3] / 1e6,
-        last_update_management_fee_date=state[4],
-    )
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[2] / 1e6,
+            pending_deposit=state[3] / 1e6,
+            total_share=state[4] / 1e6,
+            total_fee_pool_amount=state[5] / 1e6,
+            last_update_management_fee_date=state[6],
+        )
+    else:
+        vault_state = VaultState(
+            withdraw_pool_amount=state[0] / 1e6,
+            pending_deposit=state[1] / 1e6,
+            total_share=state[2] / 1e6,
+            total_fee_pool_amount=state[3] / 1e6,
+            last_update_management_fee_date=state[4],
+        )
     return vault_state
 
 
@@ -165,7 +183,9 @@ def calculate_performance(
     current_price_per_share = get_current_pps(vault_contract)
     total_balance = get_current_tvl(vault_contract)
     fee_info = get_fee_info()
-    vault_state = get_vault_state(vault_contract, owner_address=owner_address)
+    vault_state = get_vault_state(
+        vault_contract, owner_address=owner_address, vault=vault
+    )
 
     if vault.slug == constants.BSX_VAULT_SLUG:
         points_earned = get_points_earned()
@@ -183,6 +203,14 @@ def calculate_performance(
         # Adjust the current PPS
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
+    # if vault.slug == constants.GOLD_LINK_SLUG:
+    #     rewards_service = VaultRewardsService(session)
+    #     rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
+    #     arb_price = get_price("ARBUSDT")
+    #     rewards_value = rewards_earned * arb_price
+    #     adjusted_tvl = total_balance + rewards_value
+    #     current_price_per_share = adjusted_tvl / vault_state.total_share
+
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
     month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
@@ -194,6 +222,9 @@ def calculate_performance(
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        monthly_apy += float(0.2)
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
@@ -210,6 +241,9 @@ def calculate_performance(
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
+
+    if vault.slug == constants.GOLD_LINK_SLUG:
+        current_price = get_price(f"{vault.underlying_asset}USDT")
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
@@ -309,14 +343,22 @@ def main(chain: str):
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
             select(Vault)
-            .where(Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY)
+            .where(
+                or_(
+                    Vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY,
+                    Vault.slug == constants.GOLD_LINK_SLUG,
+                )
+            )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
         ).all()
 
         for vault in vaults:
             logger.info("Updating performance for %s...", vault.name)
-            vault_contract, _ = get_vault_contract(vault)
+            if vault.slug == constants.GOLD_LINK_SLUG:
+                vault_contract, _ = get_vault_contract(vault, "goldlink")
+            else:
+                vault_contract, _ = get_vault_contract(vault)
 
             new_performance_rec = calculate_performance(
                 vault,
@@ -336,10 +378,13 @@ def main(chain: str):
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
             vault.next_close_round_date = None
+            update_tvl(vault.id, new_performance_rec.total_locked_value)
             logger.info(
-                "Vault %s: tvl = %s, apy %s", vault.name, vault.tvl, vault.monthly_apy
+                "Vault %s: tvl = %s, apy %s",
+                vault.name,
+                new_performance_rec.total_locked_value,
+                vault.monthly_apy,
             )
-
             session.commit()
     except Exception as e:
         logger.error(

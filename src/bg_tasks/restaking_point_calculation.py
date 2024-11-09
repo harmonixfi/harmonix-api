@@ -24,7 +24,7 @@ from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.vaults import Vault, VaultCategory
 from schemas import EarnedRestakingPoints
-from services import renzo_service, zircuit_service, kelpdao_service
+from services import renzo_service, zircuit_service, kelpdao_service, kelpgain_service
 
 session = Session(engine)
 
@@ -32,6 +32,7 @@ GET_POINTS_SERVICE = {
     constants.RENZO: renzo_service.get_points,
     constants.ZIRCUIT: zircuit_service.get_points,
     constants.KELPDAO: kelpdao_service.get_points,
+    constants.PARTNER_KELPDAOGAIN: kelpgain_service.get_points,
 }
 
 
@@ -145,6 +146,71 @@ def distribute_points(
     session.add(point_distribution)
 
 
+def process_point_distribution(
+    vault: Vault,
+    partner_name: str,
+    user_positions: List[UserPortfolio],
+    total_earned_points: EarnedRestakingPoints,
+    earned_point_value: float,
+):
+    prev_point = get_previous_point_distribution(vault.id, partner_name)
+    logger.info(
+        "Vault %s, partner: %s, Previous point distribution: %s",
+        vault.name,
+        partner_name,
+        prev_point,
+    )
+
+    total_earned_points.total_points = (
+        earned_point_value if earned_point_value >= prev_point else prev_point
+    )
+    logger.info(
+        "Total earned points for partner %s: %s",
+        partner_name,
+        total_earned_points.total_points,
+    )
+
+    # The job runs every 12 hours, so we calculate the earned points in the last 12 hours
+    earned_points_in_period = total_earned_points.total_points - prev_point
+    if earned_points_in_period > 0:
+        distribute_points(
+            vault,
+            partner_name,
+            user_positions,
+            earned_points_in_period,
+            total_earned_points,
+        )
+
+
+def process_partner_point_distribution(
+    vault: Vault, partner_name: str, user_positions: List[UserPortfolio]
+):
+    total_earned_points = get_earned_points(vault.contract_address, partner_name)
+    process_point_distribution(
+        vault,
+        partner_name,
+        user_positions,
+        total_earned_points,
+        total_earned_points.total_points,
+    )
+
+
+def process_kelpgain_partner(
+    vault: Vault,
+    kelpgain_partner: str,
+    user_positions: List[UserPortfolio],
+    kelpgain_total_earned_points: EarnedRestakingPoints,
+    kelpgain_point: float,
+):
+    process_point_distribution(
+        vault,
+        kelpgain_partner,
+        user_positions,
+        kelpgain_total_earned_points,
+        kelpgain_point,
+    )
+
+
 def calculate_point_distributions(vault: Vault):
     user_positions: List[UserPortfolio] = []
 
@@ -159,74 +225,72 @@ def calculate_point_distributions(vault: Vault):
     partners = json.loads(vault.routes)
 
     for partner_name in partners:
-        # get earned points for the partner
-        prev_point = get_previous_point_distribution(vault.id, partner_name)
-        logger.info(
-            "Vault %s, partner: %s, Previous point distribution: %s",
-            vault.name,
-            partner_name,
-            prev_point,
-        )
+        if partner_name != constants.PARTNER_KELPDAOGAIN:
+            process_partner_point_distribution(vault, partner_name, user_positions)
 
-        total_earned_points = get_earned_points(vault.contract_address, partner_name)
-        total_earned_points.total_points = (
-            total_earned_points.total_points
-            if total_earned_points.total_points >= prev_point
-            else prev_point
-        )
-        logger.info(
-            "Total earned points for partner %s: %s",
-            partner_name,
-            total_earned_points.total_points,
-        )
-
-        # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
-        earned_points_in_period = total_earned_points.total_points - prev_point
-        if earned_points_in_period > 0:
-            distribute_points(
-                vault,
-                partner_name,
-                user_positions,
-                earned_points_in_period,
-                total_earned_points,
-            )
-
-        if partner_name in {constants.RENZO, constants.KELPDAO}:
-            # distribute eigenlayer points to user
-            prev_eigen_point = get_previous_point_distribution(
-                vault.id, constants.EIGENLAYER
-            )
-            logger.info(
-                "Vault %s, partner: %s, Previous point distribution: %s",
-                vault.name,
-                constants.EIGENLAYER,
-                prev_eigen_point,
-            )
-
-            total_earned_points.eigen_layer_points = (
-                total_earned_points.eigen_layer_points
-                if total_earned_points.eigen_layer_points >= prev_eigen_point
-                else prev_eigen_point
-            )
-
-            # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
-            earned_eigen_points_in_period = (
-                total_earned_points.eigen_layer_points - prev_eigen_point
-            )
-            logger.info(
-                "Total earned points for partner %s: %s",
-                partner_name,
-                total_earned_points.eigen_layer_points,
-            )
-
-            if earned_eigen_points_in_period > 0:
-                distribute_points(
-                    vault,
-                    constants.EIGENLAYER,
-                    user_positions,
-                    earned_eigen_points_in_period,
-                    total_earned_points,
+        if partner_name in {
+            constants.RENZO,
+            constants.KELPDAO,
+            constants.PARTNER_KELPDAOGAIN,
+        }:
+            if partner_name == constants.PARTNER_KELPDAOGAIN:
+                total_earned_points = get_earned_points(
+                    vault.contract_address, partner_name
                 )
+                kelpgain_partners = [
+                    (constants.EARNED_POINT_LINEA, total_earned_points.linea_points),
+                    (constants.EARNED_POINT_SCROLL, total_earned_points.scroll_points),
+                    (constants.EARNED_POINT_KARAK, total_earned_points.karak_points),
+                    (constants.EARNED_POINT_INFRA_PARTNER, 0),
+                ]
+                for kelpgain_partner, kelpgain_point in kelpgain_partners:
+                    kelpgain_total_earned_points = total_earned_points
+                    process_kelpgain_partner(
+                        vault,
+                        kelpgain_partner,
+                        user_positions,
+                        kelpgain_total_earned_points,
+                        kelpgain_point,
+                    )
+            else:
+                total_earned_points = get_earned_points(
+                    vault.contract_address, partner_name
+                )
+                # distribute eigenlayer points to user
+                prev_eigen_point = get_previous_point_distribution(
+                    vault.id, constants.EIGENLAYER
+                )
+                logger.info(
+                    "Vault %s, partner: %s, Previous point distribution: %s",
+                    vault.name,
+                    constants.EIGENLAYER,
+                    prev_eigen_point,
+                )
+
+                total_earned_points.eigen_layer_points = (
+                    total_earned_points.eigen_layer_points
+                    if total_earned_points.eigen_layer_points >= prev_eigen_point
+                    else prev_eigen_point
+                )
+
+                # the job run every 12 hour, so we need to calculate the earned points in the last 12 hour
+                earned_eigen_points_in_period = (
+                    total_earned_points.eigen_layer_points - prev_eigen_point
+                )
+                logger.info(
+                    "Total earned points for partner %s: %s",
+                    partner_name,
+                    total_earned_points.eigen_layer_points,
+                )
+
+                if earned_eigen_points_in_period > 0:
+                    distribute_points(
+                        vault,
+                        constants.EIGENLAYER,
+                        user_positions,
+                        earned_eigen_points_in_period,
+                        total_earned_points,
+                    )
 
     session.commit()
 

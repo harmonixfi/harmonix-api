@@ -5,6 +5,7 @@ from datetime import datetime
 
 from models.point_distribution_history import PointDistributionHistory
 from models.vaults import NetworkChain, VaultCategory
+from schemas.earned_rewards import EarnedRewards
 
 from .earned_point import EarnedPoints
 
@@ -29,6 +30,7 @@ class VaultBase(BaseModel):
     pendle_market_address: str | None = None
     strategy_name: str | None = None
     points: List[EarnedPoints] = []
+    rewards: List[EarnedRewards] = []
 
 
 # Properties shared by models stored in DB
@@ -81,6 +83,7 @@ class GroupSchema(BaseModel):
     apy: float | None = None
     vaults: List[Vault] = []
     points: List[EarnedPoints] = []
+    rewards: List[EarnedRewards] = []
 
     class Config:
         orm_mode = True

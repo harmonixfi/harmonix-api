@@ -215,6 +215,7 @@ def handle_withdrawn_event(
     user_portfolio: UserPortfolio,
     value,
     from_address,
+    vault: Vault,
     *args,
     **kwargs,
 ):
@@ -231,6 +232,9 @@ def handle_withdrawn_event(
             user_portfolio.trade_end_date = datetime.now(timezone.utc)
 
         session.add(user_portfolio)
+
+        update_tvl(session, vault, (-1) * float(value))
+
         logger.info(f"User with address {from_address} updated in user_portfolio table")
         return user_portfolio
     else:
