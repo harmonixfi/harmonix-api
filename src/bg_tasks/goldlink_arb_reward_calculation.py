@@ -29,12 +29,9 @@ def get_rewards(vault: Vault, symbol: str = "ARBUSDT") -> EarnedRestakingRewards
     vault_reward = session.exec(
         select(VaultRewards).where(VaultRewards.vault_id == vault.id)
     ).first()
-
-    price = get_price(symbol)
-    total_rewards = vault_reward.earned_rewards * price if vault_reward else 0.0
     return EarnedRestakingRewards(
         wallet_address=vault.contract_address,
-        total_rewards=float(total_rewards),
+        total_rewards=float(vault_reward.earned_rewards),
         partner_name=constants.DELTA_NEUTRAL_STRATEGY,
     )
 
