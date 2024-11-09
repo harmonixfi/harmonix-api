@@ -614,7 +614,7 @@ def init_db(session: Session) -> None:
     init_new_vault(session, pendle_rs_26dec)
 
     kelpgain_vault = session.exec(
-        select(Vault).where(Vault.slug == constants.KEYDAO_GAIN_VAULT_SLUG)
+        select(Vault).where(Vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG)
     ).first()
     init_new_vault(session, kelpgain_vault)
 
