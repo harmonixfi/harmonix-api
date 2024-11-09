@@ -328,5 +328,21 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "Python: update_goldlink_rewards_weekly",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_goldlink_rewards_weekly",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
+            "name": "Python: goldlink_arb_reward_calculation",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.goldlink_arb_reward_calculation",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

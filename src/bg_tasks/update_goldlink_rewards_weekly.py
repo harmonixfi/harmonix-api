@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, timezone
+import traceback
 import uuid
 from sqlmodel import Session
 from core import constants
@@ -73,18 +74,8 @@ def update_goldlink_rewards_weekly():
         logger.info("Starting Gold Link store rewards process")
         for vault in vaults:
             try:
-                vault_metadata = session.exec(
-                    select(VaultMetadata).where(VaultMetadata.vault_id == vault.id)
-                ).first()
-
-                if vault_metadata is None:
-                    logger.error(
-                        "No vault metadata found for vault %s. Skipping.", vault.id
-                    )  # Log error if None
-                    continue
-
                 earned_rewards = get_current_rewards_earned(
-                    vault, vault_metadata.goldlink_trading_account
+                    vault
                 )
 
                 claimed_rewards = float(0.0)
@@ -96,12 +87,15 @@ def update_goldlink_rewards_weekly():
                     vault.id,
                     str(rewards_error),
                 )  # Fixed logger format
+                logger.error(traceback.format_exc())
+                raise
 
         logger.info("Gold Link rewards store rewards completed.")
     except Exception as e:
         logger.error(
             "Error occurred during Gold Link store rewards process: %s", str(e)
         )  # Fixed logger format
+        raise
 
 
 if __name__ == "__main__":

@@ -131,17 +131,17 @@ def __get_contract(vault: Vault, abi_name="goldlink_rewards"):
     web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
     abi = read_abi(abi_name)
-    return web3.eth.contract(address=vault.contract_address, abi=abi)
+    return web3.eth.contract(address=settings.GOLDLINK_REWARD_CONTRACT_ADDRESS, abi=abi)
 
 
 def get_current_rewards_earned(
-    vault: Vault, trading_account: str, abi_name="goldlink_rewards", decimals=1e18
+    vault: Vault, abi_name="goldlink_rewards", decimals=1e18
 ) -> float:
     try:
         contract = __get_contract(vault, abi_name)
         return float(
             contract.functions.rewardsOwed(
-                Web3.to_checksum_address(trading_account)
+                Web3.to_checksum_address(vault.contract_address)
             ).call()
             / decimals
         )
