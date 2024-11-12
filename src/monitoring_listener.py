@@ -12,6 +12,7 @@ from websockets import ConnectionClosedError, ConnectionClosedOK
 
 from bg_tasks.fix_user_position_from_onchain import get_user_state
 from core import constants
+from core.abi_reader import read_abi
 from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
@@ -23,7 +24,9 @@ from models.vaults import NetworkChain
 from notifications import telegram_bot
 from notifications.message_builder import build_message
 from services.socket_manager import WebSocketManager
+from services.vault_contract_service import VaultContractService
 from utils.calculate_price import calculate_avg_entry_price
+from web3.eth import Contract
 
 
 # Initialize logger
@@ -154,9 +157,13 @@ async def handle_event(vault_address: str, entry, event_name):
 
     if user_portfolio:
         try:
-            user_state = get_user_state(
-                vault.contract_address, user_portfolio.user_address
+            vault_contract_service = VaultContractService()
+            abi_name = vault_contract_service.get_vault_abi(vault=vault)
+
+            vault_contract, _ = vault_contract_service.get_vault_contract(
+                vault.network_chain, vault.contract_address, abi_name
             )
+            user_state = get_user_state(vault_contract, user_portfolio.user_address)
             if user_state:
                 deposit_amount = user_state[0] / 1e6
                 total_shares = user_state[1] / 1e6
