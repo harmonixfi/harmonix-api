@@ -466,7 +466,7 @@ def seed_vaults(session: Session):
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
             contract_address="0xCf8Be38F161DB8241bbBDbaB4231f9DF62DBc820",
-            slug=constants.KEYDAO_GAIN_VAULT_SLUG,
+            slug=constants.KELPDAO_GAIN_VAULT_SLUG,
             routes='["kelpdao", "kelpdaogain"]',
             category="points",
             network_chain=NetworkChain.ethereum,

@@ -12,6 +12,7 @@ async def send_alert(message, channel="transaction"):
     try:
         if channel == "transaction":
             g_id = settings.TRANSACTION_ALERTS_GROUP_CHATID
+            # g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
         elif channel == "error":
             g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
 
@@ -33,8 +34,17 @@ async def send_photo(chat_id, msg, file_name, file_path):
 
 
 async def _send(chat_id, msg):
-    bot = Bot(token=settings.TELEGRAM_TOKEN)
-    await bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+    # await bot.send_message(chat_id=chat_id, text=msg, parse_mode="HTML")
+    url = f"https://api.telegram.org/bot{settings.TELEGRAM_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": chat_id,
+        "text": msg,
+        "parse_mode": "HTML"
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            if response.status != 200:
+                logger.error(f"Failed to send message: {await response.text()}")
 
 
 async def get_updates(start_date: int):
