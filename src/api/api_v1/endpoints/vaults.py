@@ -293,20 +293,20 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_1m"]
 
-        if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-            pps_history_df = pps_history_df[["date", "apy"]].copy()
+        # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+        #     pps_history_df = pps_history_df[["date", "apy"]].copy()
 
-            # resample pps_history_df to daily frequency
-            pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-            pps_history_df.set_index("date", inplace=True)
-            pps_history_df = pps_history_df.resample("D").mean()
-            pps_history_df.ffill(inplace=True)
+        #     # resample pps_history_df to daily frequency
+        #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+        #     pps_history_df.set_index("date", inplace=True)
+        #     pps_history_df = pps_history_df.resample("D").mean()
+        #     pps_history_df.ffill(inplace=True)
 
-            if (
-                len(pps_history_df) >= 7 * 2
-            ):  # we will make sure the normalized series enough to plot
-                # calculate ma 7 days pps_history_df['apy']
-                pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
+        #     if (
+        #         len(pps_history_df) >= 7 * 2
+        #     ):  # we will make sure the normalized series enough to plot
+        #         # calculate ma 7 days pps_history_df['apy']
+        #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
 
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
@@ -349,18 +349,18 @@ async def get_vault_performance_chart(session: SessionDep):
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
             vault_df["apy"] = vault_df["apy_1m"]
 
-            if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-                vault_df = vault_df[["date", "apy"]].copy()
+            # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+            #     vault_df = vault_df[["date", "apy"]].copy()
 
-                # Resample to daily frequency
-                vault_df["date"] = pd.to_datetime(vault_df["date"])
-                vault_df.set_index("date", inplace=True)
-                vault_df = vault_df.resample("D").mean()
-                vault_df.ffill(inplace=True)
+            #     # Resample to daily frequency
+            #     vault_df["date"] = pd.to_datetime(vault_df["date"])
+            #     vault_df.set_index("date", inplace=True)
+            #     vault_df = vault_df.resample("D").mean()
+            #     vault_df.ffill(inplace=True)
 
-                # Ensure enough data for plotting and calculate a 7-day rolling average
-                if len(vault_df) >= 7 * 2:
-                    vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
+            #     # Ensure enough data for plotting and calculate a 7-day rolling average
+            #     if len(vault_df) >= 7 * 2:
+            #         vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
 
         elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
             vault_df["apy"] = vault_df["apy_ytd"]
