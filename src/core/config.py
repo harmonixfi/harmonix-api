@@ -165,6 +165,8 @@ class Settings(BaseSettings):
         "https://api.etherscan.io/api?module=account&action=txlist"
     )
 
+    HYPERLIQUID_URL: Optional[str] = "https://api.hyperliquid.xyz/info"
+
     BASESCAN_API_KEY: str
     BASESCAN_GET_TRANSACTIONS_URL: str = (
         "https://api.basescan.org/api?module=account&action=txlist"

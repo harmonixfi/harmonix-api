@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from typing import List, Optional
 import uuid
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import bindparam, text
@@ -25,8 +26,28 @@ from services.vault_rewards_service import VaultRewardsService
 router = APIRouter()
 
 
-def _update_vault_apy(vault: Vault) -> schemas.Vault:
+def _get_projected_apy(vault_id: uuid.UUID, session: Session) -> Optional[float]:
+    statement = (
+        select(VaultPerformance.projected_apy)
+        .where(
+            VaultPerformance.vault_id == vault_id,
+        )
+        .order_by(VaultPerformance.datetime.desc())
+    )
+    projected_apy = session.exec(statement).first()
+    return projected_apy
+
+
+def _update_vault_apy(vault: Vault, session: Session) -> schemas.Vault:
     schema_vault = schemas.Vault.model_validate(vault)
+    if (
+        vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG
+        or vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC
+    ):
+        projected_apy = _get_projected_apy(vault_id=vault.id, session=session)
+        if projected_apy is not None:
+            schema_vault.apy = projected_apy
+            return schema_vault
 
     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         schema_vault.apy = vault.ytd_apy
@@ -155,7 +176,7 @@ async def get_all_vaults(
     grouped_vaults = {}
     for vault in vaults:
         group_id = vault.group_id or vault.id
-        schema_vault = _update_vault_apy(vault)
+        schema_vault = _update_vault_apy(vault, session=session)
         schema_vault.points = get_earned_points(session, vault)
 
         if vault.slug == constants.GOLD_LINK_SLUG:
@@ -235,7 +256,7 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
             detail="The data not found in the database.",
         )
 
-    schema_vault = _update_vault_apy(vault)
+    schema_vault = _update_vault_apy(vault, session=session)
     schema_vault.points = get_earned_points(session, vault)
     schema_vault.rewards = get_earned_rewards(session, vault)
 
@@ -291,7 +312,15 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
+        if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
+            pps_history_df["apy"] = np.where(
+                pps_history_df["projected_apy"].notna()
+                & ~pps_history_df["projected_apy"].isnull(),
+                pps_history_df["projected_apy"],
+                pps_history_df["apy_1m"],
+            )
+        else:
+            pps_history_df["apy"] = pps_history_df["apy_1m"]
 
         # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
         #     pps_history_df = pps_history_df[["date", "apy"]].copy()
@@ -311,10 +340,22 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
     else:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
+        if vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC:
+            pps_history_df["apy"] = np.where(
+                pps_history_df["projected_apy"].notna()
+                & ~pps_history_df["projected_apy"].isnull(),
+                pps_history_df["projected_apy"],
+                pps_history_df["apy_1m"],
+            )
+
+        else:
+            pps_history_df["apy"] = pps_history_df["apy_1m"]
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
+    # Filter for the last month
+    one_month_ago = datetime.now() - timedelta(days=30)
+    pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
 
@@ -347,7 +388,15 @@ async def get_vault_performance_chart(session: SessionDep):
         vault_df = pps_history_df[pps_history_df["vault_id"] == vault.id].copy()
 
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-            vault_df["apy"] = vault_df["apy_1m"]
+            if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
+                vault_df["apy"] = np.where(
+                    vault_df["projected_apy"].notna()
+                    & ~vault_df["projected_apy"].isnull(),
+                    vault_df["projected_apy"],
+                    vault_df["apy_1m"],
+                )
+            else:
+                vault_df["apy"] = vault_df["apy_1m"]
 
             # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
             #     vault_df = vault_df[["date", "apy"]].copy()
@@ -365,13 +414,25 @@ async def get_vault_performance_chart(session: SessionDep):
         elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
             vault_df["apy"] = vault_df["apy_ytd"]
         else:
-            vault_df["apy"] = vault_df["apy_1m"]
+            if vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC:
+                vault_df["apy"] = np.where(
+                    vault_df["projected_apy"].notna()
+                    & ~vault_df["projected_apy"].isnull(),
+                    vault_df["projected_apy"],
+                    vault_df["apy_1m"],
+                )
+
+            else:
+                vault_df["apy"] = vault_df["apy_1m"]
 
         if "vault_id" not in vault_df.columns:
             vault_df["vault_id"] = vault.id
 
         # Convert date column to string format
         vault_df.reset_index(inplace=True)
+        # Filter for the last month
+        one_month_ago = datetime.now() - timedelta(days=30)
+        vault_df = vault_df[vault_df["date"] >= one_month_ago]
         vault_df["date"] = vault_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
         vault_df.fillna(0, inplace=True)
         result_df.append(vault_df)
