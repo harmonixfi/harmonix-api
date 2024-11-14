@@ -4,6 +4,7 @@ import uuid
 import sqlmodel
 from sqlalchemy.dialects.postgresql import JSON
 
+
 class VaultPerformanceBase(sqlmodel.SQLModel):
     datetime: datetime
     total_locked_value: float
@@ -20,7 +21,9 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     earned_fee: float | None = None
     unique_depositors: int | None = None
     fee_structure: str | None = None
-    
+    projected_apy: float | None = None
+
+
 class VaultPerformance(VaultPerformanceBase, table=True):
     __tablename__ = "vault_performance"
 

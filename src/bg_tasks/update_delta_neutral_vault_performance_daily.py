@@ -29,6 +29,7 @@ from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
+from services.hyperliquid_service import calculate_projected_apy
 from services.market_data import get_price
 from services.vault_rewards_service import VaultRewardsService
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
@@ -226,6 +227,10 @@ def calculate_performance(
     if vault.slug == constants.GOLD_LINK_SLUG:
         monthly_apy += float(0.2)
 
+    projected_apy: float = None
+    if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
+        projected_apy = calculate_projected_apy()
+
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
@@ -321,6 +326,7 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
+        projected_apy=projected_apy,
     )
 
     update_price_per_share(vault.id, current_price_per_share)

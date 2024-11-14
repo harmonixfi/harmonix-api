@@ -58,6 +58,7 @@ DELTA_NEUTRAL_VAULT_VAULT_SLUG = "delta-neutral-vault"
 OPTIONS_WHEEL_VAULT_VAULT_SLUG = "options-wheel-vault"
 PENDLE_VAULT_VAULT_SLUG = "arbitrum-pendle-rseth-26sep2024"
 KELPDAO_GAIN_VAULT_SLUG = "ethereum-kelpdao-gain-restaking-delta-neutral-vault"
+PENDLE_VAULT_VAULT_SLUG_DEC = "arbitrum-pendle-rseth-26dec2024"
 
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
