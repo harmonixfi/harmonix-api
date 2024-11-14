@@ -22,8 +22,10 @@ from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
+from models.apy_component import APYComponent
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
+from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
@@ -229,7 +231,20 @@ def calculate_performance(
 
     projected_apy: float = None
     if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
-        projected_apy = calculate_projected_apy()
+        vault_apy_breakdown = session.exec(
+            select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault.id)
+        ).first()
+        if vault_apy_breakdown is not None and vault_apy_breakdown.apy_components:
+            rs_eth_component = next(
+                (
+                    comp
+                    for comp in vault_apy_breakdown.apy_components
+                    if comp.component_name == APYComponent.RS_ETH.value
+                ),
+                None,
+            )
+            if rs_eth_component:
+                projected_apy = calculate_projected_apy(rs_eth_component.component_apy)
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
