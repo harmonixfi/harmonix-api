@@ -354,7 +354,7 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
     # Filter for the last month
-    one_month_ago = datetime.now() - timedelta(days=30)
+    one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
     pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
@@ -431,7 +431,7 @@ async def get_vault_performance_chart(session: SessionDep):
         # Convert date column to string format
         vault_df.reset_index(inplace=True)
         # Filter for the last month
-        one_month_ago = datetime.now() - timedelta(days=30)
+        one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
         vault_df = vault_df[vault_df["date"] >= one_month_ago]
         vault_df["date"] = vault_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
         vault_df.fillna(0, inplace=True)
