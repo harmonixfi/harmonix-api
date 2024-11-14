@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import logging
+from typing import Optional
 import uuid
 
 from sqlalchemy import func
@@ -90,6 +91,33 @@ def calculate_annualized_pnl(weekly_pnl_percentage: float, weeks_in_year: int):
     return pow((weekly_pnl_percentage + 1), weeks_in_year) - 1
 
 
+def _get_projected_apy(vault_id: uuid.UUID) -> Optional[float]:
+    statement = (
+        select(VaultPerformance.projected_apy)
+        .where(
+            VaultPerformance.vault_id == vault_id,
+        )
+        .order_by(VaultPerformance.datetime.desc())
+    )
+    projected_apy = session.exec(statement).first()
+    return projected_apy
+
+
+def _get_vault_apy(vault: Vault) -> float:
+    if (
+        vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG
+        or vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC
+    ):
+        projected_apy = _get_projected_apy(vault_id=vault.id)
+        if projected_apy is not None:
+            return projected_apy
+
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+        return vault.ytd_apy
+
+    return vault.monthly_apy
+
+
 # Main Execution
 def main():
     try:
@@ -98,11 +126,7 @@ def main():
 
         for vault in vaults:
             try:
-                current_apy = (
-                    vault.ytd_apy
-                    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                    else vault.monthly_apy
-                )
+                current_apy = _get_vault_apy(vault)
                 if vault.slug in [
                     constants.KEYDAO_VAULT_SLUG,
                     constants.KEYDAO_VAULT_ARBITRUM_SLUG,
