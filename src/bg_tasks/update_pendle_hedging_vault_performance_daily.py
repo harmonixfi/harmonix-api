@@ -191,27 +191,6 @@ def calculate_performance(
     if pendle_market_data:
         monthly_apy += pendle_market_data.implied_apy / 2
 
-    projected_apy: float = None
-    if vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC:
-        vault_apy_breakdown = session.exec(
-            select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault.id)
-        ).first()
-        if vault_apy_breakdown is not None and vault_apy_breakdown.apy_components:
-            fixed_component = next(
-                (
-                    comp
-                    for comp in vault_apy_breakdown.apy_components
-                    if comp.component_name == APYComponent.FIXED_YIELD.value
-                ),
-                None,
-            )
-            if fixed_component:
-                last_funding_rate = get_avg_8h_funding_rate()
-                projected_apy = calculate_projected_apy(
-                    last_funding_rate=last_funding_rate,
-                    component_apy=fixed_component.component_apy,
-                )
-
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
@@ -302,7 +281,6 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
-        projected_apy=projected_apy,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
