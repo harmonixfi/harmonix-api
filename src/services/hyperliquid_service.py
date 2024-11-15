@@ -6,10 +6,8 @@ from core.config import settings
 
 url = settings.HYPERLIQUID_URL
 
-ALLOCATION_RATIO: float = 1 / 2
 
-
-def calculate_projected_apy(component_apy: float):
+def get_latest_funding_rate() -> float:
     eight_hours_ago = datetime.now(tz=timezone.utc) - timedelta(hours=8)
     start_timestamp = int(eight_hours_ago.timestamp() * 1000)
 
@@ -30,12 +28,5 @@ def calculate_projected_apy(component_apy: float):
 
     if not funding_rates:
         return 0
-
-    # Calculate the average funding rate over the 8-hour period
-    avg_8h_funding_rate = sum(funding_rates) / len(funding_rates)
-    # Calculate the projected APY based on the average funding rate
-    projected_apy = avg_8h_funding_rate * ALLOCATION_RATIO
-    projected_apy_annualized = (
-        projected_apy * 24 * 365 + (component_apy / 100) * ALLOCATION_RATIO
-    )
-    return projected_apy_annualized
+    last_funding_rate = funding_rates[-1]
+    return last_funding_rate
