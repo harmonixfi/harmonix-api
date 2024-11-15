@@ -32,11 +32,12 @@ def calculate_projected_apy(component_apy: float):
         return 0
 
     # Calculate the average funding rate over the 8-hour period
-    avg_8h_funding_rate = sum(funding_rates) / len(funding_rates)
+    # avg_8h_funding_rate = sum(funding_rates) / len(funding_rates)
+    last_funding_rate = funding_rates[-1]
+    avg_8h_funding_rate = last_funding_rate * 24 * 365
     # Calculate the projected APY based on the average funding rate
     projected_apy = (
         avg_8h_funding_rate * ALLOCATION_RATIO
         + (component_apy / 100) * ALLOCATION_RATIO
     )
-    projected_apy_annualized = projected_apy * 24 * 365
-    return projected_apy_annualized
+    return projected_apy * 100
