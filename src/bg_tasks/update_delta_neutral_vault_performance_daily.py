@@ -32,7 +32,7 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
 from services.hyperliquid_service import (
-    get_latest_funding_rate,
+    get_avg_8h_funding_rate,
 )
 from services.market_data import get_price
 from services.vault_rewards_service import VaultRewardsService
@@ -247,7 +247,7 @@ def calculate_performance(
                 None,
             )
             if rs_eth_component:
-                last_funding_rate = get_latest_funding_rate()
+                last_funding_rate = get_avg_8h_funding_rate()
                 projected_apy = calculate_projected_apy(
                     last_funding_rate=last_funding_rate,
                     component_apy=rs_eth_component.component_apy,

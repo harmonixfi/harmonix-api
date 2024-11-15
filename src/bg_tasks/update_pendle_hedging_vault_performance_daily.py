@@ -32,7 +32,9 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState, VaultStatePendle
 from services import pendle_service
 from services.bsx_service import get_points_earned
-from services.hyperliquid_service import get_latest_funding_rate
+from services.hyperliquid_service import (
+    get_avg_8h_funding_rate,
+)
 from services.market_data import get_price
 from utils.vault_utils import calculate_projected_apy
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
@@ -204,7 +206,7 @@ def calculate_performance(
                 None,
             )
             if fixed_component:
-                last_funding_rate = get_latest_funding_rate()
+                last_funding_rate = get_avg_8h_funding_rate()
                 projected_apy = calculate_projected_apy(
                     last_funding_rate=last_funding_rate,
                     component_apy=fixed_component.component_apy,
