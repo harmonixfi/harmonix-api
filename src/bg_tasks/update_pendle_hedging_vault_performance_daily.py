@@ -32,8 +32,9 @@ from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState, VaultStatePendle
 from services import pendle_service
 from services.bsx_service import get_points_earned
-from services.hyperliquid_service import calculate_projected_apy
+from services.hyperliquid_service import get_latest_funding_rate
 from services.market_data import get_price
+from utils.vault_utils import calculate_projected_apy
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
@@ -203,7 +204,11 @@ def calculate_performance(
                 None,
             )
             if fixed_component:
-                projected_apy = calculate_projected_apy(fixed_component.component_apy)
+                last_funding_rate = get_latest_funding_rate()
+                projected_apy = calculate_projected_apy(
+                    last_funding_rate=last_funding_rate,
+                    component_apy=fixed_component.component_apy,
+                )
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
