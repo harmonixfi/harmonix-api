@@ -7,7 +7,7 @@ from core.config import settings
 url = settings.HYPERLIQUID_URL
 
 
-def get_latest_funding_rate() -> float:
+def get_avg_8h_funding_rate() -> float:
     eight_hours_ago = datetime.now(tz=timezone.utc) - timedelta(hours=8)
     start_timestamp = int(eight_hours_ago.timestamp() * 1000)
 
@@ -28,5 +28,5 @@ def get_latest_funding_rate() -> float:
 
     if not funding_rates:
         return 0
-    last_funding_rate = funding_rates[-1]
-    return last_funding_rate
+    avg_8h_funding_rate = sum(funding_rates) / len(funding_rates)
+    return avg_8h_funding_rate
