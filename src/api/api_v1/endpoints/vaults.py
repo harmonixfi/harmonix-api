@@ -26,29 +26,8 @@ from services.vault_rewards_service import VaultRewardsService
 router = APIRouter()
 
 
-def _get_projected_apy(vault_id: uuid.UUID, session: Session) -> Optional[float]:
-    statement = (
-        select(VaultPerformance.projected_apy)
-        .where(
-            VaultPerformance.vault_id == vault_id,
-        )
-        .order_by(VaultPerformance.datetime.desc())
-    )
-    projected_apy = session.exec(statement).first()
-    return projected_apy
-
-
 def _update_vault_apy(vault: Vault, session: Session) -> schemas.Vault:
     schema_vault = schemas.Vault.model_validate(vault)
-    if (
-        vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG
-        or vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC
-    ):
-        projected_apy = _get_projected_apy(vault_id=vault.id, session=session)
-        if projected_apy is not None:
-            schema_vault.apy = projected_apy
-            return schema_vault
-
     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         schema_vault.apy = vault.ytd_apy
     else:
@@ -312,44 +291,27 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
 
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-        if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
-            pps_history_df["apy"] = np.where(
-                pps_history_df["projected_apy"].notna()
-                & ~pps_history_df["projected_apy"].isnull(),
-                pps_history_df["projected_apy"],
-                pps_history_df["apy_1m"],
-            )
-        else:
-            pps_history_df["apy"] = pps_history_df["apy_1m"]
+        pps_history_df["apy"] = pps_history_df["apy_1m"]
 
-        # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-        #     pps_history_df = pps_history_df[["date", "apy"]].copy()
+    # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+    #     pps_history_df = pps_history_df[["date", "apy"]].copy()
 
-        #     # resample pps_history_df to daily frequency
-        #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-        #     pps_history_df.set_index("date", inplace=True)
-        #     pps_history_df = pps_history_df.resample("D").mean()
-        #     pps_history_df.ffill(inplace=True)
+    #     # resample pps_history_df to daily frequency
+    #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    #     pps_history_df.set_index("date", inplace=True)
+    #     pps_history_df = pps_history_df.resample("D").mean()
+    #     pps_history_df.ffill(inplace=True)
 
-        #     if (
-        #         len(pps_history_df) >= 7 * 2
-        #     ):  # we will make sure the normalized series enough to plot
-        #         # calculate ma 7 days pps_history_df['apy']
-        #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
+    #     if (
+    #         len(pps_history_df) >= 7 * 2
+    #     ):  # we will make sure the normalized series enough to plot
+    #         # calculate ma 7 days pps_history_df['apy']
+    #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
 
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
     else:
-        if vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC:
-            pps_history_df["apy"] = np.where(
-                pps_history_df["projected_apy"].notna()
-                & ~pps_history_df["projected_apy"].isnull(),
-                pps_history_df["projected_apy"],
-                pps_history_df["apy_1m"],
-            )
-
-        else:
-            pps_history_df["apy"] = pps_history_df["apy_1m"]
+        pps_history_df["apy"] = pps_history_df["apy_1m"]
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
@@ -388,42 +350,26 @@ async def get_vault_performance_chart(session: SessionDep):
         vault_df = pps_history_df[pps_history_df["vault_id"] == vault.id].copy()
 
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-            if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
-                vault_df["apy"] = np.where(
-                    vault_df["projected_apy"].notna()
-                    & ~vault_df["projected_apy"].isnull(),
-                    vault_df["projected_apy"],
-                    vault_df["apy_1m"],
-                )
-            else:
-                vault_df["apy"] = vault_df["apy_1m"]
 
-            # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-            #     vault_df = vault_df[["date", "apy"]].copy()
+            vault_df["apy"] = vault_df["apy_1m"]
 
-            #     # Resample to daily frequency
-            #     vault_df["date"] = pd.to_datetime(vault_df["date"])
-            #     vault_df.set_index("date", inplace=True)
-            #     vault_df = vault_df.resample("D").mean()
-            #     vault_df.ffill(inplace=True)
+        # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+        #     vault_df = vault_df[["date", "apy"]].copy()
 
-            #     # Ensure enough data for plotting and calculate a 7-day rolling average
-            #     if len(vault_df) >= 7 * 2:
-            #         vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
+        #     # Resample to daily frequency
+        #     vault_df["date"] = pd.to_datetime(vault_df["date"])
+        #     vault_df.set_index("date", inplace=True)
+        #     vault_df = vault_df.resample("D").mean()
+        #     vault_df.ffill(inplace=True)
+
+        #     # Ensure enough data for plotting and calculate a 7-day rolling average
+        #     if len(vault_df) >= 7 * 2:
+        #         vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
 
         elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
             vault_df["apy"] = vault_df["apy_ytd"]
         else:
-            if vault.slug == constants.PENDLE_VAULT_VAULT_SLUG_DEC:
-                vault_df["apy"] = np.where(
-                    vault_df["projected_apy"].notna()
-                    & ~vault_df["projected_apy"].isnull(),
-                    vault_df["projected_apy"],
-                    vault_df["apy_1m"],
-                )
-
-            else:
-                vault_df["apy"] = vault_df["apy_1m"]
+            vault_df["apy"] = vault_df["apy_1m"]
 
         if "vault_id" not in vault_df.columns:
             vault_df["vault_id"] = vault.id
