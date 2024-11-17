@@ -136,7 +136,13 @@ async def get_all_vaults(
     network_chain: NetworkChain = Query(None),
     tags: Optional[List[str]] = Query(None),
 ):
-    statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
+    statement = select(Vault).where(
+        and_(
+            Vault.is_active == True,
+            ~Vault.tags.contains('ended')
+        )
+    ).order_by(Vault.order)
+    
     conditions = []
     if category:
         conditions.append(Vault.category == category)
