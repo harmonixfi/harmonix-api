@@ -136,12 +136,7 @@ async def get_all_vaults(
     network_chain: NetworkChain = Query(None),
     tags: Optional[List[str]] = Query(None),
 ):
-    statement = select(Vault).where(
-        and_(
-            Vault.is_active == True,
-            ~Vault.tags.contains('ended')
-        )
-    ).order_by(Vault.order)
+    statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
     
     conditions = []
     if category:
@@ -154,6 +149,9 @@ async def get_all_vaults(
         # Adjust the filter for tags stored as a serialized string
         tags_conditions = [Vault.tags.contains(tag) for tag in tags]
         conditions.append(or_(*tags_conditions))
+    else:
+        conditions.append(~Vault.tags.contains('ended'))
+
     if conditions:
         statement = statement.where(and_(*conditions))
 
