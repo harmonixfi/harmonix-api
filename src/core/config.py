@@ -187,9 +187,13 @@ class Settings(BaseSettings):
     LIDO_API_URL: Optional[str] = "https://eth-api.lido.fi"
     CAMELOT_EXCHANGE_API_URL: Optional[str] = "https://api.camelot.exchange"
 
+    AEVO_API_URL: Optional[str] = "https://api.aevo.xyz"
     GOLD_LINK_API_URL: Optional[str] = "https://api.goldlink.io"
     GOLD_LINK_NETWORK_ID_MAINNET: Optional[str] = (
         "0xB4E29A1A0E6F9DB584447E988CE15D48A1381311"
+    )
+    GOLD_LINK_ETH_NETWORK_ID_MAINNET: Optional[str] = (
+        "0x7f1fa204bb700853d36994da19f830b6ad18455c"
     )
     GOLDLINK_REWARD_CONTRACT_ADDRESS: str = "0xa9BE190b8348F18466dC84cC2DE69C04673c5aca"
 
