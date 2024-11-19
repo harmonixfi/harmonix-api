@@ -1,30 +1,19 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 import logging
-from typing import List, Optional
-import uuid
+from typing import List
 
 import pandas as pd
-from sqlalchemy import func
 from sqlmodel import Session, select
-from web3 import Web3
-from web3.contract import Contract
 
+from bg_tasks.fetch_funding_history import CSV_PATH
 from core.abi_reader import read_abi
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core import constants
-from models.point_distribution_history import PointDistributionHistory
-from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
-from models.vault_reward_history import VaultRewardHistory
-from models.vaults import VaultMetadata
-
-
-from schemas.funding_history_entry import FundingHistoryEntry
 from services import lido_service, pendle_service, renzo_service
-from services.gold_link_service import get_current_rewards_earned
-from services.market_data import get_price
+
 from services.vault_performance_history_service import VaultPerformanceHistoryService
 
 # Initialize logger
@@ -39,15 +28,41 @@ LST_YEILD = 0.036 / 365
 RENZO_AEVO_VALUE: float = 6.5 / 365
 
 
+def get_daily_funding_rate_df(file_path: str):
+    df = pd.read_csv(file_path)
+
+    # Convert 'datetime' to UTC and normalize to the start of the day
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+
+    # Handle invalid or missing datetime values
+    if df["datetime"].isna().any():
+        raise ValueError("Invalid datetime format detected in the 'datetime' column")
+
+    # Ensure all datetimes are in UTC
+    if df["datetime"].dt.tz is None:
+        df["datetime"] = df["datetime"].dt.tz_localize("UTC")
+    else:
+        df["datetime"] = df["datetime"].dt.tz_convert("UTC")
+
+    # Normalize to the start of the day
+    df["date"] = df["datetime"].dt.floor("D")
+
+    # Group by 'date' and calculate the average funding rate
+    daily_avg = df.groupby("date")["funding_rate"].mean().reset_index()
+
+    # Rename column to make it more descriptive
+    daily_avg.rename(columns={"funding_rate": "average_funding_rate"}, inplace=True)
+    return daily_avg
+
+
 def get_funding_history(
-    funding_histories: List[FundingHistoryEntry], datetime_str: str
+    funding_histories_avg_df: pd.DataFrame, target_datetime: datetime
 ) -> float:
-    target_datetime = datetime.fromisoformat(datetime_str)
-
-    for entry in funding_histories:
-        if entry.datetime == target_datetime:
-            return entry.funding_rate
-
+    filtered_row = funding_histories_avg_df.loc[
+        funding_histories_avg_df["date"] == target_datetime
+    ]
+    if not filtered_row.empty:
+        return filtered_row.iloc[0]["average_funding_rate"]
     return 0
 
 
@@ -59,13 +74,7 @@ def get_vault_performance(vault_id) -> List[VaultPerformance]:
     ).all()
 
 
-def convert_datetime_from_df(daily_df: pd.DataFrame, index: int):
-    return datetime.strptime(daily_df.iloc[index]["datetime"], "%Y-%m-%d").replace(
-        tzinfo=timezone.utc
-    )
-
-
-def get_tvl_from_df(daily_df: pd.DataFrame, index: int) -> float:
+def get_tvl_from_prev_date(daily_df: pd.DataFrame, index: int) -> float:
     return float(daily_df.iloc[index]["total_locked_value"])
 
 
@@ -80,31 +89,31 @@ def convert_to_dataframe(vault_performance: List[VaultPerformance]):
         ]
     )
     df["datetime"] = pd.to_datetime(df["datetime"])
+    if df["datetime"].dt.tz is None:
+        df["datetime"] = df["datetime"].dt.tz_localize("UTC")
+    else:
+        df["datetime"] = df["datetime"].dt.tz_convert("UTC")
+
+    df["datetime"] = df["datetime"].dt.floor("D")
     df.set_index("datetime", inplace=True)
+
     daily_df = df.resample("D").first()
     daily_df.ffill(inplace=True)
     daily_df.reset_index(inplace=True)
-    daily_df["datetime"] = daily_df["datetime"].dt.strftime("%Y-%m-%d")
+
+    # Do not convert datetime to string here
     return daily_df
 
 
-def parse_to_funding_history(df: pd.DataFrame) -> List[FundingHistoryEntry]:
-    return [
-        FundingHistoryEntry(
-            datetime=row["datetime"], funding_rate=row["funding_history"]
-        )
-        for _, row in df.iterrows()
-    ]
-
-
 def fetch_vaults():
+    # Ignore vault Koi & Chill with Kelp DAO with slug 'ethereum-kelpdao-restaking-delta-neutral-vault'
     return session.exec(
         select(Vault).where(Vault.id != "ce16363b-57c5-4d64-9cf2-6e66b489baf0")
     ).all()
 
 
 def process_vault(vault: Vault, service: VaultPerformanceHistoryService):
-    if vault.slug == constants.KEYDAO_VAULT_ARBITRUM_SLUG:
+    if vault.slug == constants.KELPDAO_VAULT_ARBITRUM_SLUG:
         process_kelpdao_arbtrum_vault(vault, service)
     elif vault.slug in {
         constants.KELPDAO_VAULT_SLUG,
@@ -131,81 +140,75 @@ def process_kelpdao_arbtrum_vault(
     vault: Vault, service: VaultPerformanceHistoryService
 ):
     logger.info("Start process_kelpdao_arbtrum_vault")
-    funding_histories, funding_histories_aevo = load_funding_histories()
+    hyperliquid_funding_history_df = get_daily_funding_rate_df(CSV_PATH["HYPERLIQUID"])
+    aevo_funding_history_df = get_daily_funding_rate_df(CSV_PATH["AEVO"])
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
 
+        # From date: November 11, 2024 switched to Hyperliquid
         date_move_vault = datetime(2024, 11, 11, tzinfo=timezone.utc)
-        funding_history = get_funding_history(
-            funding_histories_aevo, daily_df.iloc[i]["datetime"]
+        funding_history = (
+            get_funding_history(hyperliquid_funding_history_df, date)
+            if date >= date_move_vault
+            else get_funding_history(aevo_funding_history_df, date)
         )
-        if dt >= date_move_vault:
-            funding_history = get_funding_history(
-                funding_histories, daily_df.iloc[i]["datetime"]
-            )
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
-        AE_USD_value = AE_USD * ALLOCATION_RATIO * total_locked_value
-        LST_YEILD_value = LST_YEILD * ALLOCATION_RATIO * total_locked_value
-        yield_data = funding_value + AE_USD_value + LST_YEILD_value
+
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        ae_usd_value = AE_USD * ALLOCATION_RATIO * prev_tvl
+        lst_yield_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
+        yield_data = funding_value + ae_usd_value + lst_yield_value
 
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
     logger.info("Done process_kelpdao_arbtrum_vault")
 
 
 def process_kelpdao_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_kelpdao_vault")
-    funding_histories = parse_to_funding_history(
-        pd.read_csv("./data/funding_history_aevo.csv")
-    )
+    aevo_funding_history_df = get_daily_funding_rate_df(CSV_PATH["AEVO"])
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
-        funding_history = get_funding_history(
-            funding_histories, daily_df.iloc[i]["datetime"]
-        )
 
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
-        AE_USD_value = AE_USD * ALLOCATION_RATIO * total_locked_value
-        LST_YEILD_value = LST_YEILD * ALLOCATION_RATIO * total_locked_value
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
+        funding_history = get_funding_history(aevo_funding_history_df, date)
+
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        AE_USD_value = AE_USD * ALLOCATION_RATIO * prev_tvl
+        LST_YEILD_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + AE_USD_value + LST_YEILD_value
 
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
     logger.info("Done process_kelpdao_vault")
 
 
 def process_bsx_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_bsx_vault")
-    funding_histories = parse_to_funding_history(
-        pd.read_csv("./data/funding_history_bsx.csv")
-    )
+    bsx_funding_historiy_df = get_daily_funding_rate_df(CSV_PATH["BSX"])
     wst_eth_value = lido_service.get_apy()
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
-        funding_history = get_funding_history(
-            funding_histories, daily_df.iloc[i]["datetime"]
-        )
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
+        funding_history = get_funding_history(bsx_funding_historiy_df, date)
 
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
-        wst_eth_value_adjusted = wst_eth_value * ALLOCATION_RATIO * total_locked_value
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        wst_eth_value_adjusted = wst_eth_value * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + wst_eth_value_adjusted
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
 
     logger.info("Done process_bsx_vault")
@@ -217,24 +220,20 @@ def process_pendle_vault(vault: Vault, service: VaultPerformanceHistoryService):
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
     fixed_value = pendle_data[0].implied_apy if pendle_data else 0
-    funding_histories = parse_to_funding_history(
-        pd.read_csv("./data/funding_history_hyperliquid.csv")
-    )
+    hyperliquid_funding_history_df = get_daily_funding_rate_df(CSV_PATH["HYPERLIQUID"])
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
-        funding_history = get_funding_history(
-            funding_histories, daily_df.iloc[i]["datetime"]
-        )
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
-        fixed_value_data = fixed_value * total_locked_value * ALLOCATION_RATIO
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
+        funding_history = get_funding_history(hyperliquid_funding_history_df, date)
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        fixed_value_data = fixed_value * prev_tvl * ALLOCATION_RATIO
         yield_data = funding_value + fixed_value_data
 
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
 
     logger.info("Done process_pendle_vault")
@@ -243,60 +242,48 @@ def process_pendle_vault(vault: Vault, service: VaultPerformanceHistoryService):
 def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_renzo_vault")
 
-    funding_histories = parse_to_funding_history(
-        pd.read_csv("./data/funding_history_aevo.csv")
-    )
+    aevo_funding_history_df = get_daily_funding_rate_df(CSV_PATH["AEVO"])
     ez_eth_data = renzo_service.get_apy()
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
-        funding_history = get_funding_history(
-            funding_histories, daily_df.iloc[i]["datetime"]
-        )
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
-        ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * total_locked_value
-        ez_eth_value = ez_eth_data * ALLOCATION_RATIO * total_locked_value
+
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
+        funding_history = get_funding_history(aevo_funding_history_df, date)
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
+        ez_eth_value = ez_eth_data * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + ae_usd_value + ez_eth_value
 
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
     logger.info("Done process_renzo_vault")
 
 
 def process_goldlink_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_goldlink_vault")
-    funding_histories = parse_to_funding_history(
-        pd.read_csv("./data/funding_history_goldlink.csv")
-    )
+    goldlink_funding_history_df = get_daily_funding_rate_df(CSV_PATH["GOLDLINK"])
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
-        dt = convert_datetime_from_df(daily_df, i)
-        total_locked_value = get_tvl_from_df(daily_df, i - 1)
-        funding_history = get_funding_history(
-            funding_histories, daily_df.iloc[i]["datetime"]
-        )
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * total_locked_value
+
+        date = row["datetime"]
+        prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
+        funding_history = get_funding_history(goldlink_funding_history_df, date)
+        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
         yield_data = funding_value
 
         insert_vault_performance_history(
-            yield_data=yield_data, vault=vault, datetime=dt, service=service
+            yield_data=yield_data, vault=vault, datetime=date, service=service
         )
 
     logger.info("Done process_goldlink_vault")
-
-
-def load_funding_histories():
-    hyperliquid_df = pd.read_csv("./data/funding_history_hyperliquid.csv")
-    aevo_df = pd.read_csv("./data/funding_history_aevo.csv")
-    return parse_to_funding_history(hyperliquid_df), parse_to_funding_history(aevo_df)
 
 
 def get_vault_dataframe(vault: Vault):
@@ -324,7 +311,7 @@ def insert_vault_performance_history(
 # Main Execution
 def main():
     try:
-        logger.info("Start calculating APY breakdown daily for vaults...")
+        logger.info("Start calculating yield of all vaults...")
         vaults = fetch_vaults()
         service = VaultPerformanceHistoryService(session=session)
 
@@ -338,7 +325,9 @@ def main():
                 )
     except Exception as e:
         logger.error(
-            "An error occurred during APY breakdown calculation: %s", e, exc_info=True
+            "An error occurred during yield calculation for vaults: %s",
+            e,
+            exc_info=True,
         )
 
 

@@ -1,8 +1,9 @@
 import logging
 from datetime import datetime, timezone
+from typing import List
 from sqlmodel import Session
 
-from bg_tasks.fetch_funding_history import calculate_average_funding_rate
+
 from bg_tasks.update_yield_vault_performance_init import (
     AE_USD,
     ALLOCATION_RATIO,
@@ -15,8 +16,8 @@ from core.db import engine
 from core import constants
 from sqlmodel import Session, select
 
-from models.vault_performance import VaultPerformance
 from models.vaults import Vault
+from schemas.funding_history_entry import FundingHistoryEntry
 from services import (
     aevo_service,
     bsx_service,
@@ -36,19 +37,25 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
+def calculate_average_funding_rate(funding_histories: List[FundingHistoryEntry]):
+    funding_rates = [entry.funding_rate for entry in funding_histories]
+    average_rate = sum(funding_rates) / len(funding_rates) if funding_rates else 0
+    return average_rate
+
+
 def process_vault(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
     handlers = {
-        constants.KELPDAO_VAULT_SLUG: process_vault_to_aevo,
-        constants.KELPDAO_GAIN_VAULT_SLUG: process_vault_to_aevo,
-        constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG: process_vault_to_aevo,
-        constants.KEYDAO_VAULT_ARBITRUM_SLUG: process_vault_to_aevo,
-        constants.BSX_VAULT_SLUG: process_vault_to_bsx,
-        constants.PENDLE_VAULT_VAULT_SLUG: process_pendle_vault,
-        constants.PENDLE_VAULT_VAULT_SLUG_DEC: process_pendle_vault,
-        constants.RENZO_VAULT_SLUG: process_renzo_vault,
-        constants.GOLD_LINK_SLUG: process_goldlink_vault,
+        constants.KELPDAO_VAULT_SLUG: handle_vault_funding_with_aevo,
+        constants.KELPDAO_GAIN_VAULT_SLUG: handle_vault_funding_with_aevo,
+        constants.DELTA_NEUTRAL_VAULT_VAULT_SLUG: handle_vault_funding_with_aevo,
+        constants.KELPDAO_VAULT_ARBITRUM_SLUG: handle_vault_funding_with_aevo,
+        constants.BSX_VAULT_SLUG: handle_bsx_vault,
+        constants.PENDLE_VAULT_VAULT_SLUG: handle_pendle_vault,
+        constants.PENDLE_VAULT_VAULT_SLUG_DEC: handle_pendle_vault,
+        constants.RENZO_VAULT_SLUG: handle_renzo_vault,
+        constants.GOLD_LINK_SLUG: handle_goldlink_vault,
     }
 
     handler = handlers.get(vault.slug)
@@ -58,50 +65,40 @@ def process_vault(
         logger.warning(f"Vault {vault.name} not supported")
 
 
-def get_vault_performance(
+def get_prev_tvl(vault: Vault, service: VaultPerformanceHistoryService):
+    vault_performance = service.get_last_vault_performance(vault.id)
+    if not vault_performance:
+        error_message = f"No vault performance history found for vault {vault.name} (id: {vault.id})"
+        logger.error(error_message)
+        raise ValueError(error_message)
+    return float(vault_performance.total_locked_value)
+
+
+def handle_goldlink_vault(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    vault_performances = service.get_last_vault_performance(vault.id)
-    if not vault_performances:
-        logger.error(
-            f"No vault performance history found for vault {vault.name} (id: {vault.id}) at {current_time}"
-        )
-        return None
-    return float(vault_performances.total_locked_value)
-
-
-def calculate_yield_data(
-    funding_history, allocation_ratio, total_locked_value, additional_values=None
-):
-    additional_values = additional_values or []
-    funding_value = funding_history * allocation_ratio * 24 * total_locked_value
-    return funding_value + sum(additional_values)
-
-
-def process_goldlink_vault(
-    vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
-):
-    total_locked_value = get_vault_performance(vault, service, current_time)
-    if total_locked_value is None:
-        return
+    logger.info(f"Processing Goldlink vault: {vault.name}")
+    prev_tvl = get_prev_tvl(vault, service)
 
     funding_histories = gold_link_service.get_funding_history()
+    # The funding rate of Goldlink is paid every 8 hours and is annualized
     funding_history = calculate_average_funding_rate(funding_histories)
-    yield_data = calculate_yield_data(
-        funding_history, ALLOCATION_RATIO, total_locked_value
-    )
+    funding_history_avg = funding_history / (8 * 365)
+    funding_value = funding_history * 24 * prev_tvl
+    yield_data = funding_value
+
+    logger.info(f"Goldlink vault {vault.name} - Yield data calculated: {yield_data}")
 
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
     )
 
 
-def process_renzo_vault(
+def handle_renzo_vault(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    total_locked_value = get_vault_performance(vault, service, current_time)
-    if total_locked_value is None:
-        return
+    logger.info(f"Processing Renzo vault: {vault.name}")
+    prev_tvl = get_prev_tvl(vault, service)
 
     funding_histories = aevo_service.get_funding_history(
         start_time=convert_to_nanoseconds(current_time),
@@ -111,30 +108,27 @@ def process_renzo_vault(
     )
     funding_history = calculate_average_funding_rate(funding_histories)
     ez_eth_data = renzo_service.get_apy()
-    additional_values = [
-        RENZO_AEVO_VALUE * ALLOCATION_RATIO * total_locked_value,
-        ez_eth_data * ALLOCATION_RATIO * total_locked_value,
-    ]
-    yield_data = calculate_yield_data(
-        funding_history, ALLOCATION_RATIO, total_locked_value, additional_values
-    )
+
+    funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+    ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
+    ez_eth_value = ez_eth_data * ALLOCATION_RATIO * prev_tvl
+    yield_data = funding_value + ae_usd_value + ez_eth_value
+
+    logger.info(f"Renzo vault {vault.name} - Yield data calculated: {yield_data}")
 
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
     )
 
 
-def process_pendle_vault(
+def handle_pendle_vault(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    total_locked_value = get_vault_performance(vault, service, current_time)
-    if total_locked_value is None:
-        return
+    logger.info(f"Processing Pendle vault: {vault.name}")
+    prev_tvl = get_prev_tvl(vault, service)
 
     funding_histories = hyperliquid_service.get_funding_history(
-        start_time=datetime_to_unix_ms(
-            current_time.replace(hour=0, minute=0, second=0)
-        ),
+        start_time=datetime_to_unix_ms(current_time),
         end_time=datetime_to_unix_ms(
             current_time.replace(hour=23, minute=59, second=59)
         ),
@@ -143,23 +137,24 @@ def process_pendle_vault(
     pendle_data = pendle_service.get_market(
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
-    fixed_value = pendle_data[0].implied_apy if pendle_data else 0
-    additional_values = [fixed_value * total_locked_value * ALLOCATION_RATIO]
-    yield_data = calculate_yield_data(
-        funding_history, ALLOCATION_RATIO, total_locked_value, additional_values
-    )
+    implied_apy = pendle_data[0].implied_apy if pendle_data else 0
+
+    funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+    fixed_value = implied_apy * prev_tvl * ALLOCATION_RATIO
+    yield_data = funding_value + fixed_value
+
+    logger.info(f"Pendle vault {vault.name} - Yield data calculated: {yield_data}")
 
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
     )
 
 
-def process_vault_to_bsx(
+def handle_bsx_vault(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    total_locked_value = get_vault_performance(vault, service, current_time)
-    if total_locked_value is None:
-        return
+    logger.info(f"Processing BSX vault: {vault.name}")
+    prev_tvl = get_prev_tvl(vault, service)
 
     funding_histories = bsx_service.get_funding_history(
         start_time=convert_to_nanoseconds(current_time),
@@ -169,37 +164,40 @@ def process_vault_to_bsx(
     )
     funding_history = calculate_average_funding_rate(funding_histories)
     wst_eth_value = lido_service.get_apy()
-    additional_values = [wst_eth_value * ALLOCATION_RATIO * total_locked_value]
-    yield_data = calculate_yield_data(
-        funding_history, ALLOCATION_RATIO, total_locked_value, additional_values
-    )
+
+    funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+    wst_eth_value_adjusted = wst_eth_value * ALLOCATION_RATIO * prev_tvl
+    yield_data = funding_value + wst_eth_value_adjusted
+
+    logger.info(f"BSX vault {vault.name} - Yield data calculated: {yield_data}")
 
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
     )
 
 
-def process_vault_to_aevo(
+def handle_vault_funding_with_aevo(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    total_locked_value = get_vault_performance(vault, service, current_time)
-    if total_locked_value is None:
-        return
+    logger.info(f"Processing vault funding with AEVO: {vault.name}")
+    prev_tvl = get_prev_tvl(vault, service, current_time)
 
     funding_histories = aevo_service.get_funding_history(
-        start_time=convert_to_nanoseconds(current_time),
+        start_time=convert_to_nanoseconds(
+            current_time.replace(hour=0, minute=0, second=0)
+        ),
         end_time=convert_to_nanoseconds(
             current_time.replace(hour=23, minute=59, second=59)
         ),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
-    additional_values = [
-        AE_USD * ALLOCATION_RATIO * total_locked_value,
-        LST_YEILD * ALLOCATION_RATIO * total_locked_value,
-    ]
-    yield_data = calculate_yield_data(
-        funding_history, ALLOCATION_RATIO, total_locked_value, additional_values
-    )
+
+    funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+    ae_usd_value = AE_USD * ALLOCATION_RATIO * prev_tvl
+    lst_yield_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
+    yield_data = funding_value + ae_usd_value + lst_yield_value
+
+    logger.info(f"AEVO vault {vault.name} - Yield data calculated: {yield_data}")
 
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
@@ -207,13 +205,15 @@ def process_vault_to_aevo(
 
 
 def daily_yield_calculation():
-    logger.info("Starting calculate day...")
+    logger.info("Starting daily yield calculation...")
 
     service = VaultPerformanceHistoryService(session)
     vaults = service.get_active_vaults()
     try:
         service = VaultPerformanceHistoryService(session=session)
-        datetimeNow = datetime.now(tz=timezone.utc)
+        datetimeNow = datetime.now(tz=timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
         for vault in vaults:
             try:
                 process_vault(vault, service, datetimeNow)
@@ -224,7 +224,7 @@ def daily_yield_calculation():
                 )
     except Exception as e:
         logger.error(
-            "An error occurred during APY breakdown calculation: %s", e, exc_info=True
+            "An error occurred during daily yield calculation: %s", e, exc_info=True
         )
 
 

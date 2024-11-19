@@ -165,21 +165,12 @@ def get_funding_history(decimals=1e30) -> List[FundingHistoryEntry]:
         data = response.json()
 
         funding_history = data.get("result", [])
-
-        # Group funding rates by date
-        grouped_data = defaultdict(list)
-        for entry in funding_history:
-            date = entry["ts"].split("T")[0]  # Extract the date part (YYYY-MM-DD)
-            # funding_rate	Integer	The yearly funding for the market with 1e30 being 100%.
-            funding_rate = int(entry["funding_rate"]) / decimals  # Scale funding rate
-            grouped_data[date].append(funding_rate)
-
-        # Calculate the average funding rate for each date
         return [
             FundingHistoryEntry(
-                datetime=date, funding_rate=(sum(rates) / len(rates)) / (8 * 365)
+                datetime=entry["ts"],
+                funding_rate=float(entry["funding_rate"]) / decimals,
             )
-            for date, rates in grouped_data.items()
+            for entry in funding_history
         ]
     except requests.exceptions.RequestException as e:
         print(f"Error fetching funding history: {e}")

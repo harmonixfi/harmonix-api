@@ -109,7 +109,7 @@ def main():
                 current_apy = _get_vault_apy(vault)
                 if vault.slug in [
                     constants.KEYDAO_VAULT_SLUG,
-                    constants.KEYDAO_VAULT_ARBITRUM_SLUG,
+                    constants.KELPDAO_VAULT_ARBITRUM_SLUG,
                 ]:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
 
