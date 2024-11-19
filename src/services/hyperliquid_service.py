@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 import json
 import math
+import time
 from typing import List
 import requests
 from core.config import settings
@@ -54,6 +55,7 @@ def get_funding_history(
         response.raise_for_status()
         data = response.json()
 
+        time.sleep(0.3)
         if isinstance(data, list):
             return [
                 FundingHistoryEntry(
