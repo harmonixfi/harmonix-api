@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timezone
 from sqlmodel import Session
 
+from bg_tasks.fetch_funding_history import calculate_average_funding_rate
 from bg_tasks.update_yield_vault_performance_init import (
     AE_USD,
     ALLOCATION_RATIO,
@@ -60,13 +61,13 @@ def process_vault(
 def get_vault_performance(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
-    vault_performances = service.get_vault_performances(vault.id, current_time)
+    vault_performances = service.get_last_vault_performance(vault.id)
     if not vault_performances:
         logger.error(
             f"No vault performance history found for vault {vault.name} (id: {vault.id}) at {current_time}"
         )
         return None
-    return float(vault_performances[0].total_locked_value)
+    return float(vault_performances.total_locked_value)
 
 
 def calculate_yield_data(
@@ -84,7 +85,8 @@ def process_goldlink_vault(
     if total_locked_value is None:
         return
 
-    funding_history = 7
+    funding_histories = gold_link_service.get_funding_history()
+    funding_history = calculate_average_funding_rate(funding_histories)
     yield_data = calculate_yield_data(
         funding_history, ALLOCATION_RATIO, total_locked_value
     )
@@ -101,12 +103,13 @@ def process_renzo_vault(
     if total_locked_value is None:
         return
 
-    funding_history = aevo_service.get_funding_history(
+    funding_histories = aevo_service.get_funding_history(
         start_time=convert_to_nanoseconds(current_time),
         end_time=convert_to_nanoseconds(
             current_time.replace(hour=23, minute=59, second=59)
         ),
     )
+    funding_history = calculate_average_funding_rate(funding_histories)
     ez_eth_data = renzo_service.get_apy()
     additional_values = [
         RENZO_AEVO_VALUE * ALLOCATION_RATIO * total_locked_value,
@@ -128,12 +131,15 @@ def process_pendle_vault(
     if total_locked_value is None:
         return
 
-    funding_history = hyperliquid_service.get_funding_history(
-        start_time=datetime_to_unix_ms(current_time),
+    funding_histories = hyperliquid_service.get_funding_history(
+        start_time=datetime_to_unix_ms(
+            current_time.replace(hour=0, minute=0, second=0)
+        ),
         end_time=datetime_to_unix_ms(
             current_time.replace(hour=23, minute=59, second=59)
         ),
     )
+    funding_history = calculate_average_funding_rate(funding_histories)
     pendle_data = pendle_service.get_market(
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
@@ -155,12 +161,13 @@ def process_vault_to_bsx(
     if total_locked_value is None:
         return
 
-    funding_history = bsx_service.get_funding_history(
+    funding_histories = bsx_service.get_funding_history(
         start_time=convert_to_nanoseconds(current_time),
         end_time=convert_to_nanoseconds(
             current_time.replace(hour=23, minute=59, second=59)
         ),
     )
+    funding_history = calculate_average_funding_rate(funding_histories)
     wst_eth_value = lido_service.get_apy()
     additional_values = [wst_eth_value * ALLOCATION_RATIO * total_locked_value]
     yield_data = calculate_yield_data(
@@ -179,12 +186,13 @@ def process_vault_to_aevo(
     if total_locked_value is None:
         return
 
-    funding_history = aevo_service.get_funding_history(
+    funding_histories = aevo_service.get_funding_history(
         start_time=convert_to_nanoseconds(current_time),
         end_time=convert_to_nanoseconds(
             current_time.replace(hour=23, minute=59, second=59)
         ),
     )
+    funding_history = calculate_average_funding_rate(funding_histories)
     additional_values = [
         AE_USD * ALLOCATION_RATIO * total_locked_value,
         LST_YEILD * ALLOCATION_RATIO * total_locked_value,
