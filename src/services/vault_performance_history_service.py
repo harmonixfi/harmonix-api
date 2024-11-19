@@ -29,6 +29,13 @@ class VaultPerformanceHistoryService:
         result = self.session.exec(select(Vault).where(Vault.is_active)).all()
         return result
 
+    def get_last_vault_performance(self, vault_id: uuid.UUID) -> VaultPerformance:
+        return self.session.exec(
+            select(VaultPerformance)
+            .where(VaultPerformance.vault_id == vault_id)
+            .order_by(VaultPerformance.datetime.desc())
+        ).first()
+
     def get_vault_performances(self, vault_id: uuid.UUID, date: datetime):
         date_query = date.date()
         return self.session.exec(
