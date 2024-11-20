@@ -1,6 +1,7 @@
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List
+import pandas as pd
 from sqlmodel import Session
 
 
@@ -35,6 +36,33 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 session = Session(engine)
+
+
+def calculate_average_funding_rate_goldlink_vault(
+    funding_histories: List[FundingHistoryEntry], target_date: datetime
+):
+    df = pd.DataFrame([fh.__dict__ for fh in funding_histories])
+
+    # Convert 'datetime' to UTC and normalize to the start of the day
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+
+    # Handle invalid or missing datetime values
+    if df["datetime"].isna().any():
+        raise ValueError("Invalid datetime format detected in the 'datetime' column")
+
+    # Ensure all datetimes are in UTC
+    if df["datetime"].dt.tz is None:
+        df["datetime"] = df["datetime"].dt.tz_localize("UTC")
+    else:
+        df["datetime"] = df["datetime"].dt.tz_convert("UTC")
+
+    # Filter data for the specific date
+    filtered_df = df[df["datetime"].dt.date == target_date.date()]
+
+    # Calculate the average funding rate
+    average_rate = filtered_df["funding_rate"].mean() if not filtered_df.empty else 0
+
+    return average_rate
 
 
 def calculate_average_funding_rate(funding_histories: List[FundingHistoryEntry]):
@@ -80,11 +108,14 @@ def handle_goldlink_vault(
     logger.info(f"Processing Goldlink vault: {vault.name}")
     prev_tvl = get_prev_tvl(vault, service)
 
+    prev_date = current_time + timedelta(days=-1)
     funding_histories = gold_link_service.get_funding_history()
     # The funding rate of Goldlink is paid every 8 hours and is annualized
-    funding_history = calculate_average_funding_rate(funding_histories)
-    funding_history_avg = funding_history / (8 * 365)
-    funding_value = funding_history * 24 * prev_tvl
+    funding_history = calculate_average_funding_rate_goldlink_vault(
+        funding_histories, prev_date
+    )
+    funding_history_avg = funding_history / 365
+    funding_value = funding_history_avg * 24 * prev_tvl
     yield_data = funding_value
 
     logger.info(f"Goldlink vault {vault.name} - Yield data calculated: {yield_data}")
@@ -100,18 +131,19 @@ def handle_renzo_vault(
     logger.info(f"Processing Renzo vault: {vault.name}")
     prev_tvl = get_prev_tvl(vault, service)
 
+    prev_date = current_time + timedelta(days=-1)
     funding_histories = aevo_service.get_funding_history(
-        start_time=convert_to_nanoseconds(current_time),
+        start_time=convert_to_nanoseconds(prev_date),
         end_time=convert_to_nanoseconds(
-            current_time.replace(hour=23, minute=59, second=59)
+            prev_date.replace(hour=23, minute=59, second=59)
         ),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
-    ez_eth_data = renzo_service.get_apy()
+    renzo_apy = renzo_service.get_apy()
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
     ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
-    ez_eth_value = ez_eth_data * ALLOCATION_RATIO * prev_tvl
+    ez_eth_value = renzo_apy * ALLOCATION_RATIO * prev_tvl
     yield_data = funding_value + ae_usd_value + ez_eth_value
 
     logger.info(f"Renzo vault {vault.name} - Yield data calculated: {yield_data}")
@@ -127,11 +159,10 @@ def handle_pendle_vault(
     logger.info(f"Processing Pendle vault: {vault.name}")
     prev_tvl = get_prev_tvl(vault, service)
 
+    prev_date = current_time + timedelta(days=-1)
     funding_histories = hyperliquid_service.get_funding_history(
-        start_time=datetime_to_unix_ms(current_time),
-        end_time=datetime_to_unix_ms(
-            current_time.replace(hour=23, minute=59, second=59)
-        ),
+        start_time=datetime_to_unix_ms(prev_date),
+        end_time=datetime_to_unix_ms(prev_date.replace(hour=23, minute=59, second=59)),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
     pendle_data = pendle_service.get_market(
@@ -156,17 +187,18 @@ def handle_bsx_vault(
     logger.info(f"Processing BSX vault: {vault.name}")
     prev_tvl = get_prev_tvl(vault, service)
 
+    prev_date = current_time + timedelta(days=-1)
     funding_histories = bsx_service.get_funding_history(
-        start_time=convert_to_nanoseconds(current_time),
+        start_time=convert_to_nanoseconds(prev_date),
         end_time=convert_to_nanoseconds(
-            current_time.replace(hour=23, minute=59, second=59)
+            prev_date.replace(hour=23, minute=59, second=59)
         ),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
-    wst_eth_value = lido_service.get_apy()
+    apy = lido_service.get_apy()
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
-    wst_eth_value_adjusted = wst_eth_value * ALLOCATION_RATIO * prev_tvl
+    wst_eth_value_adjusted = apy * ALLOCATION_RATIO * prev_tvl
     yield_data = funding_value + wst_eth_value_adjusted
 
     logger.info(f"BSX vault {vault.name} - Yield data calculated: {yield_data}")
@@ -180,14 +212,13 @@ def handle_vault_funding_with_aevo(
     vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
 ):
     logger.info(f"Processing vault funding with AEVO: {vault.name}")
-    prev_tvl = get_prev_tvl(vault, service, current_time)
+    prev_tvl = get_prev_tvl(vault, service)
 
+    prev_date = current_time + timedelta(days=-1)
     funding_histories = aevo_service.get_funding_history(
-        start_time=convert_to_nanoseconds(
-            current_time.replace(hour=0, minute=0, second=0)
-        ),
+        start_time=convert_to_nanoseconds(prev_date),
         end_time=convert_to_nanoseconds(
-            current_time.replace(hour=23, minute=59, second=59)
+            prev_date.replace(hour=23, minute=59, second=59)
         ),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
