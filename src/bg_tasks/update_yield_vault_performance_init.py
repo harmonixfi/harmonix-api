@@ -25,7 +25,7 @@ session = Session(engine)
 ALLOCATION_RATIO: float = 1 / 2
 AE_USD = 0.08 / 365
 LST_YEILD = 0.036 / 365
-RENZO_AEVO_VALUE: float = 6.5 / 365
+RENZO_AEVO_VALUE: float = 0.065 / 365
 
 
 def get_daily_funding_rate_df(file_path: str):
