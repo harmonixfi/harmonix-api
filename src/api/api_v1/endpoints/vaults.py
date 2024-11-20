@@ -108,27 +108,6 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     return earned_points
 
 
-def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
-    if vault.slug != constants.GOLD_LINK_SLUG:
-        return []
-
-    earned_rewards = []
-    rewards_service = VaultRewardsService(session)
-    rewards_dist_hist = rewards_service.get_vault_earned_reward_by_partner(
-        vault.id,
-    )
-
-    earned_rewards.append(
-        schemas.EarnedRewards(
-            name="arb_rewards",
-            rewards=rewards_dist_hist.total_reward,
-            created_at=rewards_dist_hist.created_at,
-        )
-    )
-
-    return earned_rewards
-
-
 @router.get("/", response_model=List[schemas.GroupSchema])
 async def get_all_vaults(
     session: SessionDep,
@@ -157,9 +136,6 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault, session=session)
         schema_vault.points = get_earned_points(session, vault)
-
-        if vault.slug == constants.GOLD_LINK_SLUG:
-            schema_vault.rewards = get_earned_rewards(session, vault)
 
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
@@ -237,7 +213,6 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault, session=session)
     schema_vault.points = get_earned_points(session, vault)
-    schema_vault.rewards = get_earned_rewards(session, vault)
 
     # Check if the vault is part of a group
     if vault.vault_group:
