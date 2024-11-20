@@ -139,7 +139,7 @@ def handle_renzo_vault(
         ),
     )
     funding_history = calculate_average_funding_rate(funding_histories)
-    renzo_apy = renzo_service.get_apy()
+    renzo_apy = renzo_service.get_apy() / 100
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
     ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
