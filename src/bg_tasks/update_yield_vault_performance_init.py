@@ -45,10 +45,15 @@ def get_daily_funding_rate_df(file_path: str):
         df["datetime"] = df["datetime"].dt.tz_convert("UTC")
 
     # Resample to daily frequency and calculate mean funding rate
-    daily_avg = df.set_index("datetime").resample("D")["funding_rate"].mean().reset_index()
+    daily_avg = (
+        df.set_index("datetime").resample("D")["funding_rate"].mean().reset_index()
+    )
 
     # Rename column to make it more descriptive
-    daily_avg.rename(columns={"funding_rate": "average_funding_rate"}, inplace=True)
+    daily_avg.rename(
+        columns={"datetime": "date", "funding_rate": "average_funding_rate"},
+        inplace=True,
+    )
     return daily_avg
 
 
@@ -192,7 +197,8 @@ def process_kelpdao_vault(vault: Vault, service: VaultPerformanceHistoryService)
 def process_bsx_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_bsx_vault")
     bsx_funding_historiy_df = get_daily_funding_rate_df(CSV_PATH["BSX"])
-    wst_eth_value = lido_service.get_apy()
+
+    apy = lido_service.get_apy()
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
@@ -202,7 +208,7 @@ def process_bsx_vault(vault: Vault, service: VaultPerformanceHistoryService):
         funding_history = get_funding_history(bsx_funding_historiy_df, date)
 
         funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
-        wst_eth_value_adjusted = wst_eth_value * ALLOCATION_RATIO * prev_tvl
+        wst_eth_value_adjusted = apy * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + wst_eth_value_adjusted
         insert_vault_performance_history(
             yield_data=yield_data, vault=vault, datetime=date, service=service
@@ -273,7 +279,9 @@ def process_goldlink_vault(vault: Vault, service: VaultPerformanceHistoryService
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
         funding_history = get_funding_history(goldlink_funding_history_df, date)
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        # The funding rate of Goldlink is paid every 8 hours and is annualized
+        funding_history_avg = float(funding_history) / 365
+        funding_value = funding_history_avg * ALLOCATION_RATIO * 24 * prev_tvl
         yield_data = funding_value
 
         insert_vault_performance_history(
