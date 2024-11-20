@@ -314,8 +314,6 @@ def main():
                     arb_price = get_price("ARBUSDT")
                     if rewards_earned >= 0:
                         rewards_value = rewards_value * arb_price
-
-                    bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         rewards_value, vault.tvl
