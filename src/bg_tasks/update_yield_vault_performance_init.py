@@ -44,11 +44,8 @@ def get_daily_funding_rate_df(file_path: str):
     else:
         df["datetime"] = df["datetime"].dt.tz_convert("UTC")
 
-    # Normalize to the start of the day
-    df["date"] = df["datetime"].dt.floor("D")
-
-    # Group by 'date' and calculate the average funding rate
-    daily_avg = df.groupby("date")["funding_rate"].mean().reset_index()
+    # Resample to daily frequency and calculate mean funding rate
+    daily_avg = df.set_index("datetime").resample("D")["funding_rate"].mean().reset_index()
 
     # Rename column to make it more descriptive
     daily_avg.rename(columns={"funding_rate": "average_funding_rate"}, inplace=True)
