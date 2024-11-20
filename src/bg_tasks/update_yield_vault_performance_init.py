@@ -198,7 +198,7 @@ def process_bsx_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_bsx_vault")
     bsx_funding_historiy_df = get_daily_funding_rate_df(CSV_PATH["BSX"])
 
-    apy = lido_service.get_apy()
+    apy = lido_service.get_apy() / 365
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
@@ -223,6 +223,7 @@ def process_pendle_vault(vault: Vault, service: VaultPerformanceHistoryService):
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
     fixed_value = pendle_data[0].implied_apy if pendle_data else 0
+    fixed_value = fixed_value / 365
     hyperliquid_funding_history_df = get_daily_funding_rate_df(CSV_PATH["HYPERLIQUID"])
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
@@ -247,6 +248,7 @@ def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
 
     aevo_funding_history_df = get_daily_funding_rate_df(CSV_PATH["AEVO"])
     apy = renzo_service.get_apy() / 100
+    apy = apy / 365
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():

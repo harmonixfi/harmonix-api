@@ -140,6 +140,7 @@ def handle_renzo_vault(
     )
     funding_history = calculate_average_funding_rate(funding_histories)
     renzo_apy = renzo_service.get_apy() / 100
+    renzo_apy = renzo_apy / 365
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
     ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
@@ -169,6 +170,7 @@ def handle_pendle_vault(
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
     implied_apy = pendle_data[0].implied_apy if pendle_data else 0
+    implied_apy = implied_apy / 365
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
     fixed_value = implied_apy * prev_tvl * ALLOCATION_RATIO
@@ -196,6 +198,7 @@ def handle_bsx_vault(
     )
     funding_history = calculate_average_funding_rate(funding_histories)
     apy = lido_service.get_apy()
+    apy = apy / 365
 
     funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
     wst_eth_value_adjusted = apy * ALLOCATION_RATIO * prev_tvl
