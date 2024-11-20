@@ -1,8 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import json
 from typing import List, Optional
 import uuid
 
+import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import bindparam, text
@@ -25,9 +26,8 @@ from services.vault_rewards_service import VaultRewardsService
 router = APIRouter()
 
 
-def _update_vault_apy(vault: Vault) -> schemas.Vault:
+def _update_vault_apy(vault: Vault, session: Session) -> schemas.Vault:
     schema_vault = schemas.Vault.model_validate(vault)
-
     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         schema_vault.apy = vault.ytd_apy
     else:
@@ -108,27 +108,6 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     return earned_points
 
 
-def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
-    if vault.slug != constants.GOLD_LINK_SLUG:
-        return []
-
-    earned_rewards = []
-    rewards_service = VaultRewardsService(session)
-    rewards_dist_hist = rewards_service.get_vault_earned_reward_by_partner(
-        vault.id,
-    )
-
-    earned_rewards.append(
-        schemas.EarnedRewards(
-            name="arb_rewards",
-            rewards=rewards_dist_hist.total_reward,
-            created_at=rewards_dist_hist.created_at,
-        )
-    )
-
-    return earned_rewards
-
-
 @router.get("/", response_model=List[schemas.GroupSchema])
 async def get_all_vaults(
     session: SessionDep,
@@ -159,11 +138,8 @@ async def get_all_vaults(
     grouped_vaults = {}
     for vault in vaults:
         group_id = vault.group_id or vault.id
-        schema_vault = _update_vault_apy(vault)
+        schema_vault = _update_vault_apy(vault, session=session)
         schema_vault.points = get_earned_points(session, vault)
-
-        if vault.slug == constants.GOLD_LINK_SLUG:
-            schema_vault.rewards = get_earned_rewards(session, vault)
 
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
@@ -239,9 +215,8 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
             detail="The data not found in the database.",
         )
 
-    schema_vault = _update_vault_apy(vault)
+    schema_vault = _update_vault_apy(vault, session=session)
     schema_vault.points = get_earned_points(session, vault)
-    schema_vault.rewards = get_earned_rewards(session, vault)
 
     # Check if the vault is part of a group
     if vault.vault_group:
@@ -297,20 +272,20 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_1m"]
 
-        # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-        #     pps_history_df = pps_history_df[["date", "apy"]].copy()
+    # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+    #     pps_history_df = pps_history_df[["date", "apy"]].copy()
 
-        #     # resample pps_history_df to daily frequency
-        #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-        #     pps_history_df.set_index("date", inplace=True)
-        #     pps_history_df = pps_history_df.resample("D").mean()
-        #     pps_history_df.ffill(inplace=True)
+    #     # resample pps_history_df to daily frequency
+    #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    #     pps_history_df.set_index("date", inplace=True)
+    #     pps_history_df = pps_history_df.resample("D").mean()
+    #     pps_history_df.ffill(inplace=True)
 
-        #     if (
-        #         len(pps_history_df) >= 7 * 2
-        #     ):  # we will make sure the normalized series enough to plot
-        #         # calculate ma 7 days pps_history_df['apy']
-        #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
+    #     if (
+    #         len(pps_history_df) >= 7 * 2
+    #     ):  # we will make sure the normalized series enough to plot
+    #         # calculate ma 7 days pps_history_df['apy']
+    #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
 
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df["apy_ytd"]
@@ -319,6 +294,9 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
+    # Filter for the last month
+    one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.fillna(0, inplace=True)
 
@@ -351,20 +329,21 @@ async def get_vault_performance_chart(session: SessionDep):
         vault_df = pps_history_df[pps_history_df["vault_id"] == vault.id].copy()
 
         if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+
             vault_df["apy"] = vault_df["apy_1m"]
 
-            # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-            #     vault_df = vault_df[["date", "apy"]].copy()
+        # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
+        #     vault_df = vault_df[["date", "apy"]].copy()
 
-            #     # Resample to daily frequency
-            #     vault_df["date"] = pd.to_datetime(vault_df["date"])
-            #     vault_df.set_index("date", inplace=True)
-            #     vault_df = vault_df.resample("D").mean()
-            #     vault_df.ffill(inplace=True)
+        #     # Resample to daily frequency
+        #     vault_df["date"] = pd.to_datetime(vault_df["date"])
+        #     vault_df.set_index("date", inplace=True)
+        #     vault_df = vault_df.resample("D").mean()
+        #     vault_df.ffill(inplace=True)
 
-            #     # Ensure enough data for plotting and calculate a 7-day rolling average
-            #     if len(vault_df) >= 7 * 2:
-            #         vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
+        #     # Ensure enough data for plotting and calculate a 7-day rolling average
+        #     if len(vault_df) >= 7 * 2:
+        #         vault_df["apy"] = vault_df["apy"].rolling(window=7).mean()
 
         elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
             vault_df["apy"] = vault_df["apy_ytd"]
@@ -376,6 +355,9 @@ async def get_vault_performance_chart(session: SessionDep):
 
         # Convert date column to string format
         vault_df.reset_index(inplace=True)
+        # Filter for the last month
+        one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
+        vault_df = vault_df[vault_df["date"] >= one_month_ago]
         vault_df["date"] = vault_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
         vault_df.fillna(0, inplace=True)
         result_df.append(vault_df)
