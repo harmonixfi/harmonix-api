@@ -246,7 +246,7 @@ def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_renzo_vault")
 
     aevo_funding_history_df = get_daily_funding_rate_df(CSV_PATH["AEVO"])
-    ez_eth_data = renzo_service.get_apy()
+    apy = renzo_service.get_apy() / 100
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():
@@ -258,7 +258,7 @@ def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
         funding_history = get_funding_history(aevo_funding_history_df, date)
         funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
         ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
-        ez_eth_value = ez_eth_data * ALLOCATION_RATIO * prev_tvl
+        ez_eth_value = apy * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + ae_usd_value + ez_eth_value
 
         insert_vault_performance_history(
