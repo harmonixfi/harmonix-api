@@ -22,15 +22,21 @@ from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
+from models.apy_component import APYComponent
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
+from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
+from services.hyperliquid_service import (
+    get_avg_8h_funding_rate,
+)
 from services.market_data import get_price
 from services.vault_rewards_service import VaultRewardsService
+from utils.vault_utils import calculate_projected_apy
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger
@@ -222,9 +228,6 @@ def calculate_performance(
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
-
-    if vault.slug == constants.GOLD_LINK_SLUG:
-        monthly_apy += float(0.2)
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(

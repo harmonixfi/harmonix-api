@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import logging
+from typing import Optional
 import uuid
 
 from sqlalchemy import func
@@ -90,6 +91,13 @@ def calculate_annualized_pnl(weekly_pnl_percentage: float, weeks_in_year: int):
     return pow((weekly_pnl_percentage + 1), weeks_in_year) - 1
 
 
+def _get_vault_apy(vault: Vault) -> float:
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+        return vault.ytd_apy
+
+    return vault.monthly_apy
+
+
 # Main Execution
 def main():
     try:
@@ -98,14 +106,10 @@ def main():
 
         for vault in vaults:
             try:
-                current_apy = (
-                    vault.ytd_apy
-                    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY
-                    else vault.monthly_apy
-                )
+                current_apy = _get_vault_apy(vault)
                 if vault.slug in [
                     constants.KEYDAO_VAULT_SLUG,
-                    constants.KEYDAO_VAULT_ARBITRUM_SLUG,
+                    constants.KELPDAO_VAULT_ARBITRUM_SLUG,
                 ]:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
 
@@ -281,37 +285,35 @@ def main():
                     kelpdao_component_service.save()
 
                 elif vault.slug == constants.GOLD_LINK_SLUG:
-                    # rewards_hist = session.exec(
-                    #     select(VaultRewardHistory)
-                    #     .where(VaultRewardHistory.vault_id == vault.id)
-                    #     .order_by(VaultRewardHistory.datetime.desc())
-                    # ).first()
+                    rewards_hist = session.exec(
+                        select(VaultRewardHistory)
+                        .where(VaultRewardHistory.vault_id == vault.id)
+                        .order_by(VaultRewardHistory.datetime.desc())
+                    ).first()
 
-                    # vault_metadata = session.exec(
-                    #     select(VaultMetadata).where(VaultMetadata.vault_id == vault.id)
-                    # ).first()
+                    vault_metadata = session.exec(
+                        select(VaultMetadata).where(VaultMetadata.vault_id == vault.id)
+                    ).first()
 
-                    # if vault_metadata is None:
-                    #     logger.error(
-                    #         "Breakdown- No vault metadata found for vault %s. Skipping.",
-                    #         vault.id,
-                    #     )  # Log error if None
-                    #     continue
+                    if vault_metadata is None:
+                        logger.error(
+                            "Breakdown- No vault metadata found for vault %s. Skipping.",
+                            vault.id,
+                        )  # Log error if None
+                        continue
 
-                    # rewards_earned = get_current_rewards_earned(
-                    #     vault, vault_metadata.goldlink_trading_account
-                    # )
-                    # if rewards_hist:
-                    #     rewards_earned = rewards_earned - float(
-                    #         rewards_hist.earned_rewards
-                    #     )
+                    rewards_earned = get_current_rewards_earned(
+                        vault, vault_metadata.goldlink_trading_account
+                    )
+                    if rewards_hist:
+                        rewards_earned = rewards_earned - float(
+                            rewards_hist.earned_rewards
+                        )
 
-                    # arb_price = get_price("ARBUSDT")
-                    rewards_value = float(0.2)
-                    # if rewards_earned >= 0:
-                    #     rewards_value = rewards_value * arb_price
+                    arb_price = get_price("ARBUSDT")
+                    if rewards_earned >= 0:
+                        rewards_value = rewards_value * arb_price
 
-                    # bsx_point_value = float(102) * BSX_POINT_VAULE
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
                         rewards_value, vault.tvl

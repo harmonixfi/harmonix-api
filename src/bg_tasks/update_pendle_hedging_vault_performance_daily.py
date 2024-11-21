@@ -22,15 +22,21 @@ from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
+from models.apy_component import APYComponent
 from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
+from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState, VaultStatePendle
 from services import pendle_service
 from services.bsx_service import get_points_earned
+from services.hyperliquid_service import (
+    get_avg_8h_funding_rate,
+)
 from services.market_data import get_price
+from utils.vault_utils import calculate_projected_apy
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
 
 # # Initialize logger

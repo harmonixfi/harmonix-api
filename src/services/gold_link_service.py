@@ -1,3 +1,6 @@
+from collections import defaultdict
+from datetime import datetime
+from typing import List
 import uuid
 import requests
 from sqlmodel import Session, select
@@ -7,7 +10,9 @@ from core.abi_reader import read_abi
 from core.config import settings
 from models.vault_rewards import VaultRewards
 from models.vaults import Vault
+from schemas.funding_history_entry import FundingHistoryEntry
 from schemas.gold_link_account_holdings import GoldLinkAccountHoldings
+from utils.vault_utils import nanoseconds_to_datetime
 
 url = settings.GOLD_LINK_API_URL
 
@@ -147,3 +152,26 @@ def get_current_rewards_earned(
         )
     except Exception:
         return 0.0
+
+
+def get_funding_history(decimals=1e30) -> List[FundingHistoryEntry]:
+    headers = {"accept": "application/json"}
+    params = f'["{settings.GOLD_LINK_ETH_NETWORK_ID_MAINNET}",20]'
+    api_url = f"{url}/?method=goldlink/getGmxHistoricFundingRate&params={params}"
+
+    try:
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+        funding_history = data.get("result", [])
+        return [
+            FundingHistoryEntry(
+                datetime=entry["ts"],
+                funding_rate=float(entry["funding_rate"]) / decimals,
+            )
+            for entry in funding_history
+        ]
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching funding history: {e}")
+        return []

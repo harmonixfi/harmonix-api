@@ -3,6 +3,8 @@ from typing import Any, List
 import requests
 from core.config import settings
 from schemas.bsx_point import BSXPoint
+from schemas.funding_history_entry import FundingHistoryEntry
+from utils.vault_utils import nanoseconds_to_datetime
 
 api_key = settings.BSX_API_KEY
 secret = settings.BSX_SECRET
@@ -95,3 +97,40 @@ def claim_point(start_at: str, end_at: str):
 
     except Exception as e:
         raise Exception(f"Error occurred while claiming BSX points: {str(e)}")
+
+
+def get_funding_history(
+    product_id: str = "ETH-PERP",
+    start_time: int = 0,
+    end_time: int = None,
+    limit: int = 24,
+) -> List[FundingHistoryEntry]:
+    params = {
+        "from": start_time,
+        "to": end_time,
+        "limit": limit,
+    }
+    headers = {"accept": "application/json"}
+
+    try:
+        api_url = f"{bsx_base_url}/products/{product_id}/funding-rate"
+        response = requests.get(f"{api_url}", headers=headers, params=params)
+        response.raise_for_status()  # Raise HTTPError for bad responses
+        data = response.json()
+
+        funding_history = data.get("items", [])
+        if funding_history:
+            # Map the raw funding history to FundingHistoryEntry instances
+            return [
+                FundingHistoryEntry(
+                    datetime=nanoseconds_to_datetime(int(entry["time"])),
+                    funding_rate=float(entry["rate"]),
+                )
+                for entry in funding_history
+            ]
+
+        return []
+
+    except requests.RequestException as e:
+        print(f"Error BSX fetching funding history: {e}")
+        return []

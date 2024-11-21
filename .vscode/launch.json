@@ -356,6 +356,14 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+         {
+            "name": "Python: update_yield_vault_performance_init",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_yield_vault_performance_init",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
         {
             "name": "fix_user_position_from_onchain",
             "type": "debugpy",
