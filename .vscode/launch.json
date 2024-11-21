@@ -372,5 +372,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+        {
+            "name": "scan_initiated_withdrawals",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.scan_initiated_withdrawals",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

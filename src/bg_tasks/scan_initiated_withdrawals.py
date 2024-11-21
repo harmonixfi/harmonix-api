@@ -2,6 +2,7 @@ import asyncio
 from datetime import datetime, timedelta, timezone
 import logging
 from typing import List
+from sqlalchemy import text
 from sqlmodel import Session, col, select
 from core import constants
 from core.db import engine
@@ -31,7 +32,7 @@ class InitiatedWithdrawalWatcherJob:
         self.session = session
 
         utc_now = datetime.now(timezone.utc)
-        self.start_date = utc_now + timedelta(hours=-8)
+        self.start_date = utc_now - timedelta(days=30)
         self.end_date = utc_now
         self.start_date_timestamp = int(self.start_date.timestamp())
         self.end_date_timestamp = int(self.end_date.timestamp())
@@ -48,33 +49,92 @@ class InitiatedWithdrawalWatcherJob:
             service = VaultContractService()
             result = []
 
+            # Get all historical vault addresses
+            all_vault_addresses = []
             for vault in vaults:
-                contract_address = [
-                    address.lower()
-                    for address in service.get_vault_address_historical(vault)
-                ]
-                init_withdraw_query = (
-                    select(OnchainTransactionHistory)
-                    .where(
-                        OnchainTransactionHistory.method_id.in_(
-                            [
-                                constants.MethodID.WITHDRAW.value,
-                            ]
-                        )
-                    )
-                    .where(OnchainTransactionHistory.to_address.in_(contract_address))
-                    .where(
-                        OnchainTransactionHistory.timestamp <= self.end_date_timestamp
-                    )
-                    .where(
-                        OnchainTransactionHistory.timestamp >= self.start_date_timestamp
+                all_vault_addresses.extend(
+                    [
+                        addr.lower()
+                        for addr in service.get_vault_address_historical(vault)
+                    ]
+                )
+
+            # Complex query to get latest initiated withdrawals without completions
+            query = text(
+                """
+                WITH latest_initiated_withdrawals AS (
+                    SELECT 
+                        id,
+                        from_address,
+                        to_address,
+                        tx_hash,
+                        timestamp,
+                        input,
+                        block_number,
+                        ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
+                    FROM public.onchain_transaction_history
+                    WHERE method_id = :withdraw_method_id
+                    AND to_address = ANY(:vault_addresses)
+                    AND timestamp >= :start_ts
+                    AND timestamp <= :end_ts
+                ),
+                has_later_completion AS (
+                    SELECT DISTINCT 
+                        i.from_address,
+                        i.tx_hash
+                    FROM latest_initiated_withdrawals i
+                    WHERE i.rn = 1
+                    AND EXISTS (
+                        SELECT 1
+                        FROM public.onchain_transaction_history c
+                        WHERE c.from_address = i.from_address
+                        AND c.method_id = :complete_method_id
+                        AND c.timestamp > i.timestamp
                     )
                 )
-                init_withdraws = self.session.exec(init_withdraw_query).all()
-                for item in init_withdraws:
-                    try:
+                SELECT *
+                FROM latest_initiated_withdrawals i
+                WHERE i.rn = 1
+                AND NOT EXISTS (
+                    SELECT 1 
+                    FROM has_later_completion h 
+                    WHERE h.from_address = i.from_address
+                );
+            """
+            )
+
+            # Execute raw SQL query with parameters
+            init_withdraws = self.session.execute(
+                query,
+                {
+                    "withdraw_method_id": constants.MethodID.WITHDRAW.value,
+                    "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+                    "vault_addresses": all_vault_addresses,
+                    "start_ts": self.start_date_timestamp,
+                    "end_ts": self.end_date_timestamp,
+                },
+            ).all()
+
+            # Process results and calculate additional fields
+            for item in init_withdraws:
+                try:
+                    # Find matching vault for this address
+                    matching_vault = next(
+                        (
+                            v
+                            for v in vaults
+                            if item.to_address.lower()
+                            in [
+                                addr.lower()
+                                for addr in service.get_vault_address_historical(v)
+                            ]
+                        ),
+                        None,
+                    )
+
+                    if matching_vault:
                         amount = service.get_withdraw_amount(
-                            vault,
+                            matching_vault,
                             Web3.to_checksum_address(item.to_address),
                             item.input,
                             item.block_number,
@@ -85,20 +145,21 @@ class InitiatedWithdrawalWatcherJob:
                         result.append(
                             schemas.OnchainTransactionHistory(
                                 id=item.id,
-                                method_id=item.method_id,
+                                method_id=constants.MethodID.WITHDRAW.value,
                                 timestamp=item.timestamp,
                                 input=item.input,
                                 tx_hash=item.tx_hash,
                                 datetime=date,
                                 amount=amount,
                                 age=age,
+                                vault_address=item.to_address,
                             )
                         )
-                    except Exception as inner_e:
-                        logger.error(
-                            f"Error processing scan withdrawal for vault {vault}, item {item.id}: {inner_e}",
-                            exc_info=True,
-                        )
+                except Exception as inner_e:
+                    logger.error(
+                        f"Error processing withdrawal item {item.id}: {inner_e}",
+                        exc_info=True,
+                    )
                     continue
 
             return result
@@ -113,7 +174,8 @@ class InitiatedWithdrawalWatcherJob:
         fields = [
             (
                 withdrawal.tx_hash,
-                withdrawal.datetime.strftime("%H:%M:%S"),
+                withdrawal.vault_address,  # Added vault_address
+                withdrawal.datetime.strftime("%Y-%m-%d %H:%M:%S"),
                 str(withdrawal.amount),
                 str(withdrawal.age),
             )

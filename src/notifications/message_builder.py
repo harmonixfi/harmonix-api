@@ -76,29 +76,44 @@ def build_error_message(
     return message
 
 
-def build_transaction_message(fields: List[Tuple[str, str]]) -> str:
-    # Start with the HTML preformatted block
+def build_transaction_message(fields: List[Tuple[str, str, str, str, str]]) -> str:
     total_requests = len(fields)
-
-    # Start the message with the header and total request count
+    
+    # Start the message
     message = "<pre>\n"
-    message += f"Initiated  Withdrawal Requests:\n\n"
-    message += f"Total request: {total_requests}\n"
+    message += f"Initiated Withdrawal Requests:\n"
+    message += f"Total request: {total_requests}\n\n"
     message += f"Transactions:\n"
-
-    # Add table header with new columns
-    message += "| tx_hash                                                            | date       | amount  | age    |\n"
-    message += "|--------------------------------------------------------------------|------------|---------|--------|\n"
-
-    # Add table rows
+    
+    # Track vault totals for summary
+    vault_totals = {}
+    
+    # Add transaction details
     for field in fields:
-        message += (
-            f"| {field[0]:<61} | {field[1]:<10} | {field[2]:<7} | {field[3]:<6} |\n"
-        )
-
-    # Close the HTML preformatted block
+        tx_hash, vault_address, date, amount, age = field
+        message += "----------------------\n"
+        message += f"tx_hash: {tx_hash}\n"
+        message += f"vault_address: {vault_address}\n"
+        message += f"date: {date}\n"
+        message += f"amount: {amount}\n"
+        message += f"age: {age}\n"
+        
+        # Accumulate totals for each vault
+        try:
+            amount_float = float(amount)
+            vault_totals[vault_address] = vault_totals.get(vault_address, 0) + amount_float
+        except ValueError:
+            pass
+    
+    # Add summary section
+    message += "\nSummary:\n"
+    message += "-------\n"
+    for vault_address, total_amount in vault_totals.items():
+        message += f"Vault address: {vault_address}\n"
+        message += f"Amount: {total_amount:.4f}\n"
+        message += "-------\n"
+    
     message += "</pre>"
-
     return message
 
 
