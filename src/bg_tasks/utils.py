@@ -83,3 +83,8 @@ def calculate_pps_statistics(session, vault_id):
     returns = df["pct_change"].values.flatten()
     risk_factor = calculate_risk_factor(returns)
     return all_time_high_per_share, sortino, downside, risk_factor
+
+
+def get_pps_by_blocknumber(vault_contract, block_number: int) -> float:
+    pps = vault_contract.functions.pricePerShare().call(block_identifier=block_number)
+    return pps / 1e6

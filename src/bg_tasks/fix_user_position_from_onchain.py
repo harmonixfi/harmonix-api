@@ -21,6 +21,7 @@ from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
 
+from bg_tasks.utils import get_pps_by_blocknumber
 from core import constants
 from core.abi_reader import read_abi
 from core.db import engine
@@ -74,7 +75,7 @@ def get_pps(vault_contract: Contract) -> int:
     return pps
 
 
-def get_recent_deposits_query(subquery):
+def get_recent_deposits_query(timestamp_threshold: int):
     return (
         select(OnchainTransactionHistory)
         .where(
@@ -83,14 +84,11 @@ def get_recent_deposits_query(subquery):
                     constants.MethodID.DEPOSIT2.value,
                     constants.MethodID.DEPOSIT.value,
                     constants.MethodID.DEPOSIT3.value,
+                    constants.MethodID.DEPOSIT4.value,
                 ]
             )
         )
-        .join(
-            subquery,
-            (OnchainTransactionHistory.from_address == subquery.c.from_address)
-            & (OnchainTransactionHistory.timestamp == subquery.c.max_timestamp),
-        )
+        .where(OnchainTransactionHistory.timestamp >= timestamp_threshold)
     )
 
 
@@ -123,6 +121,12 @@ def get_user_portfolio_data(vault_contract, user_address):
 def update_or_create_user_portfolio(
     vault: Vault, deposit: OnchainTransactionHistory, vault_contract
 ):
+    logger.info(
+        "Starting update_or_create_user_portfolio for user %s, vault %s",
+        deposit.from_address,
+        vault.id,
+    )
+
     user_portfolio = session.exec(
         select(UserPortfolio).where(
             (func.lower(UserPortfolio.user_address) == func.lower(deposit.from_address))
@@ -136,6 +140,19 @@ def update_or_create_user_portfolio(
     )
 
     if user_portfolio is None:
+        logger.info(
+            "Creating new user portfolio for user %s, vault %s with init_deposit=%s, total_shares=%s, total_balance=%s, pending_withdrawal=%s",
+            deposit.from_address,
+            vault.id,
+            init_deposit,
+            total_shares,
+            total_balance,
+            pending_withdrawal,
+        )
+
+        entry_price = get_pps_by_blocknumber(
+            vault_contract, block_number=deposit.block_number
+        )
         user_portfolio = UserPortfolio(
             vault_id=vault.id,
             user_address=deposit.from_address,
@@ -145,8 +162,22 @@ def update_or_create_user_portfolio(
             pending_withdrawal=pending_withdrawal,
             trade_start_date=datetime.fromtimestamp(deposit.timestamp),
             status=PositionStatus.ACTIVE,
+            entry_price=entry_price,
         )
     else:
+        logger.info(
+            "Updating existing user portfolio for user %s, vault %s from init_deposit=%s to %s, total_shares=%s to %s, total_balance=%s to %s, pending_withdrawal=%s to %s",
+            deposit.from_address,
+            vault.id,
+            user_portfolio.init_deposit,
+            init_deposit,
+            user_portfolio.total_shares,
+            total_shares,
+            user_portfolio.total_balance,
+            total_balance,
+            user_portfolio.pending_withdrawal,
+            pending_withdrawal,
+        )
         user_portfolio.init_deposit = init_deposit
         user_portfolio.total_shares = total_shares
         user_portfolio.total_balance = total_balance
@@ -154,6 +185,12 @@ def update_or_create_user_portfolio(
 
     session.add(user_portfolio)
     session.commit()
+
+    logger.info(
+        "Completed update_or_create_user_portfolio for user %s, vault %s",
+        deposit.from_address,
+        vault.id,
+    )
 
 
 def fix_incorrect_user_portfolio():
@@ -184,6 +221,7 @@ def fix_incorrect_user_portfolio():
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
             if abi_name != "RockOnyxDeltaNeutralVault":
                 continue
+            
             vault_contract, _ = get_vault_contract(vault, abi_name)
             init_deposit, total_shares, total_balance, pending_withdrawal = (
                 get_user_portfolio_data(vault_contract, user.user_address)
@@ -212,18 +250,7 @@ def fix_user_position_from_onchain():
         (datetime.now(tz=timezone.utc) - timedelta(days=3)).timestamp()
     )
 
-    subquery = (
-        select(
-            OnchainTransactionHistory.from_address,
-            func.max(OnchainTransactionHistory.timestamp).label("max_timestamp"),
-        )
-        .where(OnchainTransactionHistory.timestamp >= three_days_ago_timestamp)
-        .group_by(OnchainTransactionHistory.from_address)
-        .subquery()
-    )
-
-    deposits_query = get_recent_deposits_query(subquery)
-    deposits = session.exec(deposits_query).all()
+    deposits = session.exec(get_recent_deposits_query(three_days_ago_timestamp)).all()
 
     logger.info("Starting to process fix_user_position_from_onchain...")
 
@@ -232,10 +259,7 @@ def fix_user_position_from_onchain():
             vault = fetch_vault(deposit, vault_contract_service)
 
             abi_name = vault_contract_service.get_vault_abi(vault=vault)
-            if (
-                abi_name != "RockOnyxDeltaNeutralVault"
-                or vault.id != "1679bfd4-48eb-4b77-bf27-c2dae0712f91"
-            ):
+            if vault.id == "1679bfd4-48eb-4b77-bf27-c2dae0712f91":  # bsx
                 continue
 
             vault_contract, _ = get_vault_contract(vault, abi_name)
@@ -252,8 +276,9 @@ def fix_user_position_from_onchain():
 
         except Exception as e:
             logger.error(
-                "Error processing fix_user_position_from_onchain for address %s: %s",
+                "Error processing fix_user_position_from_onchain for address %s, vault: %s; Error: %s",
                 deposit.from_address,
+                vault.name,
                 str(e),
                 exc_info=True,
             )
