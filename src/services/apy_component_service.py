@@ -207,7 +207,7 @@ class PendleApyComponentService(APYComponentService):
     def get_component_values(self) -> dict:
         return {
             APYComponent.FIXED_YIELD: self.fixed_value,
-            APYComponent.BSX_POINT: self.hyperliquid_point_value,
+            APYComponent.HL_POINT: self.hyperliquid_point_value,
             APYComponent.FUNDING_FEES: self.funding_fee_value,
         }
 

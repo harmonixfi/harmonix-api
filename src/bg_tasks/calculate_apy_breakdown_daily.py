@@ -102,7 +102,8 @@ def _get_vault_apy(vault: Vault) -> float:
 def main():
     try:
         logger.info("Start calculating APY breakdown daily for vaults...")
-        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        # vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        vaults = session.exec(select(Vault).where(Vault.id == '176a024b-74b9-4390-97c5-066748c088e4')).all()
 
         for vault in vaults:
             try:
@@ -253,7 +254,26 @@ def main():
                             pendle_data[0].implied_apy * 100 * ALLOCATION_RATIO
                         )
 
+                    # Get the latest point distribution for Hyperliquid
+                    point_dist = session.exec(
+                        select(PointDistributionHistory)
+                        .where(PointDistributionHistory.vault_id == vault.id)
+                        .where(PointDistributionHistory.partner_name == constants.HYPERLIQUID)
+                        .order_by(PointDistributionHistory.created_at.desc())
+                    ).first()
+
                     hyperliquid_point_value = 0
+                    hype_point_usd = 5
+                    if point_dist:
+                        # Calculate weekly PnL in percentage
+                        weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
+                            point_dist.point * hype_point_usd, vault.tvl
+                        )
+                        # Calculate annualized PnL
+                        hyperliquid_point_value = calculate_annualized_pnl(
+                            weekly_pnl_percentage, 12
+                        ) * 100
+
                     funding_fee_value = calculate_funding_fees(
                         current_apy, fixed_value, hyperliquid_point_value
                     )
