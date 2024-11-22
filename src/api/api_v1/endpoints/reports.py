@@ -110,7 +110,7 @@ def _generate_csv(results: list[dict]) -> io.StringIO:
 
 
 @router.post("/analyze_user_deposit_from_csv")
-async def upload_csv(
+async def analyze_user_deposit_from_csv(
     session: SessionDep,
     file: UploadFile = File(...),
     username: Optional[str] = Depends(authenticate),
