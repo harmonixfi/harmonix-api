@@ -71,6 +71,26 @@ class APYComponentService:
         self.session.add(component)
 
 
+class KelpDaoArbitrumApyComponentService(APYComponentService):
+    def __init__(
+        self,
+        vault_id: uuid.UUID,
+        current_apy: float,
+        rs_eth_value: float,
+        funding_fee_value: float,
+        session: Session,
+    ):
+        super().__init__(vault_id, current_apy, session)
+        self.rs_eth_value = rs_eth_value
+        self.funding_fee_value = funding_fee_value
+
+    def get_component_values(self) -> dict:
+        return {
+            APYComponent.RS_ETH: self.rs_eth_value,
+            APYComponent.FUNDING_FEES: self.funding_fee_value,
+        }
+
+
 class KelpDaoApyComponentService(APYComponentService):
     def __init__(
         self,

@@ -32,6 +32,7 @@ from services.apy_component_service import (
     DeltaNeutralApyComponentService,
     GoldLinkApyComponentService,
     KelpDaoApyComponentService,
+    KelpDaoArbitrumApyComponentService,
     OptionWheelApyComponentService,
     PendleApyComponentService,
     RenzoApyComponentService,
@@ -102,16 +103,25 @@ def _get_vault_apy(vault: Vault) -> float:
 def main():
     try:
         logger.info("Start calculating APY breakdown daily for vaults...")
-        # vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
-        vaults = session.exec(select(Vault).where(Vault.id == '176a024b-74b9-4390-97c5-066748c088e4')).all()
+        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
 
         for vault in vaults:
             try:
                 current_apy = _get_vault_apy(vault)
-                if vault.slug in [
-                    constants.KEYDAO_VAULT_SLUG,
-                    constants.KELPDAO_VAULT_ARBITRUM_SLUG,
-                ]:
+
+                if vault.slug == constants.KELPDAO_VAULT_ARBITRUM_SLUG:
+                    rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
+                    funding_fee_value = current_apy - rs_eth_value
+                    kelpdao_arb_component_service = KelpDaoArbitrumApyComponentService(
+                        vault.id,
+                        current_apy,
+                        rs_eth_value,
+                        float(funding_fee_value),
+                        session,
+                    )
+                    kelpdao_arb_component_service.save()
+
+                if vault.slug == constants.KELPDAO_VAULT_SLUG:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
 
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
@@ -258,7 +268,10 @@ def main():
                     point_dist = session.exec(
                         select(PointDistributionHistory)
                         .where(PointDistributionHistory.vault_id == vault.id)
-                        .where(PointDistributionHistory.partner_name == constants.HYPERLIQUID)
+                        .where(
+                            PointDistributionHistory.partner_name
+                            == constants.HYPERLIQUID
+                        )
                         .order_by(PointDistributionHistory.created_at.desc())
                     ).first()
 
@@ -270,9 +283,9 @@ def main():
                             point_dist.point * hype_point_usd, vault.tvl
                         )
                         # Calculate annualized PnL
-                        hyperliquid_point_value = calculate_annualized_pnl(
-                            weekly_pnl_percentage, 12
-                        ) * 100
+                        hyperliquid_point_value = (
+                            calculate_annualized_pnl(weekly_pnl_percentage, 12) * 100
+                        )
 
                     funding_fee_value = calculate_funding_fees(
                         current_apy, fixed_value, hyperliquid_point_value
@@ -332,7 +345,7 @@ def main():
 
                     arb_price = get_price("ARBUSDT")
                     if rewards_earned >= 0:
-                        rewards_value = rewards_value * arb_price
+                        rewards_value = rewards_earned * arb_price
 
                     # Calculate weekly PnL in percentage
                     weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
