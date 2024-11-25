@@ -197,8 +197,8 @@ class Settings(BaseSettings):
     )
     GOLDLINK_REWARD_CONTRACT_ADDRESS: str = "0xa9BE190b8348F18466dC84cC2DE69C04673c5aca"
 
-    BASIC_AUTH_USERNAME: Optional[str] = "Admin"
-    BASIC_AUTH_PASSWORD: Optional[str] = "NC6me9EVSI7cSl63LHy"
+    BASIC_AUTH_USERNAME: str
+    BASIC_AUTH_PASSWORD: str
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
