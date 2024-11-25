@@ -344,6 +344,7 @@ def main():
                         )
 
                     arb_price = get_price("ARBUSDT")
+                    rewards_value = 0
                     if rewards_earned >= 0:
                         rewards_value = rewards_earned * arb_price
 
