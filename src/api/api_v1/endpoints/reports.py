@@ -25,8 +25,15 @@ from utils.extension_utils import to_amount_pendle, to_tx_aumount
 router = APIRouter()
 
 
-def _get_deposits(session: Session, wallet_address: str):
-    return session.exec(
+def _get_deposits(
+    session: Session,
+    wallet_address: str,
+    start_date: datetime,
+    end_date: Optional[datetime] = None,
+):
+    start_timestamp = int(start_date.timestamp())
+    end_timestamp = int(end_date.timestamp()) if end_date else None
+    query = (
         select(OnchainTransactionHistory)
         .where(
             OnchainTransactionHistory.method_id.in_(
@@ -41,7 +48,13 @@ def _get_deposits(session: Session, wallet_address: str):
         .where(
             func.lower(OnchainTransactionHistory.from_address) == wallet_address.lower()
         )
-    ).all()
+        .where(OnchainTransactionHistory.timestamp >= start_timestamp)
+    )
+
+    if end_timestamp:
+        query = query.where(OnchainTransactionHistory.timestamp <= end_timestamp)
+
+    return session.exec(query).all()
 
 
 def _get_vault(session: Session, to_address: str):
@@ -73,12 +86,15 @@ def _calculate_total_deposit(session: Session, deposits):
 
 
 def _process_deposit_with_addresses(
-    session: Session, addresses: list[str]
+    session: Session,
+    addresses: list[str],
+    start_date: datetime,
+    end_date: Optional[datetime],
 ) -> list[dict]:
     results = []
 
     for wallet_address in addresses:
-        deposits = _get_deposits(session, wallet_address)
+        deposits = _get_deposits(session, wallet_address, start_date, end_date)
         if deposits:
             total_deposit = _calculate_total_deposit(session, deposits)
             results.append(
@@ -114,9 +130,33 @@ async def analyze_user_deposit_from_csv(
     session: SessionDep,
     file: UploadFile = File(...),
     username: Optional[str] = Depends(authenticate),
+    start_date: datetime = Query(
+        None,
+        description="The start date for analysis. Format: 2024-11-25T12:00:00+07:00. This field is required.",
+        example="2024-11-25T12:00:00+07:00",
+    ),
+    end_date: Optional[datetime] = Query(
+        None,
+        description=(
+            "The end date for analysis. Format: 2024-11-30T12:00:00+07:00. "
+            "This field is optional. If not provided, the analysis will include data up to the current time."
+        ),
+        example="2024-11-30T12:00:00+07:00",
+    ),
 ):
     if not username:
         raise HTTPException(status_code=401, detail="Authentication required")
+
+    if start_date.tzinfo is None:
+        raise ValueError("start_date must include timezone information")
+    elif start_date.tzinfo != timezone.utc:
+        start_date = start_date.astimezone(timezone.utc)
+
+    if end_date:
+        if end_date.tzinfo is None:
+            raise ValueError("end_date must include timezone information")
+        elif end_date.tzinfo != timezone.utc:
+            end_date = end_date.astimezone(timezone.utc)
 
     if not file.filename.endswith(".csv"):
         raise HTTPException(status_code=400, detail="File must be a CSV")
@@ -127,7 +167,9 @@ async def analyze_user_deposit_from_csv(
         addresses = df["address"].tolist()
 
         # Process addresses and calculate deposits
-        results = _process_deposit_with_addresses(session, addresses)
+        results = _process_deposit_with_addresses(
+            session, addresses, start_date, end_date
+        )
 
         # Generate CSV output
         csv_file = _generate_csv(results)
