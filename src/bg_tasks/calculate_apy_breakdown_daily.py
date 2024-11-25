@@ -121,7 +121,7 @@ def main():
                     )
                     kelpdao_arb_component_service.save()
 
-                if vault.slug == constants.KEYDAO_VAULT_SLUG:
+                if vault.slug == constants.KELPDAO_VAULT_SLUG:
                     rs_eth_value = kelpdao_service.get_apy() * ALLOCATION_RATIO
 
                     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
