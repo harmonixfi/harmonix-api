@@ -21,6 +21,7 @@ from models import Vault
 from services.vault_contract_service import VaultContractService
 from api.api_v1.deps import SessionDep
 from utils.extension_utils import to_amount_pendle, to_tx_aumount
+from utils.vault_utils import get_deposit_method_ids
 
 router = APIRouter()
 
@@ -33,18 +34,12 @@ def _get_deposits(
 ):
     start_timestamp = int(start_date.timestamp())
     end_timestamp = int(end_date.timestamp()) if end_date else None
+
+    deposit_method_ids = get_deposit_method_ids()
+
     query = (
         select(OnchainTransactionHistory)
-        .where(
-            OnchainTransactionHistory.method_id.in_(
-                [
-                    constants.MethodID.DEPOSIT2.value,
-                    constants.MethodID.DEPOSIT.value,
-                    constants.MethodID.DEPOSIT3.value,
-                    constants.MethodID.DEPOSIT4.value,
-                ]
-            )
-        )
+        .where(OnchainTransactionHistory.method_id.in_(deposit_method_ids))
         .where(
             func.lower(OnchainTransactionHistory.from_address) == wallet_address.lower()
         )
