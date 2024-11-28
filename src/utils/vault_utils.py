@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from core.constants import MethodID
+
 
 ALLOCATION_RATIO: float = 1 / 2
 
@@ -53,3 +55,11 @@ def unixtimestamp_to_datetime(unixtimestamp):
 def datetime_to_unix_ms(dt: datetime) -> int:
     # Convert datetime to Unix timestamp in milliseconds
     return int(dt.timestamp() * 1000)
+
+
+def get_deposit_method_ids():
+    key = "DEPOSIT"
+    filtered_items = [
+        status.value for status in MethodID if status.name.startswith(key)
+    ]
+    return filtered_items
