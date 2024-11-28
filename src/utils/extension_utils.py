@@ -22,6 +22,20 @@ def to_tx_aumount(input_data: str):
 
 
 @staticmethod
+def to_tx_aumount_goldlink(input_data: str):
+    input_data = input_data[10:].lower()
+    amount = input_data[64 : (64 + 64)]
+    tokenIn = input_data[0:64]
+    tokenIn = f"0x{tokenIn[24:]}"
+    amount = parse_hex_to_int(amount)
+    if tokenIn == constants.DAI_CONTRACT_ADDRESS:
+        deposit = amount / 1e18
+    else:
+        deposit = amount / 1e6
+    return float(deposit)
+
+
+@staticmethod
 def to_amount_pendle(input_data: str, block_number: int, network_chain: str):
     input_data = input_data[138:].lower()
     pt_amount = int(input_data[:64], 16) / 1e18
