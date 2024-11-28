@@ -20,7 +20,11 @@ from core import constants
 from models import Vault
 from services.vault_contract_service import VaultContractService
 from api.api_v1.deps import SessionDep
-from utils.extension_utils import to_amount_pendle, to_tx_aumount
+from utils.extension_utils import (
+    to_amount_pendle,
+    to_tx_aumount,
+    to_tx_aumount_goldlink,
+)
 from utils.vault_utils import get_deposit_method_ids
 
 router = APIRouter()
@@ -75,6 +79,8 @@ def _calculate_total_deposit(session: Session, deposits):
             total_deposit += to_amount_pendle(
                 deposit.input, deposit.block_number, vault.network_chain
             )
+        elif vault.slug == constants.GOLD_LINK_SLUG:
+            total_deposit += to_tx_aumount_goldlink(deposit.input)
         else:
             total_deposit += to_tx_aumount(deposit.input)
     return total_deposit
