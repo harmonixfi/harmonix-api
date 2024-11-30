@@ -165,14 +165,22 @@ async def get_portfolio_info(
         )
 
         position.pnl = position.total_balance - position.init_deposit
-
+        
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
+        # Ensure non-negative PNL and APY for first 10 days
+        if holding_period <= 10:
+            position.pnl = max(position.pnl, 0)
+        
         position.apy = calculate_roi(
             position.total_balance,
             position.init_deposit,
             days=holding_period if holding_period > 0 else 1,
         )
         position.apy *= 100
+        
+        # Ensure non-negative APY for first 10 days
+        if holding_period <= 10:
+            position.apy = max(position.apy, 0)
 
         if vault.slug == constants.SOLV_VAULT_SLUG:
             btc_price = get_price("BTCUSDT")
