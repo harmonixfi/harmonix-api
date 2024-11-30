@@ -124,15 +124,18 @@ async def get_points(session: SessionDep, wallet_address: str):
             .where(UserPoints.partner_name == constants.HARMONIX)
             .where(UserPoints.wallet_address == wallet_address)
         )
-        user_points = session.exec(statement).first()
+        user_points = session.exec(statement).all()
+        total_user_points = sum(up.points for up in user_points) if user_points else 0
+
         statement = (
             select(ReferralPoints)
             .where(ReferralPoints.user_id == user.user_id)
             .where(ReferralPoints.session_id == reward_session.session_id)
         )
         referral_points = session.exec(statement).first()
+
         point = schemas.Points(
-            points=user_points.points if user_points else 0,
+            points=total_user_points,
             start_date=custom_encoder(reward_session.start_date),
             end_date=custom_encoder(reward_session.end_date),
             session_name=reward_session.session_name,
