@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 from .earned_point import EarnedPoints
 
+
 class Position(BaseModel):
     id: int
     vault_id: uuid.UUID
@@ -19,7 +20,7 @@ class Position(BaseModel):
     entry_price: float | None = None
     vault_currency: str | None = None
     current_round: int | None = None
-    next_close_round_date : str | None = None
+    next_close_round_date: str | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
     slug: str | None = None
@@ -45,3 +46,7 @@ class Portfolio(PortfolioBase):
 
 class PortfolioInDB(PortfolioInDBBase):
     pass
+
+
+class PortfolioPoint(BaseModel):
+    points: List[EarnedPoints] = []
