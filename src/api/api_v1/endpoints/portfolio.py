@@ -56,7 +56,7 @@ def get_user_earned_points(
     user_points = session.exec(
         select(
             UserPoints.partner_name.label("partner_name"),
-            func.sum(UserPoints.points).label("points")
+            func.sum(UserPoints.points).label("points"),
         )
         .where(UserPoints.vault_id == position.vault_id)
         .where(UserPoints.wallet_address == position.user_address.lower())
@@ -207,3 +207,26 @@ async def get_portfolio_info(
         total_balance=total_balance, pnl=pnl, positions=positions
     )
     return portfolio
+
+
+@router.get("/{user_address}/total-points", response_model=schemas.PortfolioPoint)
+async def get_total_points(session: SessionDep, user_address: str):
+    user_points = session.exec(
+        select(
+            UserPoints.partner_name.label("partner_name"),
+            func.sum(UserPoints.points).label("points"),
+        )
+        .where(UserPoints.wallet_address == user_address.lower())
+        .group_by(UserPoints.partner_name)
+    ).all()
+    earned_points = []
+    for user_point in user_points:
+        earned_points.append(
+            schemas.EarnedPoints(
+                name=user_point.partner_name,
+                point=user_point.points,
+                created_at=None,
+            )
+        )
+
+    return schemas.PortfolioPoint(points=earned_points)

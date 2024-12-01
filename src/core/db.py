@@ -505,6 +505,31 @@ def seed_vaults(session: Session):
             pendle_market_address="",
             update_frequency="",
         ),
+        Vault(
+            name="ETH Stabilizer Yield",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            slug=constants.ETH_WITH_LENDING_BOOST_YIELD,
+            contract_address="0x0000000000000000000000000000000000000000",
+            routes=None,
+            category="real_yield",
+            underlying_asset="WETH",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            tags="harmonix,new",
+            max_drawdown=0,
+            maturity_date="",
+            owner_wallet_address="0xba90101dDFc56D1bdbb0CfBDD4E716BD03E14424",
+            is_active=False,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+            pt_address="",
+            pendle_market_address="",
+            update_frequency="",
+        ),
     ]
 
     for vault in vaults:
@@ -617,6 +642,11 @@ def init_db(session: Session) -> None:
         select(Vault).where(Vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG)
     ).first()
     init_new_vault(session, kelpgain_vault)
+
+    eth_boost_yield_1 = session.exec(
+        select(Vault).where(Vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD)
+    ).first()
+    init_new_vault(session, eth_boost_yield_1)
 
     goldlink_vault = session.exec(
         select(Vault).where(Vault.slug == "arbitrum-leverage-delta-neutral-link")
