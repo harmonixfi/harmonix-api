@@ -45,6 +45,18 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Update Rethink ETH Vault Performance",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.update_rethink_vault_performance",
+            "args": [
+                "--chain",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: API",
             "type": "debugpy",
             "request": "launch",

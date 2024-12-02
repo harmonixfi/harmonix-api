@@ -11,6 +11,7 @@ class VaultCategory(str, enum.Enum):
     real_yield = "real_yield"
     points = "points"
     rewards = "rewards"
+    real_yield_v2 = "real_yield_v2"
 
 
 # create network enum: Ethereum, BSC, ArbitrumOne, Base, Blast
