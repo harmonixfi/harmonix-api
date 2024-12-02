@@ -85,6 +85,18 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: Rethink web3 listener",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "rethink_web3_listener",
+            "args": [
+                "--network",
+                "arbitrum_one"
+            ],
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Python: monitoring listener",
             "type": "debugpy",
             "request": "launch",

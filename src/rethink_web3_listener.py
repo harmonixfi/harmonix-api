@@ -19,7 +19,7 @@ from models import (
     UserPortfolio,
     Vault,
 )
-from models.vaults import NetworkChain
+from models.vaults import NetworkChain, VaultCategory
 from services.market_data import get_price
 from utils.web3_utils import get_vault_contract, get_current_pps
 from web3_listener import (
@@ -85,7 +85,7 @@ def _extract_rethink_event(entry):
 
 def update_tvl(session: Session, vault: Vault, weth_amount: float):
     """Update vault TVL converting WETH amount to USD value"""
-    weth_price = get_price("WETHUSDT")
+    weth_price = get_price(f"{vault.underlying_asset}USDT")
     usd_value = weth_amount * weth_price
 
     if vault.tvl is None:
@@ -111,7 +111,7 @@ def handle_deposit_event(
 ):
     """Handle user deposit event"""
     current_pps = get_current_pps(kwargs.get("vault_contract"))
-    weth_price = get_price("WETHUSDT")
+    weth_price = get_price(f"{vault.underlying_asset}USDT")
     usd_value = value * weth_price
 
     if user_portfolio is None:
@@ -157,7 +157,7 @@ def handle_deposited_to_fund_contract(
     for portfolio in portfolios:
         # Get user's current shares from contract
         shares = (
-            vault_contract.functions.balanceOf(portfolio.user_address).call() / 1e18
+            vault_contract.functions.balanceOf(Web3.to_checksum_address(portfolio.user_address)).call() / 1e18
         )
 
         # Update portfolio shares
@@ -189,7 +189,7 @@ def process_event(session: Session, msg: dict, event_filters: dict) -> None:
             logger.warning(f"Vault not found for address {res['address']}")
             return
             
-        vault_contract, _ = get_vault_contract(vault)
+        vault_contract, _ = get_vault_contract(vault, abi_name="rethink_yield_v2")
         
         # Extract event data
         value, shares, from_address = _extract_rethink_event(res)
@@ -249,7 +249,7 @@ class RethinkWeb3Listener(Web3Listener):
                     # Query active Rethink vaults
                     vaults = session.exec(
                         select(Vault)
-                        .where(Vault.strategy_name == "Rethink")
+                        .where(Vault.category == VaultCategory.real_yield_v2)
                         .where(Vault.is_active == True)
                         .where(Vault.network_chain == network)
                     ).all()
