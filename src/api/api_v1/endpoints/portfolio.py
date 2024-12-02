@@ -10,6 +10,7 @@ from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
 from models.user_points import UserPoints
 from models.user_portfolio import PositionStatus
+from models.vaults import VaultCategory
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault, UserPortfolio
@@ -25,12 +26,17 @@ rockonyx_stablecoin_vault_abi = read_abi("RockOnyxStableCoin")
 rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
 pendlehedging_vault_abi = read_abi("pendlehedging")
+rethink_vault_abi = read_abi("rethink_yield_v2")
 
 
 def create_vault_contract(vault: Vault):
     w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
 
-    if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+    if vault.category == VaultCategory.real_yield_v2:
+        contract = w3.eth.contract(
+            address=vault.contract_address, abi=rethink_vault_abi
+        )
+    elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rockonyx_delta_neutral_vault_abi
         )
@@ -128,7 +134,14 @@ async def get_portfolio_info(
             vault_network=vault.network_chain,
         )
 
-        if vault.strategy_name in {
+        if vault.category == VaultCategory.real_yield_v2:
+            price_per_share = vault_contract.functions.pricePerShare().call()
+            shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+            shares = shares / 10**18
+            price_per_share = price_per_share / 10**18
+        elif vault.strategy_name in {
             constants.DELTA_NEUTRAL_STRATEGY,
             constants.PENDLE_HEDGING_STRATEGY,
         }:
@@ -160,9 +173,23 @@ async def get_portfolio_info(
             price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-        position.total_balance = (
-            shares * price_per_share + pending_withdrawal * price_per_share
-        )
+        
+        if vault.category == VaultCategory.real_yield_v2:
+            # Get pending deposit from the contract
+            pending_deposit = vault_contract.functions.getPendingDeposit(
+                Web3.to_checksum_address(user_address)
+            ).call() / 10**18  # Adjust the division based on the token's decimals
+
+            position.total_balance = (
+                shares * price_per_share + 
+                pending_deposit * price_per_share + 
+                pending_withdrawal * price_per_share
+            )
+        else:
+            position.total_balance = (
+                shares * price_per_share + 
+                pending_withdrawal * price_per_share
+            )
 
         position.pnl = position.total_balance - position.init_deposit
 

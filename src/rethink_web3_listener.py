@@ -110,7 +110,7 @@ def handle_deposit_event(
     **kwargs,
 ):
     """Handle user deposit event"""
-    current_pps = get_current_pps(kwargs.get("vault_contract"))
+    current_pps = get_current_pps(kwargs.get("vault_contract"), decimals=1e18)
     weth_price = get_price(f"{vault.underlying_asset}USDT")
     usd_value = value * weth_price
 
@@ -119,8 +119,8 @@ def handle_deposit_event(
         user_portfolio = UserPortfolio(
             vault_id=vault.id,
             user_address=from_address,
-            total_balance=usd_value,
-            init_deposit=usd_value,
+            total_balance=value,
+            init_deposit=value,
             entry_price=current_pps,
             pnl=0,
             status=PositionStatus.ACTIVE,
@@ -130,8 +130,8 @@ def handle_deposit_event(
         session.add(user_portfolio)
     else:
         logger.info(f"User position before update {user_portfolio}")
-        user_portfolio.total_balance += usd_value
-        user_portfolio.init_deposit += usd_value
+        user_portfolio.total_balance += value
+        user_portfolio.init_deposit += value
         user_portfolio.total_shares += shares
         session.add(user_portfolio)
 
