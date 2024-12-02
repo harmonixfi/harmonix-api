@@ -60,8 +60,10 @@ def calculate_tvl_last_30_days():
                 continue
 
             for onchain_transaction_history in onchain_transaction_histories:
-                vault_object = vaults_dict.get(onchain_transaction_history.to_address.lower())
-                
+                vault_object = vaults_dict.get(
+                    onchain_transaction_history.to_address.lower()
+                )
+
                 if (
                     onchain_transaction_history.method_id
                     == constants.MethodID.DEPOSIT.value
@@ -80,11 +82,31 @@ def calculate_tvl_last_30_days():
                         deposit = amount / 1e6
                     balance_deposited += deposit
                     shares_deposited += deposit / pps
-                
-                elif(onchain_transaction_history.method_id
-                    == constants.MethodID.DEPOSIT2.value 
-                    and vault_object and vault_object.name == constants.VAULT_SOLV_NAME):
-                    deposit = calculate_amount_value_for_solv(onchain_transaction_history)
+
+                elif (
+                    onchain_transaction_history.method_id
+                    == constants.MethodID.DEPOSIT2.value
+                    and vault_object
+                    and vault_object.name == constants.VAULT_SOLV_NAME
+                ):
+                    deposit = calculate_amount_value_for_solv(
+                        onchain_transaction_history
+                    )
+                    balance_deposited += deposit
+                    shares_deposited += deposit / pps
+
+                elif (
+                    onchain_transaction_history.method_id
+                    in [
+                        constants.MethodID.DEPOSIT6.value,
+                        constants.MethodID.DEPOSIT7.value,
+                    ]
+                    and vault_object
+                    and vault_object.slug == constants.ETH_WITH_LENDING_BOOST_YIELD
+                ):
+                    deposit = calculate_amount_value_for_rethink(
+                        onchain_transaction_history
+                    )
                     balance_deposited += deposit
                     shares_deposited += deposit / pps
                 elif (
@@ -92,9 +114,13 @@ def calculate_tvl_last_30_days():
                     == constants.MethodID.WITHDRAW.value
                 ):
                     if vault_object and vault_object.name == constants.VAULT_SOLV_NAME:
-                        withdraw = calculate_amount_value_for_solv(onchain_transaction_history)
+                        withdraw = calculate_amount_value_for_solv(
+                            onchain_transaction_history
+                        )
                     else:
-                        amount = parse_hex_to_int(onchain_transaction_history.input[10:])
+                        amount = parse_hex_to_int(
+                            onchain_transaction_history.input[10:]
+                        )
                         withdraw = amount / 1e6
                     shares_withdraw += withdraw
 
@@ -128,14 +154,42 @@ def calculate_tvl_last_30_days():
 
     logger.info("Calculate TVL last 30 days job completed.")
 
+
 def calculate_amount_value_for_solv(onchain_transaction_history):
     input_data = onchain_transaction_history.input[10:].lower()
     amount = input_data[:64]
     amount = parse_hex_to_int(amount)
     amount = amount / 1e8
     converted_datetime = datetime.fromtimestamp(onchain_transaction_history.timestamp)
-    btc_price = float(get_klines("BTCUSDT", start_time=converted_datetime, end_time=converted_datetime.utcnow() + timedelta(minutes=15), interval="15m", limit=1)[0][4])
+    btc_price = float(
+        get_klines(
+            "BTCUSDT",
+            start_time=converted_datetime,
+            end_time=converted_datetime.utcnow() + timedelta(minutes=15),
+            interval="15m",
+            limit=1,
+        )[0][4]
+    )
     amount = amount * btc_price
+    return amount
+
+
+def calculate_amount_value_for_rethink(onchain_transaction_history):
+    input_data = onchain_transaction_history.input[10:].lower()
+    amount = input_data[:64]
+    amount = parse_hex_to_int(amount)
+    amount = amount / 1e8
+    converted_datetime = datetime.fromtimestamp(onchain_transaction_history.timestamp)
+    wEth_price = float(
+        get_klines(
+            "WETH",
+            start_time=converted_datetime,
+            end_time=converted_datetime.utcnow() + timedelta(minutes=15),
+            interval="15m",
+            limit=1,
+        )[0][4]
+    )
+    amount = amount * wEth_price
     return amount
 
 

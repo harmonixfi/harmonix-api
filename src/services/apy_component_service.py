@@ -250,3 +250,23 @@ class GoldLinkApyComponentService(APYComponentService):
             APYComponent.ARB_REWARDS: self.arb_reward_value,
             APYComponent.FUNDING_FEES: self.funding_fee_value,
         }
+
+
+class RethinkApyComponentService(APYComponentService):
+    def __init__(
+        self,
+        vault_id: uuid.UUID,
+        current_apy: float,
+        wst_eth_value: float,
+        funding_fee_value: float,
+        session: Session,
+    ):
+        super().__init__(vault_id, current_apy, session)
+        self.wst_eth_value = wst_eth_value
+        self.funding_fee_value = funding_fee_value
+
+    def get_component_values(self) -> dict:
+        return {
+            APYComponent.WST_ETH: self.wst_eth_value,
+            APYComponent.FUNDING_FEES: self.funding_fee_value,
+        }
