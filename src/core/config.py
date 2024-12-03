@@ -120,6 +120,20 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256,uint256,uint256)"]
     ).hex()
 
+    RETHINK_DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["UserDeposited(address,uint256)"]
+    ).hex()
+
+    RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["DepositedToFundContract(uint256)"]
+    ).hex()
+    RETHINK_DELTA_NEUTRAL_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["InitiateWithdrawal(address,uint256,uint256)"]
+    ).hex()
+    RETHINK_DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,uint256,uint256)"]
+    ).hex()
+
     OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str
 
     OPERATION_ADMIN_WALLET_ADDRESS: str

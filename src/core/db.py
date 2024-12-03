@@ -84,27 +84,27 @@ def seed_stablecoin_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 9, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 9, tzinfo=timezone.utc),
                 price_per_share=1.0000,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 16, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 16, tzinfo=timezone.utc),
                 price_per_share=1.043481,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 23, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 23, tzinfo=timezone.utc),
                 price_per_share=1.066503,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 3, 1, timezone=timezone.utc),
+                datetime=datetime(2024, 3, 1, tzinfo=timezone.utc),
                 price_per_share=1.151802,
                 vault_id=vault.id,
             ),
@@ -508,12 +508,12 @@ def seed_vaults(session: Session):
         Vault(
             name="ETH Stabilizer Yield",
             vault_capacity=4 * 1e3,
-            vault_currency="USDC",
+            vault_currency="ETH",
             slug=constants.ETH_WITH_LENDING_BOOST_YIELD,
             contract_address="0x0000000000000000000000000000000000000000",
             routes=None,
-            category="real_yield",
-            underlying_asset="WETH",
+            category="real_yield_v2",
+            underlying_asset="ETH",
             network_chain=NetworkChain.arbitrum_one,
             monthly_apy=0,
             weekly_apy=0,
