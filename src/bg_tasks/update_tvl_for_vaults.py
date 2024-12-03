@@ -39,6 +39,7 @@ def main():
             decimals = 1e6
             if vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
                 abi = "rethink_yield_v2"
+                decimals = 1e18
             if vault.slug == constants.SOLV_VAULT_SLUG:
                 abi = "solv"
                 decimals = 1e8
