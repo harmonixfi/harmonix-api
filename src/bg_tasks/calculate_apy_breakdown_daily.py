@@ -36,6 +36,7 @@ from services.apy_component_service import (
     OptionWheelApyComponentService,
     PendleApyComponentService,
     RenzoApyComponentService,
+    RethinkApyComponentService,
 )
 from services.gold_link_service import get_current_rewards_earned
 from services.market_data import get_price
@@ -367,6 +368,20 @@ def main():
                         session,
                     )
                     goldlink_component_service.save()
+
+                elif vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+                    wst_eth_value = lido_service.get_apy() * 100
+                    funding_fee_value = current_apy - wst_eth_value
+
+                    rethink_component_service = RethinkApyComponentService(
+                        vault.id,
+                        current_apy,
+                        wst_eth_value,
+                        float(funding_fee_value),
+                        session,
+                    )
+                    rethink_component_service.save()
+
                 else:
                     logger.warning(f"Vault {vault.name} not supported")
 

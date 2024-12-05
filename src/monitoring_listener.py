@@ -159,7 +159,7 @@ async def handle_event(vault_address: str, entry, event_name):
     if user_portfolio:
         try:
             vault_contract_service = VaultContractService()
-            abi_name = vault_contract_service.get_vault_abi(vault=vault)
+            abi_name, _ = vault_contract_service.get_vault_abi(vault=vault)
 
             vault_contract, _ = vault_contract_service.get_vault_contract(
                 vault.network_chain, vault.contract_address, abi_name
