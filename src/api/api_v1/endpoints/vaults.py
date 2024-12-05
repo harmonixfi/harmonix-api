@@ -490,3 +490,12 @@ def get_pps_histories(
     ]
 
     return response
+
+
+@router.get("/whitelist-wallets", response_model=List[str])
+async def get_whitelist_wallets(session: SessionDep):
+    """
+    Returns a list of whitelisted wallet addresses
+    """
+    
+    return ["0x658e36f00B397EC7aAEF9f465FB05E1aeC9a8363", "0x04A4b0489E9198f0A0eC3BC938EaBf13498C6F8d", "0x216F547F01e01FF0f3c69375d6a0B80d9d6DEdFA"]
