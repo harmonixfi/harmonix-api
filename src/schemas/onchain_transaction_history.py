@@ -14,3 +14,4 @@ class OnchainTransactionHistory(BaseModel):
     amount: float = 0.0
     age: time
     vault_address: Optional[str] = None
+    user_address: Optional[str] = None

@@ -121,6 +121,7 @@ def handle_deposit_event(
             user_address=from_address,
             total_balance=value,
             init_deposit=value,
+            pending_deposit=value,
             entry_price=current_pps,
             pnl=0,
             status=PositionStatus.ACTIVE,
@@ -132,6 +133,7 @@ def handle_deposit_event(
         logger.info(f"User position before update {user_portfolio}")
         user_portfolio.total_balance += value
         user_portfolio.init_deposit += value
+        user_portfolio.pending_deposit += value
         user_portfolio.total_shares += shares
         session.add(user_portfolio)
 
@@ -162,6 +164,7 @@ def handle_deposited_to_fund_contract(
 
         # Update portfolio shares
         portfolio.total_shares = shares
+        portfolio.pending_deposit = 0
         session.add(portfolio)
 
     session.commit()

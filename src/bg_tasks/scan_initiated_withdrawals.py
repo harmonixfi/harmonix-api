@@ -48,6 +48,12 @@ class InitiatedWithdrawalWatcherJob:
             vaults = self.__get_active_vaults()
             service = VaultContractService()
             result = []
+            pool_amounts = {}  # Track withdrawal pool amounts per vault
+
+            # Get withdrawal pool amounts for each vault
+            for vault in vaults:
+                pool_amount = service.get_withdrawal_pool_amount(vault)
+                pool_amounts[vault.contract_address.lower()] = pool_amount
 
             # Get all historical vault addresses
             all_vault_addresses = []
@@ -153,6 +159,7 @@ class InitiatedWithdrawalWatcherJob:
                                 amount=amount,
                                 age=age,
                                 vault_address=item.to_address,
+                                user_address=item.from_address
                             )
                         )
                 except Exception as inner_e:
@@ -162,19 +169,19 @@ class InitiatedWithdrawalWatcherJob:
                     )
                     continue
 
-            return result
+            return result, pool_amounts
         except Exception as e:
             logger.error(
                 f"Error in get_withdrawals_for_current_day: {e}", exc_info=True
             )
-        return []
+        return [], {}
 
     async def run(self):
-        init_withdraws = self.get_withdrawals_for_current_day()
+        init_withdraws, pool_amounts = self.get_withdrawals_for_current_day()
         fields = [
             (
                 withdrawal.tx_hash,
-                withdrawal.vault_address,  # Added vault_address
+                withdrawal.vault_address,
                 withdrawal.datetime.strftime("%Y-%m-%d %H:%M:%S"),
                 str(withdrawal.amount),
                 str(withdrawal.age),
@@ -183,7 +190,7 @@ class InitiatedWithdrawalWatcherJob:
         ]
 
         await telegram_bot.send_alert(
-            build_transaction_message(fields=fields),
+            build_transaction_message(fields=fields, pool_amounts=pool_amounts),
             channel="transaction",
         )
 

@@ -175,15 +175,10 @@ async def get_portfolio_info(
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
         
         if vault.category == VaultCategory.real_yield_v2:
-            # Get pending deposit from the contract
-            pending_deposit = vault_contract.functions.getPendingDeposit(
-                Web3.to_checksum_address(user_address)
-            ).call() / 10**18  # Adjust the division based on the token's decimals
-
             position.total_balance = (
-                shares * price_per_share + 
-                pending_deposit * price_per_share + 
-                pending_withdrawal * price_per_share
+                (shares * price_per_share) + 
+                (pos.pending_deposit) + 
+                (pending_withdrawal * price_per_share)
             )
         else:
             position.total_balance = (

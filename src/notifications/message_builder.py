@@ -76,7 +76,7 @@ def build_error_message(
     return message
 
 
-def build_transaction_message(fields: List[Tuple[str, str, str, str, str]]) -> str:
+def build_transaction_message(fields: List[Tuple[str, str, str, str, str]], pool_amounts: dict = None) -> str:
     total_requests = len(fields)
     
     # Start the message
@@ -110,7 +110,9 @@ def build_transaction_message(fields: List[Tuple[str, str, str, str, str]]) -> s
     message += "-------\n"
     for vault_address, total_amount in vault_totals.items():
         message += f"Vault address: {vault_address}\n"
-        message += f"Amount: {total_amount:.4f}\n"
+        message += f"Pending withdrawals: {total_amount:.4f}\n"
+        if pool_amounts and vault_address.lower() in pool_amounts:
+            message += f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
         message += "-------\n"
     
     message += "</pre>"
