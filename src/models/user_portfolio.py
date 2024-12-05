@@ -20,7 +20,7 @@ class UserPortfolio(SQLModel, table=True):
     entry_price: float | None = None
     exit_price: float | None = None
     pnl: float | None = None
-    pending_deposit: float | None = None
+    pending_deposit: float | None = Field(default=0, nullable=True)
     pending_withdrawal: float | None = None
     total_shares: float | None = None
     status: PositionStatus = Field(default=PositionStatus.ACTIVE)

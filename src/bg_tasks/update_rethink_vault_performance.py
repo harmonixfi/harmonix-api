@@ -100,14 +100,14 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
     fee_info = get_fee_info()
 
     # Calculate Monthly APY using TVL
-    month_ago_tvl = get_historical_tvl(vault.id, days=30)
+    month_ago_tvl = get_historical_tvl(vault.id, days_ago=30)
     if month_ago_tvl:
         monthly_apy = calculate_roi(current_tvl, month_ago_tvl, days=30) * 100
     else:
         monthly_apy = 0
 
     # Calculate Weekly APY using TVL
-    week_ago_tvl = get_historical_tvl(vault.id, days=7)
+    week_ago_tvl = get_historical_tvl(vault.id, days_ago=7)
     if week_ago_tvl:
         weekly_apy = calculate_roi(current_tvl, week_ago_tvl, days=7) * 100
     else:
