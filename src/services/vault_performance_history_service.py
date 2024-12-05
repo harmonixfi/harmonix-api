@@ -154,7 +154,7 @@ class VaultPerformanceHistoryService:
         else:
             total_deposit = sum(to_tx_aumount(tx.input) for tx in deposits)
 
-            abi = service.get_vault_abi(vault=vault)
+            abi, _ = service.get_vault_abi(vault=vault)
 
             for tx in withdraw:
                 shares = to_tx_aumount(tx.input)

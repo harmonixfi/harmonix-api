@@ -174,6 +174,8 @@ class MethodID(str, Enum):
     DEPOSIT3 = "0x71b8dc69"
     DEPOSIT4 = "0xfaa9bce9"
     DEPOSIT5 = "0x49bdc2b8"
+    DEPOSIT_RETHINK1 = "0xdb6b5246"
+    DEPOSIT_RETHINK2 = "0x690e0dda"
     WITHDRAW = "0x12edde5e"
     COMPPLETE_WITHDRAWAL = "0x4f0cb5f3"
     COMPPLETE_WITHDRAWAL2 = "0xe03ff7cb"

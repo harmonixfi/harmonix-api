@@ -528,7 +528,7 @@ def seed_vaults(session: Session):
             strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
             pt_address="",
             pendle_market_address="",
-            update_frequency="",
+            update_frequency="daily",
         ),
     ]
 
