@@ -98,8 +98,8 @@ def calculate_tvl_last_30_days():
                 elif (
                     onchain_transaction_history.method_id
                     in [
-                        constants.MethodID.DEPOSIT6.value,
-                        constants.MethodID.DEPOSIT7.value,
+                        constants.MethodID.DEPOSIT_RETHINK1.value,
+                        constants.MethodID.DEPOSIT_RETHINK2.value,
                     ]
                     and vault_object
                     and vault_object.slug == constants.ETH_WITH_LENDING_BOOST_YIELD
@@ -175,14 +175,17 @@ def calculate_amount_value_for_solv(onchain_transaction_history):
 
 
 def calculate_amount_value_for_rethink(onchain_transaction_history):
-    input_data = onchain_transaction_history.input[10:].lower()
-    amount = input_data[:64]
-    amount = parse_hex_to_int(amount)
-    amount = amount / 1e8
     converted_datetime = datetime.fromtimestamp(onchain_transaction_history.timestamp)
+    if (
+        onchain_transaction_history.method_id
+        == constants.MethodID.DEPOSIT_RETHINK1.value
+    ):
+        amount = float(onchain_transaction_history.value)
+    else:
+        amount = float(onchain_transaction_history.value)
     wEth_price = float(
         get_klines(
-            "WETH",
+            "ETHUSDT",
             start_time=converted_datetime,
             end_time=converted_datetime.utcnow() + timedelta(minutes=15),
             interval="15m",

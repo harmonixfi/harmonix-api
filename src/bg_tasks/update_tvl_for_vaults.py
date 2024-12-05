@@ -11,6 +11,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core.abi_reader import read_abi
 from core import constants
+from services.vault_contract_service import VaultContractService
 from utils.web3_utils import get_current_tvl, get_vault_contract
 
 # Initialize logger
@@ -36,25 +37,7 @@ def main():
         vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
 
         for vault in vaults:
-            decimals = 1e6
-            if vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
-                abi = "rethink_yield_v2"
-            if vault.slug == constants.SOLV_VAULT_SLUG:
-                abi = "solv"
-                decimals = 1e8
-            elif vault.slug == constants.GOLD_LINK_SLUG:
-                abi = "goldlink"
-            elif (
-                vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
-                and vault.slug != constants.GOLD_LINK_SLUG
-            ):
-                abi = "RockOnyxDeltaNeutralVault"
-            elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
-                abi = "rockonyxstablecoin"
-            elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-                abi = "pendlehedging"
-            else:
-                raise ValueError("Not support vault")
+            abi, decimals = VaultContractService().get_vault_abi(vault=vault)
 
             vault_contract, _ = get_vault_contract(vault, abi)
             current_tvl = get_current_tvl(vault_contract, decimals)
