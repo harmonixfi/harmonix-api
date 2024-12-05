@@ -116,7 +116,7 @@ async def get_all_vaults(
     tags: Optional[List[str]] = Query(None),
 ):
     statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
-    
+
     conditions = []
     if category:
         conditions.append(Vault.category == category)
@@ -129,7 +129,7 @@ async def get_all_vaults(
         tags_conditions = [Vault.tags.contains(tag) for tag in tags]
         conditions.append(or_(*tags_conditions))
     else:
-        conditions.append(~Vault.tags.contains('ended'))
+        conditions.append(~Vault.tags.contains("ended"))
 
     if conditions:
         statement = statement.where(and_(*conditions))
@@ -492,10 +492,15 @@ def get_pps_histories(
     return response
 
 
-@router.get("/whitelist-wallets", response_model=List[str])
-async def get_whitelist_wallets(session: SessionDep):
+@router.get("/{slug}/whitelist-wallets", response_model=List[str])
+async def get_whitelist_wallets(slug: str):
     """
     Returns a list of whitelisted wallet addresses
     """
-    
-    return ["0x658e36f00B397EC7aAEF9f465FB05E1aeC9a8363", "0x04A4b0489E9198f0A0eC3BC938EaBf13498C6F8d", "0x216F547F01e01FF0f3c69375d6a0B80d9d6DEdFA"]
+    if slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+        return [
+            "0x658e36f00B397EC7aAEF9f465FB05E1aeC9a8363",
+            "0x04A4b0489E9198f0A0eC3BC938EaBf13498C6F8d",
+            "0x216F547F01e01FF0f3c69375d6a0B80d9d6DEdFA",
+        ]
+    return []
