@@ -81,6 +81,21 @@ def get_user_earned_points(
     return earned_points
 
 
+def get_vault_currency_price(vault_currency: str) -> float:
+    """Get price multiplier based on vault currency"""
+    currency_price_map = {
+        "WBTC": lambda: get_price("BTCUSDT"),
+        "BTC": lambda: get_price("BTCUSDT"),
+        "ETH": lambda: get_price("ETHUSDT"),
+        "WETH": lambda: get_price("ETHUSDT"),
+        "LINK": lambda: get_price("LINKUSDT"),
+        "USDC": lambda: 1.0,
+        "USDT": lambda: 1.0,
+    }
+
+    return currency_price_map.get(vault_currency, lambda: 1.0)()
+
+
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(
     session: SessionDep,
@@ -173,43 +188,44 @@ async def get_portfolio_info(
             price_per_share = price_per_share / 10**6
 
         pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-        
+
         if vault.category == VaultCategory.real_yield_v2:
             position.total_balance = (
-                (shares * price_per_share) + 
-                (pos.pending_deposit) + 
-                (pending_withdrawal * price_per_share)
+                (shares * price_per_share)
+                + (pos.pending_deposit)
+                + (pending_withdrawal * price_per_share)
             )
         else:
             position.total_balance = (
-                shares * price_per_share + 
-                pending_withdrawal * price_per_share
+                shares * price_per_share + pending_withdrawal * price_per_share
             )
 
         position.pnl = position.total_balance - position.init_deposit
-        
+
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
         # Ensure non-negative PNL and APY for first 10 days
         if holding_period <= 10:
             position.pnl = max(position.pnl, 0)
-        
+
         position.apy = calculate_roi(
             position.total_balance,
             position.init_deposit,
             days=holding_period if holding_period > 0 else 1,
         )
         position.apy *= 100
-        
+
         # Ensure non-negative APY for first 10 days
         if holding_period <= 10:
             position.total_balance = position.init_deposit
             position.apy = max(position.apy, 0)
 
-        if vault.slug == constants.SOLV_VAULT_SLUG:
-            btc_price = get_price("BTCUSDT")
-            total_balance += position.total_balance * btc_price
-        else:
-            total_balance += position.total_balance
+        # if vault.slug == constants.SOLV_VAULT_SLUG:
+        #     btc_price = get_price("BTCUSDT")
+        #     total_balance += position.total_balance * btc_price
+        # else:
+        #     total_balance += position.total_balance
+        currency_price = get_vault_currency_price(vault.vault_currency)
+        total_balance += position.total_balance * currency_price
 
         # encode datetime
         position.trade_start_date = custom_encoder(pos.trade_start_date)
@@ -217,17 +233,10 @@ async def get_portfolio_info(
 
         positions.append(position)
 
-    total_deposit = 0
-    for position in positions:
-        if position.slug == constants.SOLV_VAULT_SLUG:
-            total_deposit += position.init_deposit * get_price("BTCUSDT")
-        else:
-            total_deposit += position.init_deposit
-
-    pnl = (total_balance / total_deposit - 1) * 100
+    total_pnl = sum(position.pnl for position in positions)
 
     portfolio = schemas.Portfolio(
-        total_balance=total_balance, pnl=pnl, positions=positions
+        total_balance=total_balance, pnl=total_pnl, positions=positions
     )
     return portfolio
 
