@@ -26,7 +26,7 @@ from models import (
     UserPortfolio,
     Vault,
 )
-from models.vaults import NetworkChain
+from models.vaults import NetworkChain, VaultCategory
 from services.kyberswap import KyberSwapService
 from services.socket_manager import WebSocketManager
 from utils.calculate_price import calculate_avg_entry_price
@@ -397,6 +397,7 @@ class Web3Listener(WebSocketManager):
                         select(Vault)
                         .where(Vault.is_active == True)
                         .where(Vault.network_chain == network)
+                        .where(Vault.category != VaultCategory.real_yield_v2)
                     ).all()
                     logger.info("Subcribing to %d vaults...", len(vaults))
 
