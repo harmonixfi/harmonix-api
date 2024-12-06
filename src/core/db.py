@@ -6,6 +6,7 @@ from sqlmodel import Session, create_engine, select
 from core import constants
 from core.config import settings
 from models.campaigns import Campaign
+from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.reward_session_config import RewardSessionConfig
@@ -302,11 +303,32 @@ def seed_reward_thresholds(session: Session):
     session.commit()
 
 
+def init_vault_point_multiplier(session: Session, vault: Vault):
+    """
+    Initialize point multiplier configuration for a vault with default value 1
+    """
+    # Check if multiplier config already exists for this vault
+    existing_config = session.exec(
+        select(PointsMultiplierConfig)
+        .where(PointsMultiplierConfig.vault_id == vault.id)
+    ).first()
+
+    if not existing_config:
+        # Create new multiplier config with default value 1
+        multiplier_config = PointsMultiplierConfig(
+            vault_id=vault.id,
+            multiplier=1.0
+        )
+        session.add(multiplier_config)
+        session.commit()
+
+
 def init_new_vault(session: Session, vault: Vault):
     existing_vault = session.exec(select(Vault).where(Vault.slug == vault.slug)).first()
     if existing_vault:
         init_pps_history(session, vault)
         init_vault_performance(session, vault)
+        init_vault_point_multiplier(session, vault)
 
 
 def init_new_vault_metadata(session: Session):
