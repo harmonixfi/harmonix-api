@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 import asyncio
 import click
+from hexbytes import HexBytes
 from sqlmodel import Session, select
 from web3 import Web3
 from web3.eth import Contract
@@ -84,14 +85,10 @@ def _extract_rethink_event(entry):
 
 
 def update_tvl(session: Session, vault: Vault, weth_amount: float):
-    """Update vault TVL converting WETH amount to USD value"""
-    weth_price = get_price(f"{vault.underlying_asset}USDT")
-    usd_value = weth_amount * weth_price
-
     if vault.tvl is None:
         vault.tvl = 0.0
 
-    vault.tvl += usd_value
+    vault.tvl += weth_amount
     logger.info(
         f"TVL updated for vault {vault.name}: {vault.tvl} USD (WETH amount: {weth_amount})"
     )
@@ -159,7 +156,10 @@ def handle_deposited_to_fund_contract(
     for portfolio in portfolios:
         # Get user's current shares from contract
         shares = (
-            vault_contract.functions.balanceOf(Web3.to_checksum_address(portfolio.user_address)).call() / 1e18
+            vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(portfolio.user_address)
+            ).call()
+            / 1e18
         )
 
         # Update portfolio shares
@@ -182,21 +182,21 @@ def process_event(session: Session, msg: dict, event_filters: dict) -> None:
 
         # Get event type
         event_filter = event_filters[res["topics"][0].hex()]
-        
+
         # Get vault contract for additional operations
         vault = session.exec(
             select(Vault).where(Vault.contract_address == res["address"])
         ).first()
-        
+
         if not vault:
             logger.warning(f"Vault not found for address {res['address']}")
             return
-            
+
         vault_contract, _ = get_vault_contract(vault, abi_name="rethink_yield_v2")
-        
+
         # Extract event data
         value, shares, from_address = _extract_rethink_event(res)
-        
+
         # Get user portfolio if applicable
         user_portfolio = None
         if from_address:
@@ -219,9 +219,7 @@ def process_event(session: Session, msg: dict, event_filters: dict) -> None:
                 vault_contract=vault_contract,
             )
         elif event_filter["event"] == "DepositedToFundContract":
-            handle_deposited_to_fund_contract(
-                session, vault, vault_contract, value
-            )
+            handle_deposited_to_fund_contract(session, vault, vault_contract, value)
         elif event_filter["event"] == "InitiateWithdraw":
             handle_initiate_withdraw_event(
                 session,
@@ -232,10 +230,8 @@ def process_event(session: Session, msg: dict, event_filters: dict) -> None:
                 get_current_pps(vault_contract),
             )
         elif event_filter["event"] == "Withdrawn":
-            handle_withdrawn_event(
-                session, user_portfolio, value, from_address, vault
-            )
-            
+            handle_withdrawn_event(session, user_portfolio, value, from_address, vault)
+
     except Exception as e:
         logger.error(f"Error processing event: {e}")
         logger.error(traceback.format_exc())
@@ -258,22 +254,23 @@ class RethinkWeb3Listener(Web3Listener):
                     ).all()
                     logger.info("Subscribing to %d Rethink vaults...", len(vaults))
 
-                    for vault in vaults:
-                        subscription_id = await self.w3.eth.subscribe(
-                            "logs",
-                            {
-                                "address": vault.contract_address,
-                            },
-                        )
-                        logger.info(
-                            "Subscription %s - %s response: %s",
-                            vault.name,
-                            vault.contract_address,
-                            subscription_id,
-                        )
+                for vault in vaults:
+                    subscription_id = await self.w3.eth.subscribe(
+                        "logs",
+                        {
+                            "address": vault.contract_address,
+                        },
+                    )
+                    logger.info(
+                        "Subscription %s - %s response: %s",
+                        vault.name,
+                        vault.contract_address,
+                        subscription_id,
+                    )
 
-                    async for msg in self.read_messages():
-                        logger.info("Received message: %s", msg)
+                async for msg in self.read_messages():
+                    logger.info("Received message: %s", msg)
+                    with Session(engine) as session:
                         process_event(session, msg, RETHINK_EVENT_FILTERS)
 
             except (ConnectionClosedError, ConnectionClosedOK) as e:
@@ -310,5 +307,42 @@ def main(network: str):
     asyncio.run(web3_listener.run(network_chain))
 
 
+def test():
+    from web3.datastructures import AttributeDict
+    
+    msg = {
+        "subscription": "0x422d76c4b6b9da3a0de1ecd1e01d9b80",
+        "result": AttributeDict(
+            {
+                "address": "0x1D47CA37872f4c19Cf6931f801E99A0d618E3688",
+                "topics": [
+                    HexBytes(
+                        "0x951fdc61d6a98f96098a17ea6ac287a6fd38aea6bef73083c93b274cb830107d"
+                    ),
+                    HexBytes(
+                        "0x000000000000000000000000bc05da14287317fe12b1a2b5a0e1d756ff1801aa"
+                    ),
+                ],
+                "data": HexBytes(
+                    "0x00000000000000000000000000000000000000000000000000005af3107a4000"
+                ),
+                "blockNumber": 281897760,
+                "transactionHash": HexBytes(
+                    "0x67685d90595dd1bafbe96425c0e378ac4c1d8ec19b7ec5eb47bbe64abd8c238d"
+                ),
+                "transactionIndex": 1,
+                "blockHash": HexBytes(
+                    "0x9e1c259402c42b964c87ba1571cfb6d6f8a65ce931777d760b92d35cbc3649b1"
+                ),
+                "logIndex": 2,
+                "removed": False,
+            }
+        ),
+    }
+    with Session(engine) as session:
+        process_event(session, msg, RETHINK_EVENT_FILTERS)
+
+
 if __name__ == "__main__":
     main()
+    # test()
