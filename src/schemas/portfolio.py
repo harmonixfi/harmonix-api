@@ -17,6 +17,7 @@ class Position(BaseModel):
     status: str
     trade_start_date: str | None = None
     pending_withdrawal: float | None = None
+    pending_deposit: float | None = None
     entry_price: float | None = None
     vault_currency: str | None = None
     current_round: int | None = None

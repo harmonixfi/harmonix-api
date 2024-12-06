@@ -1,3 +1,4 @@
+import logging
 from typing import List, Tuple
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -39,17 +40,27 @@ class VaultContractService:
 
     def get_vault_abi(self, vault: Vault):
         abi = "RockOnyxDeltaNeutralVault"
+        decimals = 1e6
 
-        if vault.slug == constants.SOLV_VAULT_SLUG:
+        if vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+            abi = "rethink_yield_v2"
+            decimals = 1e18
+        elif vault.slug == constants.SOLV_VAULT_SLUG:
             abi = "solv"
-        elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
+            decimals = 1e8
+        elif vault.slug == constants.GOLD_LINK_SLUG:
+            abi = "goldlink"
+        elif (
+            vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
+            and vault.slug != constants.GOLD_LINK_SLUG
+        ):
             abi = "RockOnyxDeltaNeutralVault"
         elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
             abi = "rockonyxstablecoin"
         elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
             abi = "pendlehedging"
 
-        return abi
+        return abi, decimals
 
     def get_withdraw_amount(
         self, vault: Vault, to_address: str, input_data: str, block_number: int
@@ -57,7 +68,7 @@ class VaultContractService:
         if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
             return to_amount_pendle(input_data, block_number, vault.network_chain)
 
-        abi = self.get_vault_abi(vault=vault)
+        abi, _ = self.get_vault_abi(vault=vault)
         shares = to_tx_aumount(input_data)
         vault_contract, _ = self.get_vault_contract(
             vault.network_chain,
@@ -130,3 +141,18 @@ class VaultContractService:
                 return addresses
 
         return [contract_address]
+    
+    def get_withdrawal_pool_amount(self, vault: Vault) -> float:
+        try:
+            abi = self.get_vault_abi(vault=vault)
+            vault_contract, _ = self.get_vault_contract(
+                vault.network_chain,
+                Web3.to_checksum_address(vault.contract_address),
+                abi,
+            )
+            pool_amount = vault_contract.functions.getWithdrawPoolAmount().call({"from": vault.owner_wallet_address})
+            # Convert from wei to standard units
+            return float(pool_amount/1e6)
+        except Exception as e:
+            logging.error(f"Error getting withdrawal pool amount for vault {vault.contract_address}: {e}")
+            return 0.0

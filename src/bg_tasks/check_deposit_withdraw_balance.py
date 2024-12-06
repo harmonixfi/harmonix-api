@@ -57,7 +57,7 @@ def calculate_withdrawals(
             )
             shares = withdrawal_amount
         else:
-            abi = service.get_vault_abi(vault=vault)
+            abi, _ = service.get_vault_abi(vault=vault)
             shares = to_tx_aumount(withdrawal.input)
             vault_contract, _ = service.get_vault_contract(
                 vault.network_chain,

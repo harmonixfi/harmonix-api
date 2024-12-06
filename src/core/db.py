@@ -6,6 +6,7 @@ from sqlmodel import Session, create_engine, select
 from core import constants
 from core.config import settings
 from models.campaigns import Campaign
+from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
 from models.reward_session_config import RewardSessionConfig
@@ -84,27 +85,27 @@ def seed_stablecoin_pps_history(session: Session, vault: Vault):
     if cnt == 0:
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, timezone=timezone.utc),
+                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 9, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 9, tzinfo=timezone.utc),
                 price_per_share=1.0000,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 16, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 16, tzinfo=timezone.utc),
                 price_per_share=1.043481,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 2, 23, timezone=timezone.utc),
+                datetime=datetime(2024, 2, 23, tzinfo=timezone.utc),
                 price_per_share=1.066503,
                 vault_id=vault.id,
             ),
             PricePerShareHistory(
-                datetime=datetime(2024, 3, 1, timezone=timezone.utc),
+                datetime=datetime(2024, 3, 1, tzinfo=timezone.utc),
                 price_per_share=1.151802,
                 vault_id=vault.id,
             ),
@@ -302,11 +303,32 @@ def seed_reward_thresholds(session: Session):
     session.commit()
 
 
+def init_vault_point_multiplier(session: Session, vault: Vault):
+    """
+    Initialize point multiplier configuration for a vault with default value 1
+    """
+    # Check if multiplier config already exists for this vault
+    existing_config = session.exec(
+        select(PointsMultiplierConfig)
+        .where(PointsMultiplierConfig.vault_id == vault.id)
+    ).first()
+
+    if not existing_config:
+        # Create new multiplier config with default value 1
+        multiplier_config = PointsMultiplierConfig(
+            vault_id=vault.id,
+            multiplier=1.0
+        )
+        session.add(multiplier_config)
+        session.commit()
+
+
 def init_new_vault(session: Session, vault: Vault):
     existing_vault = session.exec(select(Vault).where(Vault.slug == vault.slug)).first()
     if existing_vault:
         init_pps_history(session, vault)
         init_vault_performance(session, vault)
+        init_vault_point_multiplier(session, vault)
 
 
 def init_new_vault_metadata(session: Session):
@@ -506,29 +528,29 @@ def seed_vaults(session: Session):
             update_frequency="",
         ),
         Vault(
-            name="ETH Stabilizer Yield",
+            name="ETH Hypergrowth Vault",
             vault_capacity=4 * 1e3,
-            vault_currency="USDC",
+            vault_currency="ETH",
             slug=constants.ETH_WITH_LENDING_BOOST_YIELD,
-            contract_address="0x0000000000000000000000000000000000000000",
+            contract_address="0x1D47CA37872f4c19Cf6931f801E99A0d618E3688",
             routes=None,
-            category="real_yield",
-            underlying_asset="WETH",
+            category="real_yield_v2",
+            underlying_asset="ETH",
             network_chain=NetworkChain.arbitrum_one,
-            monthly_apy=0,
+            monthly_apy=20,
             weekly_apy=0,
             ytd_apy=0,
             apr=0,
-            tvl=0,
+            tvl=1.407,
             tags="harmonix,new",
             max_drawdown=0,
             maturity_date="",
-            owner_wallet_address="0xba90101dDFc56D1bdbb0CfBDD4E716BD03E14424",
+            owner_wallet_address="0xe3C8Fce08f1cf5E398B963C4bDc35114F45Bc8dD",
             is_active=False,
             strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
             pt_address="",
             pendle_market_address="",
-            update_frequency="",
+            update_frequency="daily",
         ),
     ]
 

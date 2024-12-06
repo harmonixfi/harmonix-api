@@ -120,6 +120,20 @@ class Settings(BaseSettings):
         ["string"], ["Withdrawn(address,uint256,uint256,uint256,uint256)"]
     ).hex()
 
+    RETHINK_DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["UserDeposited(address,uint256)"]
+    ).hex()
+
+    RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["DepositedToFundContract()"]
+    ).hex()
+    RETHINK_DELTA_NEUTRAL_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["InitiateWithdrawal(address,uint256,uint256)"]
+    ).hex()
+    RETHINK_DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC: str = Web3.solidity_keccak(
+        ["string"], ["Withdrawn(address,uint256,uint256)"]
+    ).hex()
+
     OPTIONS_WHEEL_OWNER_WALLET_ADDRESS: str
 
     OPERATION_ADMIN_WALLET_ADDRESS: str
@@ -199,6 +213,8 @@ class Settings(BaseSettings):
 
     BASIC_AUTH_USERNAME: str
     BASIC_AUTH_PASSWORD: str
+
+    WHITELIST_WALLETS_RETHINK: str = "0x658e36f00B397EC7aAEF9f465FB05E1aeC9a8363,0x04A4b0489E9198f0A0eC3BC938EaBf13498C6F8d,0x216F547F01e01FF0f3c69375d6a0B80d9d6DEdFA"
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

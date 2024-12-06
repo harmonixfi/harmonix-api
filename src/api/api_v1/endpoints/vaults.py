@@ -21,6 +21,7 @@ from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
 from services import kelpgain_service
+from core.config import settings
 from services.vault_rewards_service import VaultRewardsService
 
 router = APIRouter()
@@ -116,7 +117,7 @@ async def get_all_vaults(
     tags: Optional[List[str]] = Query(None),
 ):
     statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
-    
+
     conditions = []
     if category:
         conditions.append(Vault.category == category)
@@ -129,7 +130,7 @@ async def get_all_vaults(
         tags_conditions = [Vault.tags.contains(tag) for tag in tags]
         conditions.append(or_(*tags_conditions))
     else:
-        conditions.append(~Vault.tags.contains('ended'))
+        conditions.append(~Vault.tags.contains("ended"))
 
     if conditions:
         statement = statement.where(and_(*conditions))
@@ -490,3 +491,13 @@ def get_pps_histories(
     ]
 
     return response
+
+
+@router.get("/{slug}/whitelist-wallets", response_model=List[str])
+async def get_whitelist_wallets(slug: str):
+    """
+    Returns a list of whitelisted wallet addresses
+    """
+    if slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+        return [w.strip() for w in settings.WHITELIST_WALLETS_RETHINK.split(",")]
+    return []
