@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 import pytz
 from sqlalchemy import distinct, func, text
 from sqlmodel import select
+from models.deposit_summary_snapshot import DepositSummarySnapshot
 from models.pps_history import PricePerShareHistory
 from models.user import User
 from models.user_portfolio import UserPortfolio
@@ -566,124 +567,18 @@ async def get_cumulative_vault_performance(session: SessionDep):
     return pps_history_df[["date", "cumulative_tvl"]].to_dict(orient="list")
 
 
-def _get_vault(session: SessionDep, to_address: str):
-    vault_address = VaultContractService().get_vault_address_by_contract(
-        to_address.lower()
-    )
-    return session.exec(
-        select(Vault).where(
-            func.lower(Vault.contract_address).in_(
-                [addr.lower() for addr in vault_address]
-            )
-        )
-    ).first()
-
-
-def __calculate_amount_value_for_rethink(
-    timestamp: int, value: float, input_data: str, method_id: str
-):
-    converted_datetime = datetime.fromtimestamp(timestamp)
-    wEth_price = float(
-        get_klines(
-            "ETHUSDT",
-            start_time=converted_datetime,
-            end_time=converted_datetime.utcnow() + timedelta(minutes=15),
-            interval="15m",
-            limit=1,
-        )[0][4]
-    )
-    if method_id == constants.MethodID.DEPOSIT_RETHINK1.value:
-        amount = float(value)
-    else:
-        amount = to_tx_aumount_rethink(input_data)
-    amount = amount * wEth_price
-
-    return amount
-
-
-def _calculate_total_deposit(session: SessionDep, deposits: pd.DataFrame):
-    total_deposit = 0
-    for _, deposit in deposits.iterrows():
-        vault = _get_vault(session, deposit["to_address"])
-        if not vault:
-            continue
-        if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-            total_deposit += to_amount_pendle(
-                deposit["input"], int(deposit["block_number"]), vault.network_chain
-            )
-        elif vault.slug == constants.GOLD_LINK_SLUG:
-            total_deposit += to_tx_aumount_goldlink(deposit["input"])
-        elif vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
-            total_deposit += __calculate_amount_value_for_rethink(
-                int(deposit["timestamp"]),
-                float(deposit["value"]),
-                deposit["input"],
-                deposit["method_id"],
-            )
-
-        else:
-            total_deposit += to_tx_aumount(deposit["input"])
-    return total_deposit
-
-
 @router.get("/deposits/summary")
 async def get_desposit_summary(session: SessionDep):
     # Define the SQL query to sum tvl values by day
-    method_ids = get_deposit_method_ids()
-    formatted_method_ids = ", ".join(f"'{method_id}'" for method_id in method_ids)
+    result = session.exec(
+        select(DepositSummarySnapshot)
+        .order_by(DepositSummarySnapshot.datetime.desc())
+        .limit(1)
+    ).first()
 
-    raw_query = text(
-        f"""
-        SELECT
-           oth.input,
-           oth.to_address,
-           oth.block_number,
-           oth.method_id,
-           oth.value,
-           oth.timestamp,
-           TO_TIMESTAMP(oth.timestamp) AS date
-        FROM
-            public.onchain_transaction_history oth
-        INNER JOIN
-            vaults v ON LOWER(v.contract_address) = LOWER(oth.to_address)
-        WHERE
-            oth.method_id IN ({formatted_method_ids})
-            AND TO_TIMESTAMP(oth.timestamp) >= (CURRENT_TIMESTAMP - INTERVAL '30 days')
-            AND v.is_active = TRUE
-        """
-    )
-
-    # Execute the query
-    result = session.exec(raw_query).all()
-
-    if len(result) == 0:
-        return {"date": [], "input": []}
-
-    # Convert the query result to a DataFrame
-    df = pd.DataFrame(
-        result,
-        columns=[
-            "input",
-            "to_address",
-            "block_number",
-            "method_id",
-            "value",
-            "timestamp",
-            "date",
-        ],
-    )
-
-    df["date"] = pd.to_datetime(df["date"])
-
-    # Calculate total deposit over 7 days
-    seven_days_ago = datetime.now(pytz.UTC) - timedelta(days=7)
-    df_7_day = df[df["date"] >= seven_days_ago]
-    deposit_7_day = _calculate_total_deposit(session, df_7_day)
-
-    deposit_30_day = _calculate_total_deposit(session, df)
     return {
-        "deposit_30_day": 0 if deposit_30_day is None else deposit_30_day,
-        "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day,
+        "deposit_30_day": 0 if result is None else result.deposit_30_day,
+        "deposit_7_day": 0 if result is None else result.deposit_7_day,
     }
 
 
