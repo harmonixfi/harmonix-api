@@ -21,6 +21,7 @@ from schemas.pps_history_response import PricePerShareHistoryResponse
 from schemas.vault import GroupSchema, SupportedNetwork
 from schemas.vault_metadata_response import VaultMetadataResponse
 from services import kelpgain_service
+from core.config import settings
 from services.vault_rewards_service import VaultRewardsService
 
 router = APIRouter()
@@ -498,9 +499,5 @@ async def get_whitelist_wallets(slug: str):
     Returns a list of whitelisted wallet addresses
     """
     if slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
-        return [
-            "0x658e36f00B397EC7aAEF9f465FB05E1aeC9a8363",
-            "0x04A4b0489E9198f0A0eC3BC938EaBf13498C6F8d",
-            "0x216F547F01e01FF0f3c69375d6a0B80d9d6DEdFA",
-        ]
+        return [w.strip() for w in settings.WHITELIST_WALLETS_RETHINK.split(",")]
     return []
