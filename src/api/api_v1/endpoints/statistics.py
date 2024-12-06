@@ -33,7 +33,7 @@ from utils.extension_utils import (
 )
 from pytz import timezone
 
-from utils.vault_utils import get_deposit_method_ids
+from utils.vault_utils import get_deposit_method_ids, get_vault_currency_price
 
 router = APIRouter()
 
@@ -179,12 +179,10 @@ async def get_dashboard_statistics(session: SessionDep):
                 slug=default_vault.slug,
                 id=default_vault.id,
             )
+            
+            current_price = get_vault_currency_price(default_vault.vault_currency)
+            tvl_in_all_vaults += total_tvl * current_price
 
-            if default_vault.slug == constants.SOLV_VAULT_SLUG:
-                current_price = get_price("BTCUSDT")
-                tvl_in_all_vaults += total_tvl * current_price
-            else:
-                tvl_in_all_vaults += total_tvl
             tvl_composition[default_vault.name] = total_tvl
             data.append(statistic)
         except Exception as e:

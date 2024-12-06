@@ -1,6 +1,7 @@
 from datetime import datetime
 
 from core.constants import MethodID
+from services.market_data import get_price
 
 
 ALLOCATION_RATIO: float = 1 / 2
@@ -63,3 +64,18 @@ def get_deposit_method_ids():
         status.value for status in MethodID if status.name.startswith(key)
     ]
     return filtered_items
+
+
+def get_vault_currency_price(vault_currency: str) -> float:
+    """Get price multiplier based on vault currency"""
+    currency_price_map = {
+        "WBTC": lambda: get_price("BTCUSDT"),
+        "BTC": lambda: get_price("BTCUSDT"),
+        "ETH": lambda: get_price("ETHUSDT"),
+        "WETH": lambda: get_price("ETHUSDT"),
+        "LINK": lambda: get_price("LINKUSDT"),
+        "USDC": lambda: 1.0,
+        "USDT": lambda: 1.0,
+    }
+
+    return currency_price_map.get(vault_currency, lambda: 1.0)()
