@@ -27,6 +27,8 @@ from services.vault_performance_history_service import VaultPerformanceHistorySe
 from utils.extension_utils import to_tx_aumount
 from pytz import timezone
 
+from utils.vault_utils import get_deposit_method_ids, get_vault_currency_price
+
 router = APIRouter()
 
 
@@ -85,7 +87,10 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         .where(PricePerShareHistory.vault_id == vault_id)
         .order_by(PricePerShareHistory.datetime.desc())
     ).first()
-    last_price_per_share = pps_history.price_per_share
+    if pps_history:
+        last_price_per_share = pps_history.price_per_share
+    else:
+        last_price_per_share = 0
 
     statistic = schemas.Statistics(
         name=vault.name,
@@ -98,7 +103,7 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
         unique_depositors=performances.unique_depositors,
-        fee_structure=json.loads(performances.fee_structure),
+        fee_structure=json.loads(performances.fee_structure) if performances.fee_structure is not None else {},
         vault_address=vault.contract_address,
         manager_address=vault.owner_wallet_address,
         all_time_high_per_share=performances.all_time_high_per_share,
@@ -177,12 +182,10 @@ async def get_dashboard_statistics(session: SessionDep):
                 slug=default_vault.slug,
                 id=default_vault.id,
             )
+            
+            current_price = get_vault_currency_price(default_vault.vault_currency)
+            tvl_in_all_vaults += total_tvl * current_price
 
-            if default_vault.slug == constants.SOLV_VAULT_SLUG:
-                current_price = get_price("BTCUSDT")
-                tvl_in_all_vaults += total_tvl * current_price
-            else:
-                tvl_in_all_vaults += total_tvl
             tvl_composition[default_vault.name] = total_tvl
             data.append(statistic)
         except Exception as e:
