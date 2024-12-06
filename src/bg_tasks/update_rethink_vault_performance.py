@@ -96,7 +96,7 @@ def calculate_tvl_statistics(vault_id: uuid.UUID):
     return all_time_high_tvl, sortino, downside, risk_factor
 
 def calculate_performance(vault: Vault, vault_contract: Contract):
-    current_tvl = get_current_tvl(vault_contract)
+    current_tvl = get_current_tvl(vault_contract, decimals=1e18)
     fee_info = get_fee_info()
 
     # Calculate Monthly APY using TVL
@@ -115,7 +115,7 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
 
     # Calculate YTD APY
     start_of_year = pendulum.now(tz=pendulum.UTC).start_of('year')
-    ytd_tvl = get_historical_tvl(vault.id, days=(pendulum.now(tz=pendulum.UTC) - start_of_year).days)
+    ytd_tvl = get_historical_tvl(vault.id, days_ago=(pendulum.now(tz=pendulum.UTC) - start_of_year).days)
     if ytd_tvl:
         apy_ytd = calculate_roi(
             current_tvl,
@@ -149,6 +149,8 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
         downside_risk=downside,
         unique_depositors=count,
         fee_structure=fee_info,
+        benchmark=0,
+        pct_benchmark=0
     )
 
 @click.command()

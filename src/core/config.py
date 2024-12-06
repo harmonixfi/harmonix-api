@@ -125,7 +125,7 @@ class Settings(BaseSettings):
     ).hex()
 
     RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC: str = Web3.solidity_keccak(
-        ["string"], ["DepositedToFundContract(uint256)"]
+        ["string"], ["DepositedToFundContract()"]
     ).hex()
     RETHINK_DELTA_NEUTRAL_REQUEST_FUND_EVENT_TOPIC: str = Web3.solidity_keccak(
         ["string"], ["InitiateWithdrawal(address,uint256,uint256)"]
