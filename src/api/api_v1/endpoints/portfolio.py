@@ -19,6 +19,7 @@ from core.config import settings
 from core import constants
 from services.market_data import get_price
 from utils.json_encoder import custom_encoder
+from utils.vault_utils import get_vault_currency_price
 
 router = APIRouter()
 
@@ -79,21 +80,6 @@ def get_user_earned_points(
         )
 
     return earned_points
-
-
-def get_vault_currency_price(vault_currency: str) -> float:
-    """Get price multiplier based on vault currency"""
-    currency_price_map = {
-        "WBTC": lambda: get_price("BTCUSDT"),
-        "BTC": lambda: get_price("BTCUSDT"),
-        "ETH": lambda: get_price("ETHUSDT"),
-        "WETH": lambda: get_price("ETHUSDT"),
-        "LINK": lambda: get_price("LINKUSDT"),
-        "USDC": lambda: 1.0,
-        "USDT": lambda: 1.0,
-    }
-
-    return currency_price_map.get(vault_currency, lambda: 1.0)()
 
 
 @router.get("/{user_address}", response_model=schemas.Portfolio)
