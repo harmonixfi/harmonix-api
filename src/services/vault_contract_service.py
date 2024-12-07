@@ -141,18 +141,22 @@ class VaultContractService:
                 return addresses
 
         return [contract_address]
-    
+
     def get_withdrawal_pool_amount(self, vault: Vault) -> float:
         try:
-            abi = self.get_vault_abi(vault=vault)
+            abi, decimals = self.get_vault_abi(vault=vault)
             vault_contract, _ = self.get_vault_contract(
                 vault.network_chain,
                 Web3.to_checksum_address(vault.contract_address),
                 abi,
             )
-            pool_amount = vault_contract.functions.getWithdrawPoolAmount().call({"from": vault.owner_wallet_address})
+            pool_amount = vault_contract.functions.getWithdrawPoolAmount().call(
+                {"from": vault.owner_wallet_address}
+            )
             # Convert from wei to standard units
-            return float(pool_amount/1e6)
+            return float(pool_amount / decimals)
         except Exception as e:
-            logging.error(f"Error getting withdrawal pool amount for vault {vault.contract_address}: {e}")
+            logging.error(
+                f"Error getting withdrawal pool amount for vault {vault.name}: {e}"
+            )
             return 0.0
