@@ -27,7 +27,7 @@ from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
-from models.vaults import NetworkChain
+from models.vaults import NetworkChain, VaultCategory
 from schemas.fee_info import FeeInfo
 from schemas.vault_state import VaultState
 from services.bsx_service import get_points_earned
@@ -354,6 +354,7 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
         for vault in vaults:
