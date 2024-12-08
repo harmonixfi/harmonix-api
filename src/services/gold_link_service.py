@@ -1,6 +1,6 @@
 from collections import defaultdict
-from datetime import datetime
-from typing import List
+from datetime import datetime, timezone
+from typing import Dict, List
 import uuid
 import requests
 from sqlmodel import Session, select
@@ -19,6 +19,8 @@ url = settings.GOLD_LINK_API_URL
 STRATEGY_RESERVE_ABI_NAME = "strategy-reserve"
 STRATEGY_BANK_ABI_NAME = "strategy-bank"
 STRATEGY_ACCOUNT_ABI_NAME = "strategy-account"
+
+STRATEGY_RESERVE_ADDRESS = "0xd8dd54df1a7d2ea022b983756d8a481eea2a382a"
 
 
 def get_trading_address(trading_account: str):
@@ -174,4 +176,29 @@ def get_funding_history(decimals=1e30) -> List[FundingHistoryEntry]:
         ]
     except requests.exceptions.RequestException as e:
         print(f"Error fetching funding history: {e}")
+        return []
+
+
+def get_apy_rate_history(decimals: float = 1e18) -> List[Dict[datetime, float]]:
+    headers = {"accept": "application/json"}
+    params = f'["{STRATEGY_RESERVE_ADDRESS}",0,-1]'
+    api_url = f"{url}/?method=goldlink/getHistoricReserveInterestRate&params={params}"
+
+    try:
+        response = requests.get(api_url, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+
+        funding_history = data.get("result", [])
+        return [
+            {
+                datetime.strptime(entry["timestamp"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                    tzinfo=timezone.utc
+                ): float(entry["apy"])
+                / decimals,
+            }
+            for entry in funding_history
+        ]
+    except requests.exceptions.RequestException as e:
+        print(f"Error fetching apy rate history: {e}")
         return []

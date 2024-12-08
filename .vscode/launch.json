@@ -412,5 +412,13 @@
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
+         {
+            "name": "update_yield_vault_performance_init",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "reports.update_yield_vault_performance_init",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
     ]
 }

@@ -1,3 +1,4 @@
+from datetime import timezone
 from typing import List
 import requests
 from core.config import settings
@@ -33,7 +34,9 @@ def get_funding_history(
             # Map the raw funding history to FundingHistoryEntry instances
             return [
                 FundingHistoryEntry(
-                    datetime=nanoseconds_to_datetime(int(entry[1])),
+                    datetime=nanoseconds_to_datetime(int(entry[1])).astimezone(
+                        timezone.utc
+                    ),
                     funding_rate=float(entry[2]),
                 )
                 for entry in funding_history
