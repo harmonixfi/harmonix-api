@@ -30,3 +30,6 @@ from .vault_rewards import VaultRewards
 from .vault_reward_history import VaultRewardHistory
 from .user_rewards import UserRewards, UserRewardAudit
 from .reward_distribution_history import RewardDistributionHistory
+from .deposit_summary_snapshot import DepositSummarySnapshot
+from .funding_rate_history import FundingRateHistory
+from .goldlink_borrow_rate_history import GoldlinkBorrowRateHistory

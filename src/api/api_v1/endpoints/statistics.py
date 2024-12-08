@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 import pytz
 from sqlalchemy import distinct, func, text
 from sqlmodel import select
+from models.deposit_summary_snapshot import DepositSummarySnapshot
 from models.pps_history import PricePerShareHistory
 from models.user import User
 from models.user_portfolio import UserPortfolio
@@ -22,9 +23,15 @@ from models import Vault
 from core.config import settings
 from core import constants
 from services.deposit_service import DepositService
-from services.market_data import get_price
+from services.market_data import get_klines, get_price
+from services.vault_contract_service import VaultContractService
 from services.vault_performance_history_service import VaultPerformanceHistoryService
-from utils.extension_utils import to_tx_aumount
+from utils.extension_utils import (
+    to_amount_pendle,
+    to_tx_aumount,
+    to_tx_aumount_goldlink,
+    to_tx_aumount_rethink,
+)
 from pytz import timezone
 
 from utils.vault_utils import get_deposit_method_ids, get_vault_currency_price
@@ -33,14 +40,8 @@ router = APIRouter()
 
 
 def __get_total_depositors(session: SessionDep) -> int:
-    method_ids = ", ".join(
-        f"'{method_id}'"
-        for method_id in [
-            constants.MethodID.DEPOSIT,
-            constants.MethodID.DEPOSIT2,
-            constants.MethodID.DEPOSIT3,
-        ]
-    )
+    method_ids = get_deposit_method_ids()
+    formatted_method_ids = ", ".join(f"'{method_id}'" for method_id in method_ids)
 
     raw_query = text(
         f"""
@@ -52,7 +53,7 @@ def __get_total_depositors(session: SessionDep) -> int:
             FROM 
                 public.onchain_transaction_history
             WHERE 
-                method_id IN ({method_ids})
+                method_id IN ({formatted_method_ids})
             GROUP BY 
                 to_timestamp("timestamp")::date
         ) AS daily_totals;
@@ -103,7 +104,11 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
         unique_depositors=performances.unique_depositors,
-        fee_structure=json.loads(performances.fee_structure) if performances.fee_structure is not None else {},
+        fee_structure=(
+            json.loads(performances.fee_structure)
+            if performances.fee_structure is not None
+            else {}
+        ),
         vault_address=vault.contract_address,
         manager_address=vault.owner_wallet_address,
         all_time_high_per_share=performances.all_time_high_per_share,
@@ -120,7 +125,12 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
 @router.get("/", response_model=schemas.DashboardStats)
 async def get_dashboard_statistics(session: SessionDep):
     statement = (
-        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+        select(Vault)
+        .where(Vault.strategy_name != None)
+        .where(Vault.is_active == True)
+        .where(
+            (Vault.tags == None) | (~Vault.tags.like("%ended%"))
+        )  # Exclude vaults with 'ended' tag
     )
     vaults = session.exec(statement).all()
 
@@ -182,11 +192,11 @@ async def get_dashboard_statistics(session: SessionDep):
                 slug=default_vault.slug,
                 id=default_vault.id,
             )
-            
+
             current_price = get_vault_currency_price(default_vault.vault_currency)
             tvl_in_all_vaults += total_tvl * current_price
 
-            tvl_composition[default_vault.name] = total_tvl
+            tvl_composition[default_vault.name] = total_tvl * current_price
             data.append(statistic)
         except Exception as e:
             print(f"Failed to calculate stats for {vault.id}, {vault.name}")
@@ -280,28 +290,22 @@ async def get_total_user(session: SessionDep):
 @router.get("/depositors/recent")
 async def get_total_depositors(session: SessionDep):
     # Prepare the method IDs for the SQL query
-    method_ids = ", ".join(
-        f"'{method_id}'"
-        for method_id in [
-            constants.MethodID.DEPOSIT,
-            constants.MethodID.DEPOSIT2,
-            constants.MethodID.DEPOSIT3,
-        ]
-    )
+    method_ids = get_deposit_method_ids()
+    formatted_method_ids = ", ".join(f"'{method_id}'" for method_id in method_ids)
 
     raw_query = text(
         f"""
         WITH unique_from_addresses_7_days AS (
             SELECT DISTINCT ON (from_address) from_address
             FROM public.onchain_transaction_history
-            WHERE method_id IN ({method_ids})
+            WHERE method_id IN ({formatted_method_ids})
               AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '7 days')
             ORDER BY from_address, "timestamp"
         ),
         unique_from_addresses_30_days AS (
             SELECT DISTINCT ON (from_address) from_address
             FROM public.onchain_transaction_history
-            WHERE method_id IN ({method_ids})
+            WHERE method_id IN ({formatted_method_ids})
               AND "timestamp" >= EXTRACT(EPOCH FROM NOW() - INTERVAL '30 days')
             ORDER BY from_address, "timestamp"
         )
@@ -576,47 +580,15 @@ async def get_cumulative_vault_performance(session: SessionDep):
 @router.get("/deposits/summary")
 async def get_desposit_summary(session: SessionDep):
     # Define the SQL query to sum tvl values by day
-    raw_query = text(
-        """
-        SELECT
-           oth.input,
-           TO_TIMESTAMP(oth.timestamp) AS date
-        FROM
-            public.onchain_transaction_history oth
-        INNER JOIN
-            vaults v ON LOWER(v.contract_address) = LOWER(oth.to_address)
-        WHERE
-            oth.method_id = :method_id
-            AND TO_TIMESTAMP(oth.timestamp) >= (CURRENT_TIMESTAMP - INTERVAL '30 days')
-            AND v.is_active = TRUE
-        """
-    )
-
-    # Execute the query
     result = session.exec(
-        raw_query.bindparams(method_id=constants.MethodID.DEPOSIT.value)
-    ).all()
-
-    if len(result) == 0:
-        return {"date": [], "input": []}
-
-    # Convert the query result to a DataFrame
-    df = pd.DataFrame(result, columns=["input", "date"])
-
-    df["input"] = df["input"].astype(str)
-    df["tvl"] = df["input"].apply(to_tx_aumount)
-    df["date"] = pd.to_datetime(df["date"])
-
-    deposit_30_day = df["tvl"].astype(float).sum()
-
-    # Calculate total deposit over 7 days
-    seven_days_ago = datetime.now(pytz.UTC) - timedelta(days=7)
-    df_7_day = df[df["date"] >= seven_days_ago]
-    deposit_7_day = df_7_day["tvl"].astype(float).sum()
+        select(DepositSummarySnapshot)
+        .order_by(DepositSummarySnapshot.datetime.desc())
+        .limit(1)
+    ).first()
 
     return {
-        "deposit_30_day": 0 if deposit_30_day is None else deposit_30_day,
-        "deposit_7_day": 0 if deposit_7_day is None else deposit_7_day,
+        "deposit_30_day": 0 if result is None else result.deposit_30_day,
+        "deposit_7_day": 0 if result is None else result.deposit_7_day,
     }
 
 
@@ -688,15 +660,8 @@ async def get_user_chart_data(session: SessionDep):
 @router.get("/api/depositors-data-chart")
 async def get_deposit_chart_data(session: SessionDep):
     # Prepare the method IDs for the SQL query
-    method_ids = ", ".join(
-        f"'{method_id}'"
-        for method_id in [
-            constants.MethodID.DEPOSIT,
-            constants.MethodID.DEPOSIT2,
-            constants.MethodID.DEPOSIT3,
-        ]
-    )
-
+    method_ids = get_deposit_method_ids()
+    formatted_method_ids = ", ".join(f"'{method_id}'" for method_id in method_ids)
     raw_query = text(
         f"""
         SELECT 
@@ -706,7 +671,7 @@ async def get_deposit_chart_data(session: SessionDep):
         FROM 
             public.onchain_transaction_history
         WHERE 
-            method_id IN ({method_ids})
+            method_id IN ({formatted_method_ids})
         GROUP BY 
             date
         ORDER BY 
@@ -735,24 +700,23 @@ async def get_deposit_chart_data(session: SessionDep):
 async def get_tvl_chart_data(session: SessionDep):
     statement = select(Vault).where(Vault.is_active)
     vaults = session.exec(statement).all()
-    vault_ids = [vault.id for vault in vaults]
 
-    vaults_SOLV = [
-        vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
-    ]
+    # Create a mapping of vault_id to vault_currency
+    vault_currencies = {vault.id: vault.vault_currency for vault in vaults}
 
     last_friday_for_daily_vault_raw_query = text(
         """
         SELECT DISTINCT ON (vp.vault_id, DATE_TRUNC('week', vp.datetime + INTERVAL '1 day')) 
             vp.vault_id,
             vp.total_locked_value,
-            vp.datetime
+            vp.datetime,
+            v.vault_currency
         FROM vault_performance vp
         JOIN vaults v ON vp.vault_id = v.id
         WHERE v.id IN (
             SELECT id
             FROM vaults
-            WHERE update_frequency = 'daily' and is_active= True
+            WHERE update_frequency = 'daily' and is_active = True
         )
         AND EXTRACT(DOW FROM vp.datetime) = 5
         """
@@ -766,6 +730,7 @@ async def get_tvl_chart_data(session: SessionDep):
             "date": pd.to_datetime(row[2]).replace(
                 hour=0, minute=0, second=0, microsecond=0
             ),
+            "vault_currency": row[3],
         }
         for row in result.all()
     ]
@@ -775,13 +740,14 @@ async def get_tvl_chart_data(session: SessionDep):
         SELECT
             vp.vault_id,
             vp.total_locked_value,
-            vp.datetime
+            vp.datetime,
+            v.vault_currency
         FROM vault_performance vp
         JOIN vaults v ON vp.vault_id = v.id
         WHERE v.id IN (
             SELECT id
             FROM vaults
-            WHERE update_frequency = 'weekly' and is_active= True
+            WHERE update_frequency = 'weekly' and is_active = True
         )
         AND EXTRACT(DOW FROM vp.datetime) = 5 
         """
@@ -794,6 +760,7 @@ async def get_tvl_chart_data(session: SessionDep):
             "date": pd.to_datetime(row[2]).replace(
                 hour=0, minute=0, second=0, microsecond=0
             ),
+            "vault_currency": row[3],
         }
         for row in result.all()
     ]
@@ -825,14 +792,15 @@ async def get_tvl_chart_data(session: SessionDep):
                 )
 
             friday_vaults.extend(vault_add)
+
     friday_vaults.sort(key=itemgetter("date"))
     last_friday_for_daily_vaults.sort(key=itemgetter("date"))
     joined_vaults = last_friday_for_daily_vaults + friday_vaults
 
-    current_price = get_price("BTCUSDT")
+    # Convert all TVLs to USD based on their vault currency
     for perf in joined_vaults:
-        if perf["vault_id"] in vaults_SOLV:
-            perf["tvl"] += perf["tvl"] * current_price
+        currency_price = get_vault_currency_price(perf["vault_currency"])
+        perf["tvl"] = perf["tvl"] * currency_price
 
     joined_vaults.sort(key=itemgetter("date"))
     grouped_by_date = groupby(joined_vaults, key=itemgetter("date"))

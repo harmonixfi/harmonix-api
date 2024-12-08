@@ -23,6 +23,7 @@ from core.db import engine
 from core import constants
 from sqlmodel import Session, select
 
+from utils.extension_utils import to_tx_aumount_rethink
 from utils.web3_utils import get_vault_contract, parse_hex_to_int
 
 logging.basicConfig(level=logging.INFO)
@@ -182,7 +183,7 @@ def calculate_amount_value_for_rethink(onchain_transaction_history):
     ):
         amount = float(onchain_transaction_history.value)
     else:
-        amount = float(onchain_transaction_history.value)
+        amount = to_tx_aumount_rethink(onchain_transaction_history.input)
     wEth_price = float(
         get_klines(
             "ETHUSDT",

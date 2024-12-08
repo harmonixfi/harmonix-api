@@ -55,11 +55,13 @@ def get_funding_history(
         response.raise_for_status()
         data = response.json()
 
-        time.sleep(0.3)
+        time.sleep(0.6)
         if isinstance(data, list):
             return [
                 FundingHistoryEntry(
-                    datetime=unixtimestamp_to_datetime(int(entry["time"])),
+                    datetime=unixtimestamp_to_datetime(int(entry["time"])).astimezone(
+                        timezone.utc
+                    ),
                     funding_rate=float(entry["fundingRate"]),
                 )
                 for entry in data

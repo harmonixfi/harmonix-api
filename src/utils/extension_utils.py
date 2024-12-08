@@ -46,6 +46,15 @@ def to_amount_pendle(input_data: str, block_number: int, network_chain: str):
     return total_amount
 
 
+@staticmethod
+def to_tx_aumount_rethink(input_data: str):
+    input_data = input_data[10:].lower()
+    amount = input_data[0:64]
+    amount = parse_hex_to_int(amount)
+    deposit = amount / 1e18
+    return float(deposit)
+
+
 def get_init_dates() -> List[datetime]:
     # start_date = datetime(2024, 7, 22)
     start_date = datetime(2024, 3, 1)
