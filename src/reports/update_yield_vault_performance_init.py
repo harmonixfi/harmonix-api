@@ -25,7 +25,6 @@ ALLOCATION_RATIO: float = 1 / 2
 AE_USD = 0.08 / 365
 LST_YEILD = 0.036 / 365
 RENZO_AEVO_VALUE: float = 0.065 / 365
-SUPPORT_FEATURE_RATIO: float = 1 / 2
 LEVERAGE: float = 4
 
 
@@ -190,18 +189,22 @@ def process_kelpdao_arbtrum_vault(
             continue
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
-        prev_tvl = prev_tvl * SUPPORT_FEATURE_RATIO
 
         # From date: November 11, 2024 switched to Hyperliquid
         date_move_vault = datetime(2024, 11, 11, tzinfo=timezone.utc)
-        funding_history = (
+        funding_avg_hourly = (
             get_avg_by_date(hyperliquid_funding_history_df, date)
             if date >= date_move_vault
             else get_avg_by_date(aevo_funding_history_df, date)
         )
 
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
-        ae_usd_value = AE_USD * ALLOCATION_RATIO * prev_tvl
+        daily_funding_rate = funding_avg_hourly * 24
+        funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
+
+        # AE_USD To date: November 11, 2024 switched to Hyperliquid
+        ae_usd_value = (
+            AE_USD * ALLOCATION_RATIO * prev_tvl if date < date_move_vault else 0
+        )
         lst_yield_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + ae_usd_value + lst_yield_value
 
@@ -222,11 +225,11 @@ def process_kelpdao_vault(vault: Vault, service: VaultPerformanceHistoryService)
 
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
-        prev_tvl = prev_tvl * SUPPORT_FEATURE_RATIO
 
-        funding_history = get_avg_by_date(aevo_funding_history_df, date)
+        funding_avg_hourly = get_avg_by_date(aevo_funding_history_df, date)
+        daily_funding_rate = funding_avg_hourly * 24
 
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
         AE_USD_value = AE_USD * ALLOCATION_RATIO * prev_tvl
         LST_YEILD_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + AE_USD_value + LST_YEILD_value
@@ -241,19 +244,20 @@ def process_bsx_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_bsx_vault")
     bsx_funding_historiy_df = get_daily_funding_rate_df(PARTNER["BSX"])
 
-    apy = lido_service.get_apy() / 365
+    lido_apy = lido_service.get_apy() / 365
+    lido_daily_apy = lido_apy / 365
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
         if i == 0:
             continue
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
-        prev_tvl = prev_tvl * SUPPORT_FEATURE_RATIO
 
-        funding_history = get_avg_by_date(bsx_funding_historiy_df, date)
+        funding_avg_hourly = get_avg_by_date(bsx_funding_historiy_df, date)
+        daily_funding_rate = funding_avg_hourly * 24
 
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
-        wst_eth_value_adjusted = apy * ALLOCATION_RATIO * prev_tvl
+        funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
+        wst_eth_value_adjusted = lido_daily_apy * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + wst_eth_value_adjusted
         insert_vault_performance_history(
             yield_data=yield_data, vault=vault, datetime=date, service=service
@@ -267,8 +271,9 @@ def process_pendle_vault(vault: Vault, service: VaultPerformanceHistoryService):
     pendle_data = pendle_service.get_market(
         constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
     )
-    fixed_value = pendle_data[0].implied_apy if pendle_data else 0
-    fixed_value = fixed_value / 365
+    pendle_fixed_apy = pendle_data[0].implied_apy if pendle_data else 0
+    pendle_daily_apy = pendle_fixed_apy / 365
+
     hyperliquid_funding_history_df = get_daily_funding_rate_df(PARTNER["HYPERLIQUID"])
     daily_df = get_vault_dataframe(vault)
     for i, row in daily_df.iterrows():
@@ -276,11 +281,12 @@ def process_pendle_vault(vault: Vault, service: VaultPerformanceHistoryService):
             continue
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
-        prev_tvl = prev_tvl * SUPPORT_FEATURE_RATIO
 
-        funding_history = get_avg_by_date(hyperliquid_funding_history_df, date)
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
-        fixed_value_data = fixed_value * prev_tvl * ALLOCATION_RATIO
+        funding_avg_hourly = get_avg_by_date(hyperliquid_funding_history_df, date)
+        daily_funding_rate = funding_avg_hourly * 24
+
+        funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
+        fixed_value_data = pendle_daily_apy * prev_tvl * ALLOCATION_RATIO
         yield_data = funding_value + fixed_value_data
 
         insert_vault_performance_history(
@@ -294,8 +300,9 @@ def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
     logger.info("Start process_renzo_vault")
 
     aevo_funding_history_df = get_daily_funding_rate_df(PARTNER["AEVO"])
-    apy = renzo_service.get_apy() / 100
-    apy = apy / 365
+    renzo_apy = renzo_service.get_apy() / 100
+    renzo_daily_apy = renzo_apy / 365
+
     daily_df = get_vault_dataframe(vault)
 
     for i, row in daily_df.iterrows():
@@ -304,12 +311,13 @@ def process_renzo_vault(vault: Vault, service: VaultPerformanceHistoryService):
 
         date = row["datetime"]
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
-        prev_tvl = prev_tvl * SUPPORT_FEATURE_RATIO
 
-        funding_history = get_avg_by_date(aevo_funding_history_df, date)
-        funding_value = funding_history * ALLOCATION_RATIO * 24 * prev_tvl
+        funding_avg_hourly = get_avg_by_date(aevo_funding_history_df, date)
+        daily_funding_rate = funding_avg_hourly * 24
+
+        funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
         ae_usd_value = RENZO_AEVO_VALUE * ALLOCATION_RATIO * prev_tvl
-        ez_eth_value = apy * ALLOCATION_RATIO * prev_tvl
+        ez_eth_value = renzo_daily_apy * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + ae_usd_value + ez_eth_value
 
         insert_vault_performance_history(
@@ -333,18 +341,16 @@ def process_goldlink_vault(vault: Vault, service: VaultPerformanceHistoryService
         prev_tvl = get_tvl_from_prev_date(daily_df, i - 1)
         prev_tvl = prev_tvl * LEVERAGE
 
-        funding_history = get_avg_by_date(goldlink_funding_history_df, date)
-        interest_rate_avg = get_avg_by_date(interest_rate_avg_df, date)
+        funding_rate = get_avg_by_date(goldlink_funding_history_df, date)
+        interest_rate = get_avg_by_date(interest_rate_avg_df, date)
 
         # The funding rate of Goldlink is paid every 8 hours and is annualized
-        funding_history_avg = float(funding_history) / 365
-
+        funding_history_avg = float(funding_rate) / 365
+        interest_rate_avg = float(interest_rate) / 365
         # Calculate funding value based on the difference between the 1-day average funding rate
         # and the 1-day average interest rate, scaled by the TVL (Total Value Locked) and a multiplier of 4.
         # Formula: (Funding Rate Avg 1D - Interest Rate Avg 1D) * (TVL * 4)
-        funding_value = (
-            (funding_history_avg - interest_rate_avg) * ALLOCATION_RATIO * 24 * prev_tvl
-        )
+        funding_value = (funding_history_avg - interest_rate_avg) * 24 * prev_tvl
         yield_data = funding_value
 
         insert_vault_performance_history(
