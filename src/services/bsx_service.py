@@ -123,7 +123,9 @@ def get_funding_history(
             # Map the raw funding history to FundingHistoryEntry instances
             return [
                 FundingHistoryEntry(
-                    datetime=nanoseconds_to_datetime(int(entry["time"])),
+                    datetime=nanoseconds_to_datetime(int(entry["time"])).astimezone(
+                        timezone.utc
+                    ),
                     funding_rate=float(entry["rate"]),
                 )
                 for entry in funding_history
