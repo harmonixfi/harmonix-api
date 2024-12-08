@@ -104,7 +104,11 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         total_value_locked=performances.total_locked_value,
         risk_factor=performances.risk_factor,
         unique_depositors=performances.unique_depositors,
-        fee_structure=json.loads(performances.fee_structure) if performances.fee_structure is not None else {},
+        fee_structure=(
+            json.loads(performances.fee_structure)
+            if performances.fee_structure is not None
+            else {}
+        ),
         vault_address=vault.contract_address,
         manager_address=vault.owner_wallet_address,
         all_time_high_per_share=performances.all_time_high_per_share,
@@ -124,7 +128,9 @@ async def get_dashboard_statistics(session: SessionDep):
         select(Vault)
         .where(Vault.strategy_name != None)
         .where(Vault.is_active == True)
-        .where((Vault.tags == None) | (~Vault.tags.like('%ended%')))  # Exclude vaults with 'ended' tag
+        .where(
+            (Vault.tags == None) | (~Vault.tags.like("%ended%"))
+        )  # Exclude vaults with 'ended' tag
     )
     vaults = session.exec(statement).all()
 
@@ -186,11 +192,11 @@ async def get_dashboard_statistics(session: SessionDep):
                 slug=default_vault.slug,
                 id=default_vault.id,
             )
-            
+
             current_price = get_vault_currency_price(default_vault.vault_currency)
             tvl_in_all_vaults += total_tvl * current_price
 
-            tvl_composition[default_vault.name] = total_tvl
+            tvl_composition[default_vault.name] = total_tvl * current_price
             data.append(statistic)
         except Exception as e:
             print(f"Failed to calculate stats for {vault.id}, {vault.name}")
@@ -694,24 +700,23 @@ async def get_deposit_chart_data(session: SessionDep):
 async def get_tvl_chart_data(session: SessionDep):
     statement = select(Vault).where(Vault.is_active)
     vaults = session.exec(statement).all()
-    vault_ids = [vault.id for vault in vaults]
 
-    vaults_SOLV = [
-        vault.id for vault in vaults if vault.slug == constants.SOLV_VAULT_SLUG
-    ]
+    # Create a mapping of vault_id to vault_currency
+    vault_currencies = {vault.id: vault.vault_currency for vault in vaults}
 
     last_friday_for_daily_vault_raw_query = text(
         """
         SELECT DISTINCT ON (vp.vault_id, DATE_TRUNC('week', vp.datetime + INTERVAL '1 day')) 
             vp.vault_id,
             vp.total_locked_value,
-            vp.datetime
+            vp.datetime,
+            v.vault_currency
         FROM vault_performance vp
         JOIN vaults v ON vp.vault_id = v.id
         WHERE v.id IN (
             SELECT id
             FROM vaults
-            WHERE update_frequency = 'daily' and is_active= True
+            WHERE update_frequency = 'daily' and is_active = True
         )
         AND EXTRACT(DOW FROM vp.datetime) = 5
         """
@@ -725,6 +730,7 @@ async def get_tvl_chart_data(session: SessionDep):
             "date": pd.to_datetime(row[2]).replace(
                 hour=0, minute=0, second=0, microsecond=0
             ),
+            "vault_currency": row[3],
         }
         for row in result.all()
     ]
@@ -734,13 +740,14 @@ async def get_tvl_chart_data(session: SessionDep):
         SELECT
             vp.vault_id,
             vp.total_locked_value,
-            vp.datetime
+            vp.datetime,
+            v.vault_currency
         FROM vault_performance vp
         JOIN vaults v ON vp.vault_id = v.id
         WHERE v.id IN (
             SELECT id
             FROM vaults
-            WHERE update_frequency = 'weekly' and is_active= True
+            WHERE update_frequency = 'weekly' and is_active = True
         )
         AND EXTRACT(DOW FROM vp.datetime) = 5 
         """
@@ -753,6 +760,7 @@ async def get_tvl_chart_data(session: SessionDep):
             "date": pd.to_datetime(row[2]).replace(
                 hour=0, minute=0, second=0, microsecond=0
             ),
+            "vault_currency": row[3],
         }
         for row in result.all()
     ]
@@ -784,14 +792,15 @@ async def get_tvl_chart_data(session: SessionDep):
                 )
 
             friday_vaults.extend(vault_add)
+
     friday_vaults.sort(key=itemgetter("date"))
     last_friday_for_daily_vaults.sort(key=itemgetter("date"))
     joined_vaults = last_friday_for_daily_vaults + friday_vaults
 
-    current_price = get_price("BTCUSDT")
+    # Convert all TVLs to USD based on their vault currency
     for perf in joined_vaults:
-        if perf["vault_id"] in vaults_SOLV:
-            perf["tvl"] += perf["tvl"] * current_price
+        currency_price = get_vault_currency_price(perf["vault_currency"])
+        perf["tvl"] = perf["tvl"] * currency_price
 
     joined_vaults.sort(key=itemgetter("date"))
     grouped_by_date = groupby(joined_vaults, key=itemgetter("date"))
