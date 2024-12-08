@@ -413,10 +413,10 @@
             "cwd": "${workspaceFolder}/src"
         },
          {
-            "name": "update_yield_vault_performance_init",
+            "name": "update_vault_earned_yield_historical",
             "type": "debugpy",
             "request": "launch",
-            "module": "reports.update_yield_vault_performance_init",
+            "module": "reports.update_vault_earned_yield_historical",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },

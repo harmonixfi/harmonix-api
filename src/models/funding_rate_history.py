@@ -5,8 +5,8 @@ from datetime import datetime as dt, timezone
 import sqlmodel
 
 
-class FundingHistory(SQLModel, table=True):
-    __tablename__ = "funding_history"
+class FundingRateHistory(SQLModel, table=True):
+    __tablename__ = "funding_rate_history"
     __table_args__ = {"schema": "reports"}
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)

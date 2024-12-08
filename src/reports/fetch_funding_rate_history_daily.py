@@ -2,40 +2,20 @@ import logging
 from datetime import datetime, timedelta, timezone
 from operator import and_
 
-from core import constants
 from log import setup_logging_to_console, setup_logging_to_file
 
-from models.deposit_summary_snapshot import DepositSummarySnapshot
-from models.funding_history import FundingHistory
-from models.onchain_transaction_history import OnchainTransactionHistory
-from models.vaults import Vault
+from models.funding_rate_history import FundingRateHistory
+from reports.ultils import PARTNER
 from services import aevo_service, gold_link_service, hyperliquid_service
 from services import bsx_service
-from services.bsx_service import claim_point, get_list_claim_point
-from services.market_data import get_klines
-from services.vault_contract_service import VaultContractService
 
 from sqlalchemy import func
 from sqlmodel import Session, select
 from datetime import datetime, timedelta
 
-from core import constants
-from models.onchain_transaction_history import OnchainTransactionHistory
-from models.vaults import Vault
-from services.vault_contract_service import VaultContractService
-from utils.extension_utils import (
-    to_amount_pendle,
-    to_tx_aumount,
-    to_tx_aumount_goldlink,
-    to_tx_aumount_rethink,
-)
 from core.db import engine
 
-from utils.vault_utils import (
-    convert_to_nanoseconds,
-    datetime_to_unix_ms,
-    get_deposit_method_ids,
-)
+from utils.vault_utils import convert_to_nanoseconds, datetime_to_unix_ms
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -44,49 +24,38 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-PARTNER = {
-    "BSX": "BSX",
-    "AEVO": "AEVO",
-    "HYPERLIQUID": "HYPERLIQUID",
-    "GOLDLINK": "GOLDLINK",
-}
+def get_latest_funding_rate_date(partner_name: str) -> datetime:
+    return session.exec(
+        select(FundingRateHistory.datetime)
+        .where(FundingRateHistory.partner_name == partner_name)
+        .order_by(FundingRateHistory.datetime.desc())
+    ).first()
 
 
 def fetch_funding_history(
-    service_func, use_nanoseconds: bool = True, should_init: bool = False
+    service_func, start_date: datetime, use_nanoseconds: bool = True
 ):
     logger.info("Starting funding history calculation...")
-    # Start date is set to 2024-04-05 which corresponds to the launch date
-    # Ignoring vault "Koi & Chill with Kelp DAO" (ethereum-kelpdao-restaking-delta-neutral-vault)
-    # as it requires special handling
-    # start_time = datetime(2024, 4, 5, 0, 0, 0)
-    start_time = datetime(2024, 4, 5, 0, 0, 0, tzinfo=timezone.utc)
-    end_time = datetime.now(tz=timezone.utc)
-    time_interval = timedelta(days=1)
+
+    end_date = datetime.now(tz=timezone.utc)
 
     date_ranges = []
-    current_time = start_time
 
-    logger.info(f"Fetching funding history from {start_time} to {end_time}...")
+    logger.info(f"Fetching funding history from {start_date} to {end_date}...")
 
-    while current_time < end_time:
-        start_date = current_time
-        end_date = start_date.replace(hour=23, minute=59, second=59)
-
-        funding_histories = service_func(
-            start_time=(
-                convert_to_nanoseconds(start_date)
-                if use_nanoseconds
-                else datetime_to_unix_ms(start_date)
-            ),
-            end_time=(
-                convert_to_nanoseconds(end_date)
-                if use_nanoseconds
-                else datetime_to_unix_ms(end_date)
-            ),
-        )
-        date_ranges.extend(funding_histories)
-        current_time += time_interval
+    funding_histories = service_func(
+        start_time=(
+            convert_to_nanoseconds(start_date)
+            if use_nanoseconds
+            else datetime_to_unix_ms(start_date)
+        ),
+        end_time=(
+            convert_to_nanoseconds(end_date)
+            if use_nanoseconds
+            else datetime_to_unix_ms(end_date)
+        ),
+    )
+    date_ranges.extend(funding_histories)
 
     return date_ranges
 
@@ -97,13 +66,14 @@ def fetch_funding_history_bsx():
 
         logger.info("Requesting funding history from BSX service...")
         funding_history = fetch_funding_history(
-            service_func=bsx_service.get_funding_history
+            service_func=bsx_service.get_funding_history,
+            start_date=get_latest_funding_rate_date(PARTNER["BSX"]),
         )
         logger.info(f"Successfully fetched {len(funding_history)} records from BSX")
 
         logger.info("Processing BSX funding history data for database insertion...")
         funding_history_entries = [
-            FundingHistory(
+            FundingRateHistory(
                 datetime=item.datetime,
                 funding_rate=item.funding_rate,
                 partner_name=PARTNER["BSX"],
@@ -131,13 +101,14 @@ def fetch_funding_history_aevo():
 
         logger.info("Requesting funding history from AEVO service...")
         funding_history = fetch_funding_history(
-            service_func=aevo_service.get_funding_history
+            service_func=aevo_service.get_funding_history,
+            start_date=get_latest_funding_rate_date(PARTNER["AEVO"]),
         )
         logger.info(f"Successfully fetched {len(funding_history)} records from AEVO")
 
         logger.info("Processing AEVO funding history data for database insertion...")
         funding_history_entries = [
-            FundingHistory(
+            FundingRateHistory(
                 datetime=item.datetime,
                 funding_rate=item.funding_rate,
                 partner_name=PARTNER["AEVO"],
@@ -166,6 +137,7 @@ def fetch_funding_history_hyperliquid():
         logger.info("Requesting funding history from Hyperliquid service...")
         funding_history = fetch_funding_history(
             service_func=hyperliquid_service.get_funding_history,
+            start_date=get_latest_funding_rate_date(PARTNER["HYPERLIQUID"]),
             use_nanoseconds=False,
         )
         logger.info(
@@ -176,7 +148,7 @@ def fetch_funding_history_hyperliquid():
             "Processing Hyperliquid funding history data for database insertion..."
         )
         funding_history_entries = [
-            FundingHistory(
+            FundingRateHistory(
                 datetime=item.datetime,
                 funding_rate=item.funding_rate,
                 partner_name=PARTNER["HYPERLIQUID"],
@@ -209,6 +181,7 @@ def fetch_funding_history_goldlink():
         logger.info("Starting Goldlink funding history fetch...")
 
         logger.info("Requesting funding history from Goldlink service...")
+
         funding_history = gold_link_service.get_funding_history()
         logger.info(
             f"Successfully fetched {len(funding_history)} records from Goldlink"
@@ -217,13 +190,15 @@ def fetch_funding_history_goldlink():
         logger.info(
             "Processing Goldlink funding history data for database insertion..."
         )
+        latest_funding_rate_date = get_latest_funding_rate_date(PARTNER["GOLDLINK"])
         funding_history_entries = [
-            FundingHistory(
+            FundingRateHistory(
                 datetime=item.datetime.replace(tzinfo=timezone.utc),
                 funding_rate=item.funding_rate,
                 partner_name=PARTNER["GOLDLINK"],
             )
             for item in funding_history
+            if item.datetime.replace(tzinfo=timezone.utc) > latest_funding_rate_date
         ]
 
         entry_count = len(funding_history_entries)
@@ -248,36 +223,27 @@ def fetch_funding_history_goldlink():
 
 if __name__ == "__main__":
     try:
-        logger.info("Initializing funding history fetch process...")
+        logger.info("Initializing funding rate history fetch process...")
         setup_logging_to_console()
-        setup_logging_to_file("fetch_funding_history")
+        setup_logging_to_file("fetch_funding_rate_history_daily")
 
-        for service_name, fetch_func in [
-            ("BSX", fetch_funding_history_bsx),
-            ("AEVO", fetch_funding_history_aevo),
-            ("Hyperliquid", fetch_funding_history_hyperliquid),
-            ("Goldlink", fetch_funding_history_goldlink),
-        ]:
-            try:
-                logger.info(f"Starting {service_name} funding history fetch process...")
-                fetch_func()
-                logger.info(
-                    f"Completed {service_name} funding history fetch successfully"
-                )
-            except Exception as e:
-                logger.error(
-                    f"Failed to fetch {service_name} funding history: {str(e)}",
-                    exc_info=True,
-                )
-                # Continue with next service even if current one fails
-                continue
+        handler = [
+            fetch_funding_history_bsx,
+            fetch_funding_history_aevo,
+            fetch_funding_history_hyperliquid,
+            fetch_funding_history_goldlink,
+        ]
 
-        logger.info("All funding history fetch processes completed")
+        for fetch_func in handler:
+            fetch_func()
+
+        logger.info("All funding rate history fetch processes completed")
 
     except Exception as e:
         logger.error(
-            f"Critical error in funding history fetch process: {str(e)}", exc_info=True
+            f"Critical error in rate funding history fetch process: {str(e)}",
+            exc_info=True,
         )
         raise
     finally:
-        logger.info("Funding history fetch process finished")
+        logger.info("Funding rate history  fetch process finished")

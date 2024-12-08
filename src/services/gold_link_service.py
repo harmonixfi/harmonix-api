@@ -179,9 +179,11 @@ def get_funding_history(decimals=1e30) -> List[FundingHistoryEntry]:
         return []
 
 
-def get_apy_rate_history(decimals: float = 1e18) -> List[Dict[datetime, float]]:
+def get_apy_rate_history(
+    decimals: float = 1e18, start_timestamp: int = 0, end_timestamp: int = -1
+) -> List[Dict[datetime, float]]:
     headers = {"accept": "application/json"}
-    params = f'["{STRATEGY_RESERVE_ADDRESS}",0,-1]'
+    params = f'["{STRATEGY_RESERVE_ADDRESS}",{start_timestamp},{end_timestamp}]'
     api_url = f"{url}/?method=goldlink/getHistoricReserveInterestRate&params={params}"
 
     try:

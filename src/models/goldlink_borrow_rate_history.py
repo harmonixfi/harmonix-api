@@ -5,11 +5,10 @@ from datetime import datetime as dt, timezone
 import sqlmodel
 
 
-class APYRateHistory(SQLModel, table=True):
-    __tablename__ = "apy_rate_history"
+class GoldlinkBorrowRateHistory(SQLModel, table=True):
+    __tablename__ = "goldlink_borrow_rate_history"
     __table_args__ = {"schema": "reports"}
 
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     datetime: dt = sqlmodel.Field(default=dt.now(timezone.utc), index=True)
     apy_rate: float
-    partner_name: str = Field(index=True)
