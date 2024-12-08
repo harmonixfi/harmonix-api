@@ -203,7 +203,7 @@ def process_kelpdao_arbtrum_vault(
 
         # AE_USD To date: November 11, 2024 switched to Hyperliquid
         ae_usd_value = (
-            AE_USD * ALLOCATION_RATIO * prev_tvl if date < date_move_vault else 0
+            AE_USD * ALLOCATION_RATIO * prev_tvl if date >= date_move_vault else 0
         )
         lst_yield_value = LST_YEILD * ALLOCATION_RATIO * prev_tvl
         yield_data = funding_value + ae_usd_value + lst_yield_value
