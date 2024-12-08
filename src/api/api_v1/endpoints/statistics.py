@@ -118,7 +118,10 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
 @router.get("/", response_model=schemas.DashboardStats)
 async def get_dashboard_statistics(session: SessionDep):
     statement = (
-        select(Vault).where(Vault.strategy_name != None).where(Vault.is_active == True)
+        select(Vault)
+        .where(Vault.strategy_name != None)
+        .where(Vault.is_active == True)
+        .where((Vault.tags == None) | (~Vault.tags.like('%ended%')))  # Exclude vaults with 'ended' tag
     )
     vaults = session.exec(statement).all()
 
