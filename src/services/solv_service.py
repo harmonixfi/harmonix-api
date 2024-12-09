@@ -18,7 +18,7 @@ def nav_data_to_dataframe(nav_data):
 
 def fetch_nav_data():
     url = "https://sft-api.com/graphql"
-    payload = '{"query":"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}","variables":{"filter":{"navType":"Investment","poolSlotInfoId":32},"pagination":{},"sort":{"field":"navDate","direction":"ASC"}}}'
+    payload = "{\"query\":\"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}\",\"variables\":{\"filter\":{\"navType\":\"Investment\",\"poolSlotInfoId\":40},\"pagination\":{},\"sort\":{\"field\":\"navDate\",\"direction\":\"ASC\"}}}"
     headers = {
         "authority": "sft-api.com",
         "accept": "*/*",
