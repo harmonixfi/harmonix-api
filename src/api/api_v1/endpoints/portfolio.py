@@ -202,7 +202,7 @@ async def get_portfolio_info(
 
         # Ensure non-negative APY for first 10 days
         if holding_period <= 10:
-            position.total_balance = position.init_deposit
+            position.total_balance = max(position.init_deposit, position.total_balance)
             position.apy = max(position.apy, 0)
 
         # if vault.slug == constants.SOLV_VAULT_SLUG:
