@@ -10,6 +10,7 @@ from sqlalchemy import func
 from sqlmodel import Session, select
 from web3.contract import Contract
 
+from bg_tasks.utils import get_before_price_per_shares
 from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
@@ -18,7 +19,7 @@ from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory
 from schemas.fee_info import FeeInfo
-from utils.web3_utils import get_vault_contract, get_current_tvl
+from utils.web3_utils import get_current_pps, get_vault_contract, get_current_tvl
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -96,22 +97,33 @@ def calculate_tvl_statistics(vault_id: uuid.UUID):
     return all_time_high_tvl, sortino, downside, risk_factor
 
 def calculate_performance(vault: Vault, vault_contract: Contract):
+    current_price_per_share = get_current_pps(vault_contract, decimals=1e18)
     current_tvl = get_current_tvl(vault_contract, decimals=1e18)
     fee_info = get_fee_info()
 
-    # Calculate Monthly APY using TVL
-    month_ago_tvl = get_historical_tvl(vault.id, days_ago=30)
-    if month_ago_tvl:
-        monthly_apy = calculate_roi(current_tvl, month_ago_tvl, days=30) * 100
-    else:
-        monthly_apy = 0
+    # Calculate Monthly APY
+    month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
+    month_ago_datetime = pendulum.instance(month_ago_price_per_share.datetime).in_tz(
+        pendulum.UTC
+    )
 
-    # Calculate Weekly APY using TVL
-    week_ago_tvl = get_historical_tvl(vault.id, days_ago=7)
-    if week_ago_tvl:
-        weekly_apy = calculate_roi(current_tvl, week_ago_tvl, days=7) * 100
-    else:
-        weekly_apy = 0
+    time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
+    days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
+    monthly_apy = calculate_roi(
+        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
+    )
+    monthly_apy *= 100
+
+    week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
+    week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
+        pendulum.UTC
+    )
+    time_diff = pendulum.now(tz=pendulum.UTC) - week_ago_datetime
+    days = min(time_diff.days, 7) if time_diff.days > 0 else time_diff.hours / 24
+    weekly_apy = calculate_roi(
+        current_price_per_share, week_ago_price_per_share.price_per_share, days=days
+    )
+    weekly_apy *= 100
 
     # Calculate YTD APY
     start_of_year = pendulum.now(tz=pendulum.UTC).start_of('year')
