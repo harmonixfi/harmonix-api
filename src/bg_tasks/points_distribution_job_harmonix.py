@@ -157,11 +157,9 @@ def harmonix_distribute_points(current_time):
                 )
             ).total_seconds() / 3600
             
-            
             converted_balance =  portfolio.total_balance
             if vault.vault_currency == "WBTC":
                 converted_balance = portfolio.total_balance * get_price('BTCUSDT')
-            
             
             points = (
                 (converted_balance / POINT_PER_DOLLAR)
