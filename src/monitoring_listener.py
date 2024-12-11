@@ -116,6 +116,39 @@ def _extract_delta_neutral_event(entry):
     return amount, shares, from_address
 
 
+def _extract_rethink_event(entry):
+    """Extract data from Rethink vault events"""
+    # Get the from_address from indexed parameter
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'
+
+    # Decode the data field based on event type
+    data = entry["data"].hex()
+
+    if entry["topics"][0].hex() == settings.RETHINK_DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC:
+        # UserDeposited event: amount
+        amount = int(data[2:66], 16) / 1e18  # WETH has 18 decimals
+        return amount, 0, from_address
+
+    elif entry["topics"][0].hex() in [
+        settings.RETHINK_DELTA_NEUTRAL_REQUEST_FUND_EVENT_TOPIC,
+        settings.RETHINK_DELTA_NEUTRAL_COMPLETE_WITHDRAW_EVENT_TOPIC,
+    ]:
+        # InitiateWithdrawal and Withdrawn events: amount and shares
+        amount = int(data[2:66], 16) / 1e18
+        shares = int(data[66:130], 16) / 1e18
+        return amount, shares, from_address
+
+    elif (
+        entry["topics"][0].hex()
+        == settings.RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC
+    ):
+        # DepositedToFundContract event: amount only
+        amount = int(data[2:66], 16) / 1e18
+        return amount, 0, None
+
+
 async def handle_event(vault_address: str, entry, event_name):
     # Get the vault with ROCKONYX_ADDRESS
     vault = session.exec(
@@ -130,6 +163,8 @@ async def handle_event(vault_address: str, entry, event_name):
     # Extract the value, shares and from_address from the event
     if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         value, shares, from_address = _extract_stablecoin_event(entry)
+    elif vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+        value, shares, from_address = _extract_rethink_event(entry)
     elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         value, shares, from_address = _extract_delta_neutral_event(entry)
     elif vault.slug == constants.SOLV_VAULT_SLUG:
