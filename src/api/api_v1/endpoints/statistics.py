@@ -111,11 +111,17 @@ async def get_all_statistics(session: SessionDep, vault_id: str):
         ),
         vault_address=vault.contract_address,
         manager_address=vault.owner_wallet_address,
-        all_time_high_per_share=performances.all_time_high_per_share,
-        total_shares=performances.total_shares,
+        all_time_high_per_share=(
+            performances.all_time_high_per_share
+            if performances.all_time_high_per_share != None
+            else 0
+        ),
+        total_shares=(
+            performances.total_shares if performances.total_shares != None else 0
+        ),
         sortino_ratio=performances.sortino_ratio,
         downside_risk=performances.downside_risk,
-        earned_fee=performances.earned_fee,
+        earned_fee=performances.earned_fee if performances.earned_fee != None else 0,
         vault_network_chain=vault.network_chain,
         slug=vault.slug,
     )
