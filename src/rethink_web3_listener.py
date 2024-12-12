@@ -80,8 +80,7 @@ def _extract_rethink_event(entry):
         == settings.RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC
     ):
         # DepositedToFundContract event: amount only
-        amount = int(data[2:66], 16) / 1e18
-        return amount, 0, None
+        return 0, 0, None
 
 
 def update_tvl(session: Session, vault: Vault, weth_amount: float):
@@ -309,32 +308,27 @@ def main(network: str):
 
 def test():
     from web3.datastructures import AttributeDict
-    
+
     msg = {
-        "subscription": "0x422d76c4b6b9da3a0de1ecd1e01d9b80",
+        "subscription": "0x97950178d62d5c3dfc163cb84d30aed2",
         "result": AttributeDict(
             {
                 "address": "0x1D47CA37872f4c19Cf6931f801E99A0d618E3688",
                 "topics": [
                     HexBytes(
-                        "0x951fdc61d6a98f96098a17ea6ac287a6fd38aea6bef73083c93b274cb830107d"
-                    ),
-                    HexBytes(
-                        "0x000000000000000000000000bc05da14287317fe12b1a2b5a0e1d756ff1801aa"
-                    ),
+                        "0xda43df27a339f80303355a0fac6c644bb25b52dc0317394b127e505099ff55ca"
+                    )
                 ],
-                "data": HexBytes(
-                    "0x00000000000000000000000000000000000000000000000000005af3107a4000"
-                ),
-                "blockNumber": 281897760,
+                "data": HexBytes("0x"),
+                "blockNumber": 283341942,
                 "transactionHash": HexBytes(
-                    "0x67685d90595dd1bafbe96425c0e378ac4c1d8ec19b7ec5eb47bbe64abd8c238d"
+                    "0xbb45f92ca77717fc3364bd040b01c5d96884c32c4294ba0c36d3e9021ffce53a"
                 ),
-                "transactionIndex": 1,
+                "transactionIndex": 7,
                 "blockHash": HexBytes(
-                    "0x9e1c259402c42b964c87ba1571cfb6d6f8a65ce931777d760b92d35cbc3649b1"
+                    "0x26ba68ae7ef4e6694242aa09f8fd788295bbfb2169f8186e3aa30eb10aa3cc5c"
                 ),
-                "logIndex": 2,
+                "logIndex": 18,
                 "removed": False,
             }
         ),
