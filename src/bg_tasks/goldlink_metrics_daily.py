@@ -14,6 +14,7 @@ from services.gold_link_service import (
     get_position_size,
 )
 from services.market_data import get_price
+from utils.vault_utils import get_vault_currency_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -68,7 +69,7 @@ def get_vault_metrics(vault: Vault):
         borrow_apr = get_borrow_apr() * 100
 
         size_in_tokens = get_position_size(vault_metadata.goldlink_trading_account)
-        token_price = get_price(f"{vault.underlying_asset}USDT")
+        token_price = get_vault_currency_price(vault.vault_currency)
 
         update_vault_metadata(
             vault_metadata,
