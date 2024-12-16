@@ -29,6 +29,7 @@ from models import (
 from models.vaults import NetworkChain, VaultCategory
 from services.kyberswap import KyberSwapService
 from services.socket_manager import WebSocketManager
+from services.vault_contract_service import VaultContractService
 from utils.calculate_price import calculate_avg_entry_price
 
 
@@ -202,6 +203,7 @@ def handle_initiate_withdraw_event(
         )
         user_portfolio.initiated_withdrawal_at = datetime.now(timezone.utc)
         session.add(user_portfolio)
+        session.commit()
         logger.info(f"User with address {from_address} updated in user_portfolio table")
         return user_portfolio
     else:
@@ -221,7 +223,23 @@ def handle_withdrawn_event(
 ):
     if user_portfolio is not None:
         logger.info(f"User complete withdrawal {from_address} {value}")
-        user_portfolio.total_balance -= value
+        # user_portfolio.total_balance -= value
+        vault_contract_service = VaultContractService()
+
+        abi_name, decimals = vault_contract_service.get_vault_abi(vault=vault)
+
+        vault_contract, _ = vault_contract_service.get_vault_contract(
+            vault.network_chain, vault.contract_address, abi_name
+        )
+
+        shares = vault_contract.functions.balanceOf(
+            Web3.to_checksum_address(user_portfolio.user_address)
+        ).call()
+        price_per_share = vault_contract.functions.pricePerShare().call()
+
+        shares = shares / decimals
+        price_per_share = price_per_share / decimals
+        user_portfolio.total_balance = price_per_share * shares
 
         # Update the pending_withdrawal, we don't allow user to withdraw more or less than pending_withdrawal
         user_portfolio.pending_withdrawal = 0
@@ -232,6 +250,7 @@ def handle_withdrawn_event(
             user_portfolio.trade_end_date = datetime.now(timezone.utc)
 
         session.add(user_portfolio)
+        session.commit()
 
         update_tvl(session, vault, (-1) * float(value))
 
