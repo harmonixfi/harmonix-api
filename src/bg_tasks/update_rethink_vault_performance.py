@@ -15,6 +15,7 @@ from core.config import settings
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
+from models.pps_history import PricePerShareHistory
 from models.user_portfolio import UserPortfolio
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, VaultCategory
@@ -55,6 +56,32 @@ def get_historical_tvl(vault_id: uuid.UUID, days_ago: int) -> float:
     ).first()
 
     return historical_performance.total_locked_value if historical_performance else None
+
+
+def update_price_per_share(vault_id: uuid.UUID, current_price_per_share: float):
+    # update today to hour with minute = 0 and second = 0
+    today = pendulum.now(tz=pendulum.UTC).replace(minute=0, second=0, microsecond=0)
+
+    # Check if a PricePerShareHistory record for today already exists
+    existing_pps = session.exec(
+        select(PricePerShareHistory).where(
+            PricePerShareHistory.vault_id == vault_id,
+            PricePerShareHistory.datetime == today,
+        )
+    ).first()
+
+    if existing_pps:
+        # If a record for today already exists, update the price per share
+        existing_pps.price_per_share = current_price_per_share
+    else:
+        # If no record for today exists, create a new one
+        new_pps = PricePerShareHistory(
+            datetime=today, price_per_share=current_price_per_share, vault_id=vault_id
+        )
+        session.add(new_pps)
+
+    session.commit()
+
 
 def calculate_tvl_statistics(vault_id: uuid.UUID):
     # Get historical TVL data
@@ -109,9 +136,7 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
 
     time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
     days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
-    monthly_apy = calculate_roi(
-        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
-    )
+    monthly_apy = calculate_roi(current_price_per_share, month_ago_price_per_share.price_per_share, days=days)
     monthly_apy *= 100
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
@@ -139,6 +164,8 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
 
     # Calculate risk statistics using TVL
     all_time_high_tvl, sortino, downside, risk_factor = calculate_tvl_statistics(vault.id)
+
+    update_price_per_share(vault.id, current_price_per_share)
 
     # Count unique depositors
     count = session.scalar(
