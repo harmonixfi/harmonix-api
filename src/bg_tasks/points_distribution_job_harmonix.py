@@ -216,7 +216,7 @@ def harmonix_distribute_points(current_time):
             converted_balance = portfolio.total_balance * currency_price
 
             points = (
-                (portfolio.total_balance / POINT_PER_DOLLAR)
+                (converted_balance / POINT_PER_DOLLAR)
                 * duration_hours
                 * vault_multiplier
                 * referrer_mutiplier
