@@ -212,8 +212,8 @@ def harmonix_distribute_points(current_time):
                 - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
 
-            converted_balance = portfolio.total_balance
-            converted_balance = get_vault_currency_price(vault.vault_currency)
+            currency_price = get_vault_currency_price(vault.vault_currency)
+            converted_balance = portfolio.total_balance * currency_price
 
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
