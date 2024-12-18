@@ -19,8 +19,7 @@ from models.vaults import Vault
 from core.db import engine
 from core import constants
 from sqlmodel import Session, select
-
-from services.market_data import get_price
+from utils.vault_utils import get_vault_currency_price
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,7 +107,7 @@ def harmonix_distribute_points(current_time):
     active_portfolios = session.exec(active_portfolios_query).all()
     active_portfolios.sort(key=lambda x: x.trade_start_date)
     for portfolio in active_portfolios:
-        
+
         vault_multiplier = 1
         if portfolio.vault_id in multiplier_config_dict:
             vault_multiplier = multiplier_config_dict[portfolio.vault_id]
@@ -143,9 +142,11 @@ def harmonix_distribute_points(current_time):
             .where(UserPoints.session_id == reward_session.session_id)
             .where(UserPoints.vault_id == portfolio.vault_id)
         )
-        vault = session.exec(select(Vault).where(Vault.id == portfolio.vault_id)).first()
-        
-        user_points = session.exec(user_points_query).first()         
+        vault = session.exec(
+            select(Vault).where(Vault.id == portfolio.vault_id)
+        ).first()
+
+        user_points = session.exec(user_points_query).first()
         # if  user points is none then insert user points
         if not user_points:
             # Calculate points to be distributed
@@ -156,11 +157,11 @@ def harmonix_distribute_points(current_time):
                     portfolio.trade_start_date.replace(tzinfo=timezone.utc),
                 )
             ).total_seconds() / 3600
-            
-            converted_balance =  portfolio.total_balance
-            if vault.vault_currency == "WBTC":
-                converted_balance = portfolio.total_balance * get_price('BTCUSDT')
-            
+
+            converted_balance = portfolio.total_balance
+            currency_price = get_vault_currency_price(vault.vault_currency)
+            converted_balance = portfolio.total_balance * currency_price
+
             points = (
                 (converted_balance / POINT_PER_DOLLAR)
                 * duration_hours
@@ -210,11 +211,10 @@ def harmonix_distribute_points(current_time):
                 current_time
                 - user_points_history.created_at.replace(tzinfo=timezone.utc)
             ).total_seconds() / 3600
-            
-            converted_balance =  portfolio.total_balance
-            if vault.vault_currency == "WBTC":
-                converted_balance = portfolio.total_balance * get_price('BTCUSDT')
-                
+
+            converted_balance = portfolio.total_balance
+            converted_balance = get_vault_currency_price(vault.vault_currency)
+
             points = (
                 (portfolio.total_balance / POINT_PER_DOLLAR)
                 * duration_hours
