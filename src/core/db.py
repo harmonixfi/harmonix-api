@@ -309,16 +309,14 @@ def init_vault_point_multiplier(session: Session, vault: Vault):
     """
     # Check if multiplier config already exists for this vault
     existing_config = session.exec(
-        select(PointsMultiplierConfig)
-        .where(PointsMultiplierConfig.vault_id == vault.id)
+        select(PointsMultiplierConfig).where(
+            PointsMultiplierConfig.vault_id == vault.id
+        )
     ).first()
 
     if not existing_config:
         # Create new multiplier config with default value 1
-        multiplier_config = PointsMultiplierConfig(
-            vault_id=vault.id,
-            multiplier=1.0
-        )
+        multiplier_config = PointsMultiplierConfig(vault_id=vault.id, multiplier=1.0)
         session.add(multiplier_config)
         session.commit()
 
@@ -552,6 +550,31 @@ def seed_vaults(session: Session):
             pendle_market_address="",
             update_frequency="daily",
         ),
+        Vault(
+            name="$HYPE delta neutra",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            slug=constants.HYPE_DELTA_NEUTRA_SLUG,
+            contract_address="",
+            routes=None,
+            category="rewards",
+            underlying_asset="USDC",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=20,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=1.407,
+            tags="harmonix,new",
+            max_drawdown=0,
+            maturity_date="",
+            owner_wallet_address="",
+            is_active=False,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+            pt_address="",
+            pendle_market_address="",
+            update_frequency="daily",
+        ),
     ]
 
     for vault in vaults:
@@ -675,3 +698,8 @@ def init_db(session: Session) -> None:
     ).first()
     init_new_vault(session, goldlink_vault)
     init_new_vault_metadata(session)
+
+    hype_vault = session.exec(
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+    ).first()
+    init_new_vault(session, hype_vault)
