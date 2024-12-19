@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 import traceback
 import uuid
+from sqlalchemy import func
 from sqlmodel import Session, select
 from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
@@ -73,17 +74,12 @@ def harmonix_distribute_points(current_time):
     ):
         total_points_distributed = reward_session.points_distributed
     else:
-        session_points_query = (
-            select(UserPoints)
+        total_points_distributed_query = (
+            select(func.sum(UserPoints.points))
             .where(UserPoints.partner_name == constants.HARMONIX)
             .where(UserPoints.created_at >= session_start_date)
         )
-        total_points_distributed = sum(
-            [
-                user_points.points
-                for user_points in session.exec(session_points_query).all()
-            ]
-        )
+        total_points_distributed = session.exec(total_points_distributed_query).one()
 
     if total_points_distributed >= reward_session_config.max_points:
         logger.info(
@@ -377,13 +373,12 @@ def update_vault_points(current_time):
     for vault in active_vaults:
         try:
             # get all earned points for the vault
-            earned_points_query = (
-                select(UserPoints)
+            total_points_query = (
+                select(func.sum(UserPoints.points))
                 .where(UserPoints.vault_id == vault.id)
                 .where(UserPoints.partner_name == constants.HARMONIX)
             )
-            earned_points = session.exec(earned_points_query).all()
-            total_points = sum([point.points for point in earned_points])
+            total_points = session.exec(total_points_query).one()
             logger.info(
                 f"Vault {vault.name} has earned {total_points} points from Harmonix."
             )
