@@ -551,11 +551,11 @@ def seed_vaults(session: Session):
             update_frequency="daily",
         ),
         Vault(
-            name="$HYPE delta neutra",
+            name="$HYPE delta neutral",
             vault_capacity=4 * 1e3,
             vault_currency="USDC",
             slug=constants.HYPE_DELTA_NEUTRA_SLUG,
-            contract_address="",
+            contract_address="0x7d79c838Cf3cDA1Bd3734BE6b3C1a160234a09A3",
             routes=None,
             category="rewards",
             underlying_asset="USDC",
