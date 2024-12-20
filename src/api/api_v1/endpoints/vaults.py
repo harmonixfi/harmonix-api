@@ -8,9 +8,11 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import bindparam, text
 from sqlmodel import Session, and_, select, or_
+from web3 import Web3
 
 from models.pps_history import PricePerShareHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
+from models.whitelist_wallets import WhitelistWallet
 import schemas
 from api.api_v1.deps import SessionDep
 from core import constants
@@ -494,10 +496,14 @@ def get_pps_histories(
 
 
 @router.get("/{slug}/whitelist-wallets", response_model=List[str])
-async def get_whitelist_wallets(slug: str):
+async def get_whitelist_wallets(slug: str, session: SessionDep):
     """
-    Returns a list of whitelisted wallet addresses
+    Returns a list of whitelisted wallet addresses for a specific vault
     """
-    if slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
-        return [w.strip() for w in settings.WHITELIST_WALLETS_RETHINK.split(",")]
-    return []
+    statement = select(WhitelistWallet).where(WhitelistWallet.vault_slug == slug)
+    whitelist_wallets = session.exec(statement).all()
+
+    # Convert addresses to checksum format
+    return [
+        Web3.to_checksum_address(wallet.wallet_address) for wallet in whitelist_wallets
+    ]
