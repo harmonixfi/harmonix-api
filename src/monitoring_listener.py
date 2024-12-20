@@ -126,7 +126,10 @@ def _extract_rethink_event(entry):
     # Decode the data field based on event type
     data = entry["data"].hex()
 
-    if entry["topics"][0].hex() == settings.RETHINK_DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC:
+    if entry["topics"][0].hex() in [
+        settings.RETHINK_DELTA_NEUTRAL_DEPOSIT_EVENT_TOPIC,
+        settings.RETHINK_DELTA_NEUTRAL_DEPOSITED_TO_FUND_CONTRACT_EVENT_TOPIC,
+    ]:
         # UserDeposited event: amount
         amount = int(data[2:66], 16) / 1e18  # WETH has 18 decimals
         return amount, 0, from_address
