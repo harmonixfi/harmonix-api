@@ -794,6 +794,7 @@ async def get_tvl_chart_data(session: SessionDep):
                         "vault_id": vault["vault_id"],
                         "tvl": vault["tvl"],
                         "date": last_day_of_daily_vault,
+                        "vault_currency": vault["vault_currency"]
                     }
                 )
 
@@ -803,21 +804,45 @@ async def get_tvl_chart_data(session: SessionDep):
     last_friday_for_daily_vaults.sort(key=itemgetter("date"))
     joined_vaults = last_friday_for_daily_vaults + friday_vaults
 
-    # Convert all TVLs to USD based on their vault currency
-    for perf in joined_vaults:
-        currency_price = get_vault_currency_price(perf["vault_currency"])
-        perf["tvl"] = perf["tvl"] * currency_price
+    # Group TVLs by currency and date before converting to USD
+    currency_grouped_vaults = {}
+    for vault in joined_vaults:
+        date = vault["date"]
+        currency = vault.get("vault_currency", "USDC")
+        
+        if date not in currency_grouped_vaults:
+            currency_grouped_vaults[date] = {}
+        
+        if currency not in currency_grouped_vaults[date]:
+            currency_grouped_vaults[date][currency] = 0
+            
+        currency_grouped_vaults[date][currency] += vault["tvl"]
 
-    joined_vaults.sort(key=itemgetter("date"))
-    grouped_by_date = groupby(joined_vaults, key=itemgetter("date"))
-    result = [
-        {"date": date, "tvl": sum(vault["tvl"] for vault in vaults)}
-        for date, vaults in grouped_by_date
-    ]
-    weekly_tvl_df = pd.DataFrame(result)
-    weekly_tvl_df["weekly_tvl"] = weekly_tvl_df["tvl"] - weekly_tvl_df[
-        "tvl"
-    ].shift().fillna(0)
-    weekly_tvl_df.rename(columns={"tvl": "cumulative_tvl"}, inplace=True)
-    result = weekly_tvl_df.to_dict(orient="records")
+    # Calculate weekly changes in native currency amounts
+    result = []
+    sorted_dates = sorted(currency_grouped_vaults.keys())
+    
+    for i, date in enumerate(sorted_dates):
+        current_tvl_usd = 0
+        weekly_tvl_change_usd = 0
+        
+        for currency, amount in currency_grouped_vaults[date].items():
+            current_price = get_vault_currency_price(currency)
+            current_tvl_usd += amount * current_price
+            
+            if i > 0:
+                prev_date = sorted_dates[i-1]
+                prev_amount = currency_grouped_vaults[prev_date].get(currency, 0)
+                
+                # Calculate change in native currency amount
+                native_change = amount - prev_amount
+                # Convert change to USD at current price
+                weekly_tvl_change_usd += native_change * current_price
+        
+        result.append({
+            "date": date,
+            "cumulative_tvl": current_tvl_usd,
+            "weekly_tvl": weekly_tvl_change_usd
+        })
+
     return result
