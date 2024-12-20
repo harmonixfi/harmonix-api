@@ -71,19 +71,47 @@ def _get_vault(session: Session, to_address: str):
 
 def _calculate_total_deposit(session: Session, deposits):
     total_deposit = 0
+    data = []
     for deposit in deposits:
         vault = _get_vault(session, deposit.to_address)
         if not vault:
             continue
         if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-            total_deposit += to_amount_pendle(
+            value_deposit = to_amount_pendle(
                 deposit.input, deposit.block_number, vault.network_chain
             )
+            total_deposit += value_deposit
+            data.append(
+                {
+                    "amount": value_deposit,
+                    "datetime": datetime.fromtimestamp(
+                        deposit.timestamp, tz=timezone.utc
+                    ),
+                }
+            )
         elif vault.slug == constants.GOLD_LINK_SLUG:
-            total_deposit += to_tx_aumount_goldlink(deposit.input)
+            value_deposit = to_tx_aumount_goldlink(deposit.input)
+            total_deposit += value_deposit
+            data.append(
+                {
+                    "amount": value_deposit,
+                    "datetime": datetime.fromtimestamp(
+                        deposit.timestamp, tz=timezone.utc
+                    ),
+                }
+            )
         else:
-            total_deposit += to_tx_aumount(deposit.input)
-    return total_deposit
+            value_deposit = to_tx_aumount(deposit.input)
+            total_deposit += value_deposit
+            data.append(
+                {
+                    "amount": value_deposit,
+                    "datetime": datetime.fromtimestamp(
+                        deposit.timestamp, tz=timezone.utc
+                    ),
+                }
+            )
+    return total_deposit, data
 
 
 def _process_deposit_with_addresses(
@@ -97,12 +125,19 @@ def _process_deposit_with_addresses(
     for wallet_address in addresses:
         deposits = _get_deposits(session, wallet_address, start_date, end_date)
         if deposits:
-            total_deposit = _calculate_total_deposit(session, deposits)
+            total_deposit, data = _calculate_total_deposit(session, deposits)
             results.append(
                 {
                     "wallet_address": wallet_address,
                     "deposited": True,
                     "total amount": total_deposit,
+                    "datetime": [
+                        {
+                            "amount": entry["amount"],
+                            "datetime": entry["datetime"].isoformat(),
+                        }
+                        for entry in data
+                    ],
                 }
             )
         else:
@@ -111,6 +146,7 @@ def _process_deposit_with_addresses(
                     "wallet_address": wallet_address,
                     "deposited": False,
                     "total amount": 0,
+                    "datetime": [],
                 }
             )
     return results
@@ -118,10 +154,24 @@ def _process_deposit_with_addresses(
 
 def _generate_csv(results: list[dict]) -> io.StringIO:
     output = io.StringIO()
-    fieldnames = ["wallet_address", "deposited", "total amount"]
+    fieldnames = ["wallet_address", "deposited", "total amount", "datetime"]
     writer = csv.DictWriter(output, fieldnames=fieldnames)
     writer.writeheader()
-    writer.writerows(results)
+
+    for result in results:
+        # Flatten the datetime field for better readability
+        flattened_datetime = " | ".join(
+            f"{entry['datetime']} ({entry['amount']})" for entry in result["datetime"]
+        )
+        writer.writerow(
+            {
+                "wallet_address": result["wallet_address"],
+                "deposited": result["deposited"],
+                "total amount": result["total amount"],
+                "datetime": flattened_datetime,
+            }
+        )
+
     output.seek(0)
     return output
 
