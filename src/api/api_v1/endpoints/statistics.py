@@ -794,6 +794,7 @@ async def get_tvl_chart_data(session: SessionDep):
                         "vault_id": vault["vault_id"],
                         "tvl": vault["tvl"],
                         "date": last_day_of_daily_vault,
+                        "vault_currency": vault["vault_currency"]
                     }
                 )
 
@@ -805,7 +806,7 @@ async def get_tvl_chart_data(session: SessionDep):
 
     # Convert all TVLs to USD based on their vault currency
     for perf in joined_vaults:
-        currency_price = get_vault_currency_price(perf["vault_currency"])
+        currency_price = get_vault_currency_price(perf.get("vault_currency", "USDC"))
         perf["tvl"] = perf["tvl"] * currency_price
 
     joined_vaults.sort(key=itemgetter("date"))
