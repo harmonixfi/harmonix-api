@@ -61,3 +61,13 @@ def get_current_tvl(vault_contract: Contract, decimals=1e6):
     tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / decimals
+
+
+def get_user_state_by_block_number(
+    vault_contract: Contract, user_address: str, blockNumber: int
+) -> tuple[int, int, int, int]:
+
+    user_state = vault_contract.functions.getUserVaultState().call(
+        {"from": Web3.to_checksum_address(user_address)}, block_identifier=blockNumber
+    )
+    return user_state

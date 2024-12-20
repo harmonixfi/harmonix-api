@@ -26,6 +26,7 @@ from notifications.message_builder import build_message
 from services.socket_manager import WebSocketManager
 from services.vault_contract_service import VaultContractService
 from utils.calculate_price import calculate_avg_entry_price
+from utils.web3_utils import get_user_state_by_block_number
 from web3_listener import EVENT_FILTERS
 from web3.eth import Contract
 
@@ -152,6 +153,10 @@ def _extract_rethink_event(entry):
         return amount, 0, None
 
 
+def _extract_block_number_from_event(entry) -> int:
+    return int(entry["blockNumber"] or 0)
+
+
 async def handle_event(vault_address: str, entry, event_name):
     # Get the vault with ROCKONYX_ADDRESS
     vault = session.exec(
@@ -197,15 +202,18 @@ async def handle_event(vault_address: str, entry, event_name):
     if user_portfolio:
         try:
             vault_contract_service = VaultContractService()
-            abi_name, _ = vault_contract_service.get_vault_abi(vault=vault)
+            abi_name, decimals = vault_contract_service.get_vault_abi(vault=vault)
 
             vault_contract, _ = vault_contract_service.get_vault_contract(
                 vault.network_chain, vault.contract_address, abi_name
             )
-            user_state = get_user_state(vault_contract, user_portfolio.user_address)
+            pre_block_number = _extract_block_number_from_event(entry=entry) - 1
+            user_state = get_user_state_by_block_number(
+                vault_contract, user_portfolio.user_addres, pre_block_number
+            )
             if user_state:
-                deposit_amount = user_state[0] / 1e6
-                total_shares = user_state[1] / 1e6
+                deposit_amount = user_state[0] / decimals
+                total_shares = user_state[1] / decimals
                 user_position_fields = [
                     ("Deposit Amount", deposit_amount),
                     ("Shares", total_shares),

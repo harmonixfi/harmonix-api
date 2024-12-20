@@ -42,7 +42,7 @@ def build_message(
     # Check if user_position_fields is provided
     if user_position_fields:
         # Start the User position section with a title
-        message += "<b>User Position</b>\n<pre>\n"
+        message += "<b>Previous Position State</b>\n<pre>\n"
 
         # Add User position table header
         message += "| Name               | Value               |\n"
@@ -76,18 +76,20 @@ def build_error_message(
     return message
 
 
-def build_transaction_message(fields: List[Tuple[str, str, str, str, str]], pool_amounts: dict = None) -> str:
+def build_transaction_message(
+    fields: List[Tuple[str, str, str, str, str]], pool_amounts: dict = None
+) -> str:
     total_requests = len(fields)
-    
+
     # Start the message
     message = "<pre>\n"
     message += f"Initiated Withdrawal Requests:\n"
     message += f"Total request: {total_requests}\n\n"
     message += f"Transactions:\n"
-    
+
     # Track vault totals for summary
     vault_totals = {}
-    
+
     # Add transaction details
     for field in fields:
         tx_hash, vault_address, date, amount, age = field
@@ -97,14 +99,16 @@ def build_transaction_message(fields: List[Tuple[str, str, str, str, str]], pool
         message += f"date: {date}\n"
         message += f"amount: {amount}\n"
         message += f"age: {age}\n"
-        
+
         # Accumulate totals for each vault
         try:
             amount_float = float(amount)
-            vault_totals[vault_address] = vault_totals.get(vault_address, 0) + amount_float
+            vault_totals[vault_address] = (
+                vault_totals.get(vault_address, 0) + amount_float
+            )
         except ValueError:
             pass
-    
+
     # Add summary section
     message += "\nSummary:\n"
     message += "-------\n"
@@ -112,9 +116,11 @@ def build_transaction_message(fields: List[Tuple[str, str, str, str, str]], pool
         message += f"Vault address: {vault_address}\n"
         message += f"Pending withdrawals: {total_amount:.4f}\n"
         if pool_amounts and vault_address.lower() in pool_amounts:
-            message += f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
+            message += (
+                f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
+            )
         message += "-------\n"
-    
+
     message += "</pre>"
     return message
 
