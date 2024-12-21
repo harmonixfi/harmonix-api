@@ -33,3 +33,4 @@ from .reward_distribution_history import RewardDistributionHistory
 from .deposit_summary_snapshot import DepositSummarySnapshot
 from .funding_rate_history import FundingRateHistory
 from .goldlink_borrow_rate_history import GoldlinkBorrowRateHistory
+from .whitelist_wallets import WhitelistWallet

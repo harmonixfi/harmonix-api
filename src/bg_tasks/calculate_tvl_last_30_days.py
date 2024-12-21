@@ -90,6 +90,10 @@ def calculate_tvl_last_30_days():
                     and vault_object
                     and vault_object.name == constants.VAULT_SOLV_NAME
                 ):
+                    pps = get_pps_by_vault(onchain_transaction_history, vaults)
+                    if pps is None:
+                        continue
+
                     deposit = calculate_amount_value_for_solv(
                         onchain_transaction_history
                     )
@@ -105,6 +109,9 @@ def calculate_tvl_last_30_days():
                     and vault_object
                     and vault_object.slug == constants.ETH_WITH_LENDING_BOOST_YIELD
                 ):
+                    pps = get_pps_by_vault(onchain_transaction_history, vaults)
+                    if pps is None:
+                        continue
                     deposit = calculate_amount_value_for_rethink(
                         onchain_transaction_history
                     )
