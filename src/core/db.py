@@ -652,10 +652,10 @@ def seed_reward_distribution_config(session: Session):
         return
 
     reward_configs = [
-        {"week": 1, "distribution_percentage": 20.0},
-        {"week": 2, "distribution_percentage": 30.0},
-        {"week": 3, "distribution_percentage": 15.0},
-        {"week": 4, "distribution_percentage": 35.0},
+        {"week": 1, "distribution_percentage": 0.2},
+        {"week": 2, "distribution_percentage": 0.3},
+        {"week": 3, "distribution_percentage": 0.15},
+        {"week": 4, "distribution_percentage": 0.35},
     ]
     reward_token = "$HYPE"
     total_reward = 100
@@ -664,12 +664,11 @@ def seed_reward_distribution_config(session: Session):
     for config in reward_configs:
         week = config["week"]
         percentage = config["distribution_percentage"]
-        reward_amount = (total_reward * percentage) / 100
 
         reward_distribution = RewardDistributionConfig(
             vault_id=hype_vault.id,
             reward_token=reward_token,
-            total_reward=reward_amount,
+            total_reward=total_reward,
             week=week,
             distribution_percentage=percentage,
             start_date=current_date,
