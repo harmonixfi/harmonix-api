@@ -60,25 +60,33 @@ def calculate_reward_distributions(vault: Vault):
     # Fetch the reward configuration for the vault
     reward_config = get_reward_distribution_config(current_date, vault_id=vault.id)
     if not reward_config:
+        logger.info(
+            "No reward configuration found for vault %s on date %s",
+            vault.name,
+            current_date,
+        )
         return
 
     total_reward = reward_config.total_reward * reward_config.distribution_percentage
+    logger.info("Total reward for vault %s: %s", vault.name, total_reward)
 
     # Fetch all active user positions in the vault
     user_positions = get_active_user_positions(vault.id)
     logger.info("Total user positions of vault %s: %s", vault.name, len(user_positions))
 
     total_deposit_amount = sum(user.init_deposit for user in user_positions)
+    logger.info(
+        "Total deposit amount for vault %s: %s", vault.name, total_deposit_amount
+    )
 
     for portfolio in user_positions:
         user = get_user_by_wallet(portfolio.user_address)
         if not user:
+            logger.info("User with wallet address %s not found", portfolio.user_address)
             continue
 
         shares_pct = portfolio.init_deposit / total_deposit_amount
-
         reward_distribution = shares_pct * total_reward
-
         process_user_reward(
             user,
             vault.id,
