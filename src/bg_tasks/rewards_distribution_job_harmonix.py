@@ -20,7 +20,7 @@ session = Session(engine)
 
 # # Initialize logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("rewards_distribution_job_harmonix.")
+logger = logging.getLogger("rewards_distribution_job_harmonix")
 logger.setLevel(logging.INFO)
 
 
