@@ -1,29 +1,18 @@
 from datetime import datetime, timezone, timedelta
 from unittest.mock import Mock, patch
 from uuid import UUID
-from decimal import Decimal
-
 import pytest
-
 from models.user import User
 from models.user_portfolio import UserPortfolio, PositionStatus
-from models.user_rewards import UserRewards, UserRewardAudit
+from models.user_rewards import UserRewards
 from models.vaults import Vault
 from models.reward_distribution_config import RewardDistributionConfig
 from bg_tasks.rewards_distribution_job_harmonix import (
     get_user_reward,
     get_reward_distribution_config,
     get_active_user_positions,
-    get_user_by_wallet,
-    calculate_reward_distributions,
     process_user_reward,
-    create_user_reward_audit,
 )
-
-
-# @pytest.fixture
-# def mock_session():
-#     return Mock()
 
 
 @pytest.fixture
