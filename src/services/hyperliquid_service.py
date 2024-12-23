@@ -72,3 +72,13 @@ def get_funding_history(
     except requests.RequestException as e:
         print(f"Error Hyperliquid fetching funding history: {e}")
         return []
+
+
+def get_funding_history_hype(
+    start_time: int = 0,
+    end_time: int = None,
+    limit: int = 24,
+) -> List[FundingHistoryEntry]:
+    return get_funding_history(
+        "HYPE", start_time=start_time, end_time=end_time, limit=limit
+    )

@@ -221,6 +221,56 @@ def fetch_funding_history_goldlink():
         raise
 
 
+def fetch_funding_history_hyperliquid_hype_token():
+    try:
+        logger.info("Starting Hyperliquid funding history fetch HYPE token...")
+
+        logger.info("Requesting funding history from Hyperliquid service...")
+        start_date = get_latest_funding_rate_date(PARTNER["HYPERLIQUID_HYPE"]) or (
+            datetime.now(tz=timezone.utc) - timedelta(days=1)
+        )
+
+        funding_history = fetch_funding_history(
+            service_func=hyperliquid_service.get_funding_history_hype,
+            start_date=start_date,
+            use_nanoseconds=False,
+        )
+        logger.info(
+            f"Successfully fetched {len(funding_history)} records from Hyperliquid HYPE token"
+        )
+
+        logger.info(
+            "Processing Hyperliquid HYPE token funding history data for database insertion..."
+        )
+        funding_history_entries = [
+            FundingRateHistory(
+                datetime=item.datetime,
+                funding_rate=item.funding_rate,
+                partner_name=PARTNER["HYPERLIQUID_HYPE"],
+            )
+            for item in funding_history
+        ]
+
+        entry_count = len(funding_history_entries)
+        logger.info(
+            f"Created {entry_count} Hyperliquid funding history entries for insertion"
+        )
+
+        logger.info("Beginning Hyperliquid database transaction...")
+        session.add_all(funding_history_entries)
+        session.commit()
+        logger.info(
+            f"Successfully committed {entry_count} Hyperliquid records to database"
+        )
+
+    except Exception as e:
+        logger.error(
+            f"Failed to process Hyperliquid funding history: {str(e)}", exc_info=True
+        )
+        session.rollback()
+        raise
+
+
 if __name__ == "__main__":
     try:
         logger.info("Initializing funding rate history fetch process...")
@@ -232,6 +282,7 @@ if __name__ == "__main__":
             fetch_funding_history_aevo,
             fetch_funding_history_hyperliquid,
             fetch_funding_history_goldlink,
+            fetch_funding_history_hyperliquid_hype_token,
         ]
 
         for fetch_func in handler:

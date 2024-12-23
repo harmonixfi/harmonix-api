@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import bindparam, func, text
 from sqlmodel import Session, create_engine, select
@@ -9,6 +9,7 @@ from models.campaigns import Campaign
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
+from models.reward_distribution_config import RewardDistributionConfig
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
 from models.reward_thresholds import RewardThresholds
@@ -309,16 +310,14 @@ def init_vault_point_multiplier(session: Session, vault: Vault):
     """
     # Check if multiplier config already exists for this vault
     existing_config = session.exec(
-        select(PointsMultiplierConfig)
-        .where(PointsMultiplierConfig.vault_id == vault.id)
+        select(PointsMultiplierConfig).where(
+            PointsMultiplierConfig.vault_id == vault.id
+        )
     ).first()
 
     if not existing_config:
         # Create new multiplier config with default value 1
-        multiplier_config = PointsMultiplierConfig(
-            vault_id=vault.id,
-            multiplier=1.0
-        )
+        multiplier_config = PointsMultiplierConfig(vault_id=vault.id, multiplier=1.0)
         session.add(multiplier_config)
         session.commit()
 
@@ -552,6 +551,31 @@ def seed_vaults(session: Session):
             pendle_market_address="",
             update_frequency="daily",
         ),
+        Vault(
+            name="$HYPE delta neutral",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            slug=constants.HYPE_DELTA_NEUTRA_SLUG,
+            contract_address="0x7d79c838Cf3cDA1Bd3734BE6b3C1a160234a09A3",
+            routes=None,
+            category="rewards",
+            underlying_asset="USDC",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=20,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=1.407,
+            tags="harmonix,new",
+            max_drawdown=0,
+            maturity_date="",
+            owner_wallet_address="0x562b8f8e9558acee600a68f7f1e1f4e8bbfc844d",
+            is_active=False,
+            strategy_name=constants.DELTA_NEUTRAL_STRATEGY,
+            pt_address="",
+            pendle_market_address="",
+            update_frequency="daily",
+        ),
     ]
 
     for vault in vaults:
@@ -620,6 +644,42 @@ def seed_vault_category(session: Session):
     try_add_vault_category(session, "rewards")
 
 
+def seed_reward_distribution_config(session: Session):
+    hype_vault = session.exec(
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+    ).first()
+    if hype_vault is None:
+        return
+
+    reward_configs = [
+        {"week": 1, "distribution_percentage": 0.2},
+        {"week": 2, "distribution_percentage": 0.3},
+        {"week": 3, "distribution_percentage": 0.15},
+        {"week": 4, "distribution_percentage": 0.35},
+    ]
+    reward_token = "$HYPE"
+    total_reward = 100
+    current_date = datetime.now(tz=timezone.utc)
+
+    for config in reward_configs:
+        week = config["week"]
+        percentage = config["distribution_percentage"]
+
+        reward_distribution = RewardDistributionConfig(
+            vault_id=hype_vault.id,
+            reward_token=reward_token,
+            total_reward=total_reward,
+            week=week,
+            distribution_percentage=percentage,
+            start_date=current_date,
+            created_at=datetime.now(timezone.utc),
+        )
+        session.add(reward_distribution)
+        current_date += timedelta(days=7)
+
+    session.commit()
+
+
 def init_db(session: Session) -> None:
     seed_vault_category(session)
 
@@ -675,3 +735,10 @@ def init_db(session: Session) -> None:
     ).first()
     init_new_vault(session, goldlink_vault)
     init_new_vault_metadata(session)
+
+    hype_vault = session.exec(
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+    ).first()
+    init_new_vault(session, hype_vault)
+
+    seed_reward_distribution_config(session=session)

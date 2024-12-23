@@ -104,6 +104,7 @@ def process_vault(
         constants.PENDLE_VAULT_VAULT_SLUG_DEC: handle_pendle_vault,
         constants.RENZO_VAULT_SLUG: handle_renzo_vault,
         constants.GOLD_LINK_SLUG: handle_goldlink_vault,
+        constants.HYPE_DELTA_NEUTRA_SLUG: handle_hype_vault,
     }
 
     handler = handlers.get(vault.slug)
@@ -234,6 +235,26 @@ def handle_goldlink_vault(
     insert_vault_performance_history(
         yield_data=yield_data, vault=vault, datetime=current_time, service=service
     )
+
+
+def handle_hype_vault(
+    vault: Vault, service: VaultPerformanceHistoryService, current_time: datetime
+):
+    logger.info(f"Processing hype vault: {vault.name}")
+
+    prev_tvl = get_prev_tvl(vault, service)
+    funding_avg_hourly = calculate_average_funding_rate(PARTNER["HYPERLIQUID_HYPE"])
+    daily_funding_rate = funding_avg_hourly * 24
+    funding_value = daily_funding_rate * ALLOCATION_RATIO * prev_tvl
+    yield_data = funding_value
+
+    logger.info(f"HYPE vault {vault.name} - Yield data calculated: {yield_data}")
+
+    insert_vault_performance_history(
+        yield_data=yield_data, vault=vault, datetime=current_time, service=service
+    )
+
+    logger.info("Done handle_hype_vault")
 
 
 def insert_vault_performance_history(

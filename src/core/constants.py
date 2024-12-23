@@ -35,6 +35,7 @@ PENDLE_HEDGING_STRATEGY = "pendle_hedging_strategy"
 STAKING_STRATEGY = "staking_strategy"
 GOLD_LINK_SLUG = "arbitrum-leverage-delta-neutral-link"
 ETH_WITH_LENDING_BOOST_YIELD = "arbitrum-delta-neutral-boost-yield-eth"
+HYPE_DELTA_NEUTRA_SLUG = "$HYPE_delta_neutra_slug"
 
 CHAIN_ARBITRUM = "arbitrum_one"
 CHAIN_ETHER_MAINNET = "ethereum"
