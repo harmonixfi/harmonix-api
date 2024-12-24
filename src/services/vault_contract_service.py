@@ -7,15 +7,17 @@ import uuid
 import pytz
 from telegram import Contact
 from web3 import Web3
-
+from core.config import settings
 from core import constants
 from models.vaults import Vault
 from utils.extension_utils import (
     to_amount_pendle,
+    to_amount_pendle_of_event_initiate_force_withdrawal,
     to_tx_aumount,
 )
 from utils.web3_utils import get_current_pps_by_block
 from core.abi_reader import read_abi
+from hexbytes import HexBytes
 
 
 class VaultContractService:
@@ -61,6 +63,13 @@ class VaultContractService:
             abi = "pendlehedging"
 
         return abi, decimals
+
+    def get_withdraw_amount_pendle(
+        self, vault: Vault, input_data: str, block_number: int
+    ) -> Tuple[float, float]:
+        return to_amount_pendle_of_event_initiate_force_withdrawal(
+            input_data, block_number, vault.network_chain
+        )
 
     def get_withdraw_amount(
         self, vault: Vault, to_address: str, input_data: str, block_number: int
@@ -160,3 +169,27 @@ class VaultContractService:
                 f"Error getting withdrawal pool amount for vault {vault.name}: {e}"
             )
             return 0.0
+
+    def get_input_data_from_transaction_receipt_event(self, vault: Vault, tx_hash: str):
+        try:
+            abi, _ = self.get_vault_abi(vault=vault)
+            _, web3 = self.get_vault_contract(
+                vault.network_chain,
+                Web3.to_checksum_address(vault.contract_address),
+                abi,
+            )
+            receipt = web3.eth.get_transaction_receipt(tx_hash)
+            for log in receipt["logs"]:
+                if log["topics"][0] in [
+                    HexBytes(settings.PENDLE_REQUEST_FUND_EVENT_TOPIC),
+                    HexBytes(settings.PENDLE_FORCE_REQUEST_FUND_EVENT_TOPIC),
+                ]:
+                    return log["data"].hex()
+
+            # Convert from wei to standard units
+            return ""
+        except Exception as e:
+            logging.error(
+                f"Error getting input data from transaction receipt event for vault {vault.name}: {e}"
+            )
+            return ""
