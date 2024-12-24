@@ -31,6 +31,7 @@ from services.apy_component_service import (
     BSXApyComponentService,
     DeltaNeutralApyComponentService,
     GoldLinkApyComponentService,
+    HypeApyComponentService,
     KelpDaoApyComponentService,
     KelpDaoArbitrumApyComponentService,
     OptionWheelApyComponentService,
@@ -386,7 +387,7 @@ def main():
                     wst_eth_value = lido_service.get_apy() * 100
                     funding_fee_value = current_apy - wst_eth_value
 
-                    hype_component_service = RethinkApyComponentService(
+                    hype_component_service = HypeApyComponentService(
                         vault.id,
                         current_apy,
                         wst_eth_value,

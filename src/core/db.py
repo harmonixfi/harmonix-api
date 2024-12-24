@@ -653,10 +653,10 @@ def seed_reward_distribution_config(session: Session):
         return
 
     reward_configs = [
-        {"week": 1, "distribution_percentage": 0.2},
+        {"week": 1, "distribution_percentage": 0.35},
         {"week": 2, "distribution_percentage": 0.3},
-        {"week": 3, "distribution_percentage": 0.15},
-        {"week": 4, "distribution_percentage": 0.35},
+        {"week": 3, "distribution_percentage": 0.25},
+        {"week": 4, "distribution_percentage": 0.10},
     ]
     reward_token = "$HYPE"
     total_reward = 100

@@ -115,7 +115,7 @@ def calculate_reward_distributions(vault: Vault):
         )
 
 
-def process_user_reward(user, vault_id, start_date, reward_distribution, current_date):
+def process_user_reward(user: User, vault_id, start_date, reward_distribution, current_date):
     """Process and update rewards for a specific user in the Harmonix vault.
 
     Args:
