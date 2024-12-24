@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 import logging
-from typing import List
+from typing import List, Optional
 from sqlalchemy import text
 from sqlmodel import Session, col, select
 from core import constants
@@ -32,13 +32,17 @@ class InitiatedWithdrawalWatcherJob:
         self.session = session
 
         utc_now = datetime.now(timezone.utc)
-        self.start_date = utc_now - timedelta(days=3*30)
+        self.start_date = utc_now - timedelta(days=3 * 30)
         self.end_date = utc_now
         self.start_date_timestamp = int(self.start_date.timestamp())
         self.end_date_timestamp = int(self.end_date.timestamp())
 
     def __get_active_vaults(self) -> List[Vault]:
-        result = self.session.exec(select(Vault).where(Vault.is_active)).all()
+        result = self.session.exec(
+            select(Vault)
+            .where(Vault.is_active)
+            .where(Vault.id == "176a024b-74b9-4390-97c5-066748c088e4")
+        ).all()
         return result
 
     def get_withdrawals_for_current_day(
@@ -77,6 +81,7 @@ class InitiatedWithdrawalWatcherJob:
                         timestamp,
                         input,
                         block_number,
+                        method_id,
                         ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
                     FROM public.onchain_transaction_history
                     WHERE method_id = :withdraw_method_id
@@ -113,7 +118,7 @@ class InitiatedWithdrawalWatcherJob:
             init_withdraws = self.session.execute(
                 query,
                 {
-                    "withdraw_method_id": constants.MethodID.WITHDRAW.value,
+                    "withdraw_method_id": constants.MethodID.WITHDRAW_PENDLE1.value,
                     "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL.value,
                     "vault_addresses": all_vault_addresses,
                     "start_ts": self.start_date_timestamp,
@@ -139,12 +144,27 @@ class InitiatedWithdrawalWatcherJob:
                     )
 
                     if matching_vault:
-                        amount = service.get_withdraw_amount(
-                            matching_vault,
-                            Web3.to_checksum_address(item.to_address),
-                            item.input,
-                            item.block_number,
-                        )
+                        input_data = item.input
+                        pt_amount: Optional[float] = None
+
+                        if item.method_id == constants.MethodID.WITHDRAW_PENDLE1.value:
+                            input_data = (
+                                service.get_input_data_from_transaction_receipt_event(
+                                    matching_vault, item.tx_hash
+                                )
+                            )
+                            amount, pt_amount = service.get_withdraw_amount_pendle(
+                                matching_vault, input_data, item.block_number
+                            )
+                        else:
+                            amount = service.get_withdraw_amount(
+                                matching_vault,
+                                Web3.to_checksum_address(item.to_address),
+                                input_data,
+                                item.block_number,
+                                item.method_id,
+                            )
+
                         date = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
                         age = convert_timedelta_to_time(self.end_date - date)
 
@@ -159,7 +179,8 @@ class InitiatedWithdrawalWatcherJob:
                                 amount=amount,
                                 age=age,
                                 vault_address=item.to_address,
-                                user_address=item.from_address
+                                user_address=item.from_address,
+                                pt_amount=pt_amount,
                             )
                         )
                 except Exception as inner_e:
@@ -185,6 +206,7 @@ class InitiatedWithdrawalWatcherJob:
                 withdrawal.datetime.strftime("%Y-%m-%d %H:%M:%S"),
                 str(withdrawal.amount),
                 str(withdrawal.age),
+                str(withdrawal.pt_amount),
             )
             for withdrawal in init_withdraws
         ]
