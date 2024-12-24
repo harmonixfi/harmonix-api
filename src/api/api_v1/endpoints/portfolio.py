@@ -181,6 +181,13 @@ async def get_portfolio_info(
                 + (pos.pending_deposit)
                 + (pending_withdrawal * price_per_share)
             )
+        elif vault.slug == constants.SOLV_VAULT_SLUG:
+            balance = (
+                pending_withdrawal * price_per_share
+                if pending_withdrawal > 0
+                else (shares * price_per_share) + (pending_withdrawal * price_per_share)
+            )
+            position.total_balance = balance + pos.pending_deposit
         else:
             position.total_balance = (
                 shares * price_per_share + pending_withdrawal * price_per_share
