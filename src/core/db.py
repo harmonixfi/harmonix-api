@@ -33,9 +33,10 @@ def init_pps_history(session: Session, vault: Vault):
     ).one()
 
     if cnt == 0:
+        today = datetime.now()
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(2024, 1, 31, tzinfo=timezone.utc),
+                datetime=datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
                 price_per_share=1,
                 vault_id=vault.id,
             )
@@ -558,14 +559,14 @@ def seed_vaults(session: Session):
             slug=constants.HYPE_DELTA_NEUTRA_SLUG,
             contract_address="0x7d79c838Cf3cDA1Bd3734BE6b3C1a160234a09A3",
             routes=None,
-            category="rewards",
+            category="real_yield",
             underlying_asset="HYPE",
             network_chain=NetworkChain.arbitrum_one,
             monthly_apy=20,
             weekly_apy=0,
             ytd_apy=0,
             apr=0,
-            tvl=1.407,
+            tvl=0,
             tags="harmonix,new",
             max_drawdown=0,
             maturity_date="",
