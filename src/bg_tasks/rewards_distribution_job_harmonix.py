@@ -44,7 +44,7 @@ def get_reward_distribution_config(
         .where(RewardDistributionConfig.vault_id == vault_id)
         .where(
             and_(
-                RewardDistributionConfig.start_date + text("interval '7 days'") >= date,
+                RewardDistributionConfig.start_date + text("interval '7 days'") > date,
                 RewardDistributionConfig.start_date <= date,
             )
         )
@@ -66,10 +66,7 @@ def get_user_by_wallet(wallet_address: str):
     ).first()
 
 
-def calculate_reward_distributions(vault: Vault):
-    # Get the current date in UTC timezone
-    current_date = datetime.now(tz=timezone.utc)
-
+def calculate_reward_distributions(vault: Vault, current_date: datetime):
     # Fetch the reward configuration for the vault
     reward_config = get_reward_distribution_config(current_date, vault_id=vault.id)
     if not reward_config:
@@ -115,7 +112,9 @@ def calculate_reward_distributions(vault: Vault):
         )
 
 
-def process_user_reward(user: User, vault_id, start_date, reward_distribution, current_date):
+def process_user_reward(
+    user: User, vault_id, start_date, reward_distribution, current_date
+):
     """Process and update rewards for a specific user in the Harmonix vault.
 
     Args:
@@ -216,10 +215,13 @@ def main():
         .where(Vault.is_active == True)
     ).all()
 
+    # Get the current date in UTC timezone
+    current_date = datetime.now(tz=timezone.utc)
+
     for vault in vaults:
         try:
             logger.info(f"Calculating rewards for vault {vault.name}")
-            calculate_reward_distributions(vault)
+            calculate_reward_distributions(vault, current_date)
         except Exception as e:
             logger.error(
                 "An error occurred while calculating rewards for vault %s: %s",
