@@ -43,6 +43,10 @@ class VaultBase(sqlmodel.SQLModel):
     ytd_apy: float | None = None
     monthly_apy: float | None = None
     weekly_apy: float | None = None
+    base_weekly_apy: float | None = None
+    base_monthly_apy: float | None = None
+    reward_weekly_apy: float | None = None
+    reward_monthly_apy: float | None = None
     max_drawdown: float | None = None
     vault_capacity: int | None = None
     vault_currency: str | None = None

@@ -22,6 +22,10 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     unique_depositors: int | None = None
     fee_structure: str | None = None
     projected_apy: float | None = None
+    base_weekly_apy: float | None = None
+    base_monthly_apy: float | None = None
+    reward_weekly_apy: float | None = None
+    reward_monthly_apy: float | None = None
 
 
 class VaultPerformance(VaultPerformanceBase, table=True):

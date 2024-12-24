@@ -31,6 +31,10 @@ class VaultBase(BaseModel):
     strategy_name: str | None = None
     points: List[EarnedPoints] = []
     rewards: List[EarnedRewards] = []
+    base_weekly_apy: float | None = None
+    base_monthly_apy: float | None = None
+    reward_weekly_apy: float | None = None
+    reward_monthly_apy: float | None = None
 
 
 # Properties shared by models stored in DB
