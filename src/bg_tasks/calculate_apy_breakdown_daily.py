@@ -22,6 +22,7 @@ from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from models.vault_reward_history import VaultRewardHistory
 from models.vaults import VaultMetadata
+from schemas.pendle_market import PendleMarket
 from services import (
     bsx_service,
     camelot_service,
@@ -39,6 +40,7 @@ from services.apy_component_service import (
     KelpDaoApyComponentService,
     KelpDaoArbitrumApyComponentService,
     OptionWheelApyComponentService,
+    Pendle26Jun2025ApyComponentService,
     PendleApyComponentService,
     RenzoApyComponentService,
     RethinkApyComponentService,
@@ -103,6 +105,119 @@ def _get_vault_apy(vault: Vault) -> float:
         return vault.ytd_apy
 
     return vault.monthly_apy
+
+
+def handle_pendle_hedging_strategy(vault: Vault, current_apy: float):
+    """Handle APY calculations for Pendle Hedging Strategy vaults"""
+    pendle_data = pendle_service.get_market(
+        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+    )
+
+    fixed_value = calculate_fixed_value(pendle_data)
+    funding_fee_value = 0
+
+    if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
+        handle_rseth_dec24_vault(vault, current_apy, fixed_value)
+    else:
+        handle_other_pendle_vaults(vault, current_apy, fixed_value, funding_fee_value)
+
+
+def calculate_fixed_value(pendle_data: list[PendleMarket]):
+    """Calculate fixed value component from Pendle data"""
+    if not pendle_data:
+        return 0
+    return pendle_data[0].implied_apy * 100 * ALLOCATION_RATIO
+
+
+def handle_rseth_dec24_vault(vault, current_apy, fixed_value):
+    """Handle RSETH Dec24 vault specific calculations"""
+    point_dist = get_latest_hyperliquid_distribution(vault.id)
+    hyperliquid_point_value = calculate_hyperliquid_value(point_dist, vault.tvl)
+    funding_fee_value = calculate_funding_fees(
+        current_apy, fixed_value, hyperliquid_point_value
+    )
+
+    save_pendle_components(
+        vault.id,
+        current_apy,
+        fixed_value,
+        hyperliquid_point_value,
+        float(funding_fee_value),
+    )
+
+
+def handle_other_pendle_vaults(vault, current_apy, fixed_value, funding_fee_value):
+    """Handle calculations for other Pendle vaults"""
+    vault_performance = get_latest_vault_performance(vault.id)
+    reward_monthly_apy = (
+        vault_performance.reward_monthly_apy
+        if vault_performance and vault_performance.reward_monthly_apy is not None
+        else 0
+    )
+
+    save_pendle_jun2025_components(
+        vault.id, current_apy, fixed_value, reward_monthly_apy, float(funding_fee_value)
+    )
+
+
+def get_latest_hyperliquid_distribution(vault_id):
+    """Get the latest Hyperliquid point distribution"""
+    return session.exec(
+        select(PointDistributionHistory)
+        .where(PointDistributionHistory.vault_id == vault_id)
+        .where(PointDistributionHistory.partner_name == constants.HYPERLIQUID)
+        .order_by(PointDistributionHistory.created_at.desc())
+    ).first()
+
+
+def calculate_hyperliquid_value(point_dist, tvl: float, hype_point_usd=5):
+    """Calculate Hyperliquid point value"""
+    if not point_dist:
+        return 0
+
+    weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
+        point_dist.point * hype_point_usd, tvl
+    )
+    return calculate_annualized_pnl(weekly_pnl_percentage, 12) * 100
+
+
+def get_latest_vault_performance(vault_id):
+    """Get latest vault performance data"""
+    return session.exec(
+        select(VaultPerformance)
+        .where(VaultPerformance.vault_id == vault_id)
+        .order_by(VaultPerformance.datetime.desc())
+    ).first()
+
+
+def save_pendle_components(
+    vault_id, current_apy, fixed_value, hyperliquid_value, funding_fee_value
+):
+    """Save Pendle APY components"""
+    pendle_component_service = PendleApyComponentService(
+        vault_id,
+        current_apy,
+        fixed_value,
+        hyperliquid_value,
+        funding_fee_value,
+        session,
+    )
+    pendle_component_service.save()
+
+
+def save_pendle_jun2025_components(
+    vault_id, current_apy, fixed_value, reward_monthly_apy, funding_fee_value
+):
+    """Save Pendle June 2025 APY components"""
+    service = Pendle26Jun2025ApyComponentService(
+        vault_id,
+        current_apy,
+        fixed_value,
+        reward_monthly_apy,
+        funding_fee_value,
+        session,
+    )
+    service.save()
 
 
 # Main Execution
@@ -261,50 +376,7 @@ def main():
                     upsert_vault_apy(vault.id, current_apy)
 
                 elif vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-                    pendle_data = pendle_service.get_market(
-                        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
-                    )
-                    fixed_value = 0
-                    if pendle_data:
-                        fixed_value = (
-                            pendle_data[0].implied_apy * 100 * ALLOCATION_RATIO
-                        )
-
-                    # Get the latest point distribution for Hyperliquid
-                    point_dist = session.exec(
-                        select(PointDistributionHistory)
-                        .where(PointDistributionHistory.vault_id == vault.id)
-                        .where(
-                            PointDistributionHistory.partner_name
-                            == constants.HYPERLIQUID
-                        )
-                        .order_by(PointDistributionHistory.created_at.desc())
-                    ).first()
-
-                    hyperliquid_point_value = 0
-                    hype_point_usd = 5
-                    if point_dist:
-                        # Calculate weekly PnL in percentage
-                        weekly_pnl_percentage = calculate_weekly_pnl_in_percentage(
-                            point_dist.point * hype_point_usd, vault.tvl
-                        )
-                        # Calculate annualized PnL
-                        hyperliquid_point_value = (
-                            calculate_annualized_pnl(weekly_pnl_percentage, 12) * 100
-                        )
-
-                    funding_fee_value = calculate_funding_fees(
-                        current_apy, fixed_value, hyperliquid_point_value
-                    )
-                    pendle_component_service = PendleApyComponentService(
-                        vault.id,
-                        current_apy,
-                        fixed_value,
-                        hyperliquid_point_value,
-                        float(funding_fee_value),
-                        session,
-                    )
-                    pendle_component_service.save()
+                    handle_pendle_hedging_strategy(vault, current_apy)
 
                 elif vault.slug in [constants.KELPDAO_GAIN_VAULT_SLUG]:
                     rs_eth_value = kelpgain_service.get_apy() * ALLOCATION_RATIO
@@ -388,28 +460,24 @@ def main():
                     rethink_component_service.save()
 
                 elif vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
-                    wst_eth_value = lido_service.get_apy() * 100
-
-                    # For current week, calculate partial distribution
-                    # Get the total value locked (TVL) of the vault, default to 0.0 if not available
-                    tvl = vault.tvl if vault.tvl else float(0.0)
-
-                    # Calculate the weekly APY for the vault based on its ID and TVL
-                    weekly_apy, _ = calculate_reward_apy(
-                        vault_id=vault.id, total_tvl=tvl
+                    # Calculate the monthly APY for the vault based on its ID and TVL
+                    vault_performance = session.exec(
+                        select(VaultPerformance)
+                        .where(VaultPerformance.vault_id == vault.id)
+                        .order_by(VaultPerformance.datetime.desc())
+                    ).first()
+                    reward_monthly_apy = (
+                        vault_performance.reward_monthly_apy
+                        if vault_performance
+                        and vault_performance.reward_monthly_apy is not None
+                        else 0
                     )
 
-                    # Calculate the annualized rewards PnL based on the daily APY
-                    # The formula used here is to annualize the daily APY by compounding it
-                    annualized_rewards_pnl = (1 + weekly_apy / 52) ** (1 / 7) - 1
-
-                    funding_fee_value = (
-                        current_apy - wst_eth_value - annualized_rewards_pnl
-                    )
+                    funding_fee_value = current_apy - reward_monthly_apy
                     hype_component_service = HypeApyComponentService(
                         vault.id,
                         current_apy,
-                        float(annualized_rewards_pnl),
+                        float(reward_monthly_apy),
                         float(funding_fee_value),
                         session,
                     )

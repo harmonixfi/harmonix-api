@@ -132,7 +132,8 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
         partners.append(constants.BSX)
 
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-        partners.append(constants.HYPERLIQUID)
+        if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
+            partners.append(constants.HYPERLIQUID)
 
     if vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG:
         kelpgain_partners = [
