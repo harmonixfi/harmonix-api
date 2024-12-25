@@ -25,7 +25,6 @@ from models.vaults import VaultMetadata
 from schemas.pendle_market import PendleMarket
 from services import (
     bsx_service,
-    camelot_service,
     kelpdao_service,
     lido_service,
     pendle_service,
@@ -292,38 +291,38 @@ def main():
                     )
                     delta_neutral_component_service.save()
 
-                elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
-                    wst_eth_value = (
-                        camelot_service.get_pool_apy(
-                            constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
-                        )
-                        * 0.6
-                    )
-                    usde_usdc_value = (
-                        camelot_service.get_pool_apy(
-                            constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
-                        )
-                        * 0.2
-                    )
-                    option_yield_value = OPTION_YIELD_VALUE
-                    ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
-                    eth_gains_value = (
-                        current_apy
-                        - wst_eth_value
-                        - usde_usdc_value
-                        - option_yield_value
-                    )
+                # elif vault.slug == constants.OPTIONS_WHEEL_VAULT_VAULT_SLUG:
+                #     wst_eth_value = (
+                #         camelot_service.get_pool_apy(
+                #             constants.CAMELOT_LP_POOL["WST_ETH_ADDRESS"]
+                #         )
+                #         * 0.6
+                #     )
+                #     usde_usdc_value = (
+                #         camelot_service.get_pool_apy(
+                #             constants.CAMELOT_LP_POOL["USDE_USDC_ADDRESS"]
+                #         )
+                #         * 0.2
+                #     )
+                #     option_yield_value = OPTION_YIELD_VALUE
+                #     ae_usd_value = AEUSD_VAULT_APY * ALLOCATION_RATIO
+                #     eth_gains_value = (
+                #         current_apy
+                #         - wst_eth_value
+                #         - usde_usdc_value
+                #         - option_yield_value
+                #     )
 
-                    option_wheel_component_service = OptionWheelApyComponentService(
-                        vault.id,
-                        current_apy,
-                        wst_eth_value,
-                        usde_usdc_value,
-                        option_yield_value,
-                        eth_gains_value,
-                        session,
-                    )
-                    option_wheel_component_service.save()
+                #     option_wheel_component_service = OptionWheelApyComponentService(
+                #         vault.id,
+                #         current_apy,
+                #         wst_eth_value,
+                #         usde_usdc_value,
+                #         option_yield_value,
+                #         eth_gains_value,
+                #         session,
+                #     )
+                #     option_wheel_component_service.save()
 
                 elif vault.slug == constants.BSX_VAULT_SLUG:
                     wst_eth_value = lido_service.get_apy() * ALLOCATION_RATIO * 100
