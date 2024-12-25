@@ -694,7 +694,7 @@ def seed_reward_distribution_config(
         reward_distribution = session.exec(
             select(RewardDistributionConfig)
             .where(RewardDistributionConfig.week == week)
-            .where(RewardDistributionConfig.vault_id == vault)
+            .where(RewardDistributionConfig.vault_id == vault.id)
         ).first()
         if reward_distribution:
             continue
