@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -24,6 +25,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.apy_component import APYComponent
 from models.pps_history import PricePerShareHistory
+from models.reward_distribution_config import RewardDistributionConfig
 from models.user_portfolio import UserPortfolio
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
@@ -34,7 +36,7 @@ from services.bsx_service import get_points_earned
 from services.hyperliquid_service import (
     get_avg_8h_funding_rate,
 )
-from services.market_data import get_price
+from services.market_data import get_hl_price, get_price
 from services.vault_rewards_service import VaultRewardsService
 from utils.vault_utils import calculate_projected_apy
 from utils.web3_utils import get_vault_contract, get_current_pps, get_current_tvl
@@ -169,6 +171,104 @@ def calculate_apy_ytd(vault_id, current_price_per_share):
     return apy_ytd
 
 
+def calculate_reward_distribution_progress(
+    start_date: datetime, current_date: datetime
+) -> float:
+    """Calculate the progress of reward distribution within a week.
+    Returns percentage (0-1) of the week that has elapsed."""
+    week_start = pendulum.instance(start_date)
+    current = pendulum.instance(current_date)
+
+    # If current date is past week end, return 1 (100%)
+    week_end = week_start.add(weeks=1)
+    if current >= week_end:
+        return 1.0
+
+    # Calculate progress within the week
+    total_week_seconds = (week_end - week_start).total_seconds()
+    elapsed_seconds = (current - week_start).total_seconds()
+    return max(0, min(1, elapsed_seconds / total_week_seconds))
+
+
+def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, float]:
+    """Calculate weekly and monthly reward APY based on distribution config."""
+    if total_tvl <= 0:
+        return 0.0, 0.0
+
+    now = pendulum.now(tz=pendulum.UTC)
+
+    # Get all reward distributions
+    reward_configs = session.exec(
+        select(RewardDistributionConfig)
+        .where(RewardDistributionConfig.vault_id == vault_id)
+        .order_by(RewardDistributionConfig.start_date.asc())
+    ).all()
+
+    if not reward_configs:
+        return 0.0, 0.0
+    
+    token_name = reward_configs[0].reward_token.replace("$", "")
+    hype_price = get_hl_price(token_name)  # Get current HYPE token price
+
+    total_weekly_reward_usd = 0
+    total_monthly_reward_usd = 0
+
+    for config in reward_configs:
+        if not all([config.total_reward, config.distribution_percentage]):
+            continue
+
+        week_start = pendulum.instance(config.start_date)
+        week_end = week_start.add(weeks=1)
+
+        # Skip future distributions
+        if now < week_start:
+            continue
+
+        # Calculate weekly reward in HYPE tokens
+        weekly_reward_tokens = (
+            config.total_reward * config.distribution_percentage
+        )
+
+        # Convert to USD
+        weekly_reward_usd = weekly_reward_tokens * hype_price
+
+        # For completed weeks, add full amount
+        if now >= week_end:
+            total_weekly_reward_usd += weekly_reward_usd
+            total_monthly_reward_usd += weekly_reward_usd
+            continue
+
+        # For current week, calculate partial distribution
+        progress = calculate_reward_distribution_progress(week_start, now)
+        current_week_reward_usd = weekly_reward_usd * progress
+
+        # Add to totals
+        total_weekly_reward_usd = (
+            current_week_reward_usd  # Only current week for weekly APY
+        )
+        total_monthly_reward_usd += current_week_reward_usd  # Add to monthly total
+
+        # For monthly APY, include completed weeks from last 30 days
+        thirty_days_ago = now.subtract(days=30)
+        if week_start >= thirty_days_ago and now >= week_end:
+            total_monthly_reward_usd += weekly_reward_usd
+
+    # Projected total weekly reward based on progress
+    projected_weekly_reward_usd = total_weekly_reward_usd / progress if progress > 0 else 0
+
+    # Calculate APYs
+    # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
+    weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
+
+    # Projected total monthly reward based on progress
+    projected_monthly_reward_usd = total_monthly_reward_usd / (now.day / 30) if now.day > 0 else 0
+
+    # Monthly APY = (projected monthly reward / TVL) * 12 months * 100%
+    monthly_apy = (projected_monthly_reward_usd / total_tvl) * 12 * 100
+
+    return weekly_apy, monthly_apy
+
+
 # Step 4: Calculate Performance Metrics
 def calculate_performance(
     vault: Vault,
@@ -209,13 +309,18 @@ def calculate_performance(
         # Adjust the current PPS
         current_price_per_share = adjusted_tvl / vault_state.total_share
 
-    # if vault.slug == constants.GOLD_LINK_SLUG:
-    #     rewards_service = VaultRewardsService(session)
-    #     rewards_earned = rewards_service.get_rewards_earned(vault_id=vault.id)
-    #     arb_price = get_price("ARBUSDT")
-    #     rewards_value = rewards_earned * arb_price
-    #     adjusted_tvl = total_balance + rewards_value
-    #     current_price_per_share = adjusted_tvl / vault_state.total_share
+    # Calculate reward APY if this is the Hype vault
+    weekly_reward_apy = 0
+    monthly_reward_apy = 0
+    if vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
+        weekly_reward_apy, monthly_reward_apy = calculate_reward_apy(
+            vault.id, total_balance
+        )
+        logger.info(
+            "Reward APY calculated - Weekly: %.2f%%, Monthly: %.2f%%",
+            weekly_reward_apy,
+            monthly_reward_apy,
+        )
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
@@ -250,49 +355,10 @@ def calculate_performance(
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
-    apy_1m = monthly_apy * 100
-    apy_1w = weekly_apy * 100
+    # Add reward APY to base APY
+    apy_1m = monthly_apy * 100 + monthly_reward_apy
+    apy_1w = weekly_apy * 100 + weekly_reward_apy
     apy_ytd = apy_ytd * 100
-
-    # query last 7 days VaultPerformance
-    # if update_freq == "daily":
-    #     last_7_day = datetime.now(timezone.utc) - timedelta(days=7)
-
-    #     last_6_days = session.exec(
-    #         select(VaultPerformance)
-    #         .where(VaultPerformance.vault_id == vault.id)
-    #         .where(VaultPerformance.datetime >= last_7_day)
-    #         .order_by(VaultPerformance.datetime.desc())
-    #     ).all()
-
-    #     # convert last 6 days apy to dataframe
-    #     last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
-    #     if len(last_6_days_df) > 0:
-    #         last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
-
-    #         # append latest apy
-    #         new_row = pd.DataFrame(
-    #             [
-    #                 {
-    #                     "datetime": today,
-    #                     "apy_1m": apy_1m,
-    #                     "apy_1w": apy_1w,
-    #                 }
-    #             ]
-    #         )
-    #         last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
-
-    #         # resample last_6_days_df to daily frequency
-    #         last_6_days_df["datetime"] = pd.to_datetime(
-    #             last_6_days_df["datetime"], utc=True
-    #         )
-    #         last_6_days_df.set_index("datetime", inplace=True)
-    #         last_6_days_df = last_6_days_df.resample("D").mean()
-
-    #         if len(last_6_days_df) >= 7:
-    #             # calculate average 7 days apy_1m included today
-    #             apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
-    #             apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault.id
@@ -313,7 +379,11 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
+        base_monthly_apy=monthly_apy*100,
+        reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
+        base_weekly_apy=weekly_apy*100,
+        reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
         risk_factor=risk_factor,
@@ -380,7 +450,11 @@ def main(chain: str):
             # Update the vault with the new information
             vault.ytd_apy = new_performance_rec.apy_ytd
             vault.monthly_apy = new_performance_rec.apy_1m
+            vault.base_monthly_apy = new_performance_rec.base_monthly_apy
+            vault.reward_monthly_apy = new_performance_rec.reward_monthly_apy
             vault.weekly_apy = new_performance_rec.apy_1w
+            vault.base_weekly_apy = new_performance_rec.base_weekly_apy
+            vault.reward_weekly_apy = new_performance_rec.reward_weekly_apy
             vault.next_close_round_date = None
             update_tvl(vault.id, new_performance_rec.total_locked_value)
             logger.info(

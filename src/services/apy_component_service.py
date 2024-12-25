@@ -232,6 +232,29 @@ class PendleApyComponentService(APYComponentService):
         }
 
 
+class Pendle26Jun2025ApyComponentService(APYComponentService):
+    def __init__(
+        self,
+        vault_id: uuid.UUID,
+        current_apy: float,
+        fixed_value: float,
+        hyperliquid_reward_value: float,
+        funding_fee_value: float,
+        session: Session,
+    ):
+        super().__init__(vault_id, current_apy, session)
+        self.fixed_value = fixed_value
+        self.hyperliquid_reward_value = hyperliquid_reward_value
+        self.funding_fee_value = funding_fee_value
+
+    def get_component_values(self) -> dict:
+        return {
+            APYComponent.FIXED_YIELD: self.fixed_value,
+            APYComponent.HYPE_REWARDS: self.hyperliquid_reward_value,
+            APYComponent.FUNDING_FEES: self.funding_fee_value,
+        }
+
+
 class GoldLinkApyComponentService(APYComponentService):
     def __init__(
         self,
@@ -277,16 +300,16 @@ class HypeApyComponentService(APYComponentService):
         self,
         vault_id: uuid.UUID,
         current_apy: float,
-        wst_eth_value: float,
+        hype_reward_value: float,
         funding_fee_value: float,
         session: Session,
     ):
         super().__init__(vault_id, current_apy, session)
-        self.wst_eth_value = wst_eth_value
+        self.hype_reward_value = hype_reward_value
         self.funding_fee_value = funding_fee_value
 
     def get_component_values(self) -> dict:
         return {
-            APYComponent.WST_ETH: self.wst_eth_value,
+            APYComponent.HYPE_REWARDS: self.hype_reward_value,
             APYComponent.FUNDING_FEES: self.funding_fee_value,
         }

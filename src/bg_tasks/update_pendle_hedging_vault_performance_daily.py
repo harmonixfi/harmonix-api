@@ -11,6 +11,7 @@ from sqlmodel import Session, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
+from bg_tasks.update_delta_neutral_vault_performance_daily import calculate_reward_apy
 from bg_tasks.utils import (
     calculate_pps_statistics,
     calculate_roi,
@@ -185,20 +186,34 @@ def calculate_performance(
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
 
-    points_earned = get_earned_hl_point(vault)
+    weekly_reward_apy = 0
+    monthly_reward_apy = 0
+    if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
+        # Pendle 26 Dec 2024 run HL point program. 
+        # The HL point is already stopped
+        points_earned = get_earned_hl_point(vault)
 
-    # Incorporate HL Points:
-    # Each point earned can be converted to $5.
-    # Points earned over the month need to be calculated.
-    # Total value of points = Total points earned * $5
-    # Calculate the value of the points
-    points_value = points_earned * 5
+        # Incorporate HL Points:
+        # Each point earned can be converted to $5.
+        # Points earned over the month need to be calculated.
+        # Total value of points = Total points earned * $5
+        # Calculate the value of the points
+        points_value = points_earned * 5
 
-    # Adjust the total balance (TVL)
-    adjusted_tvl = total_balance + points_value
+        # Adjust the total balance (TVL)
+        adjusted_tvl = total_balance + points_value
 
-    # Adjust the current PPS
-    current_price_per_share = adjusted_tvl / vault_state.total_shares
+        # Adjust the current PPS
+        current_price_per_share = adjusted_tvl / vault_state.total_shares
+    else:
+        weekly_reward_apy, monthly_reward_apy = calculate_reward_apy(
+            vault.id, total_balance
+        )
+        logger.info(
+            "Reward APY calculated - Weekly: %.2f%%, Monthly: %.2f%%",
+            weekly_reward_apy,
+            monthly_reward_apy,
+        )
 
     # Calculate Monthly APY
     month_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=30)
@@ -238,47 +253,10 @@ def calculate_performance(
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
-    apy_1m = monthly_apy * 100
-    apy_1w = weekly_apy * 100
+    # Add reward APY to base APY
+    apy_1m = monthly_apy * 100 + monthly_reward_apy
+    apy_1w = weekly_apy * 100 + weekly_reward_apy
     apy_ytd = apy_ytd * 100
-
-    # query last 7 days VaultPerformance
-    # if update_freq == "daily":
-    #     last_7_day = datetime.now(timezone.utc) - timedelta(days=7)
-
-    #     last_6_days = session.exec(
-    #         select(VaultPerformance)
-    #         .where(VaultPerformance.vault_id == vault.id)
-    #         .where(VaultPerformance.datetime >= last_7_day)
-    #         .order_by(VaultPerformance.datetime.desc())
-    #     ).all()
-
-    #     # convert last 6 days apy to dataframe
-    #     last_6_days_df = pd.DataFrame([vars(rec) for rec in last_6_days])
-    #     if len(last_6_days_df) > 0:
-    #         last_6_days_df = last_6_days_df[["datetime", "apy_1m", "apy_1w"]].copy()
-
-    #         # append latest apy
-    #         new_row = pd.DataFrame(
-    #             [
-    #                 {
-    #                     "datetime": today,
-    #                     "apy_1m": apy_1m,
-    #                     "apy_1w": apy_1w,
-    #                 }
-    #             ]
-    #         )
-    #         last_6_days_df = pd.concat([last_6_days_df, new_row]).reset_index(drop=True)
-
-    #         # resample last_6_days_df to daily frequency
-    #         last_6_days_df["datetime"] = pd.to_datetime(last_6_days_df["datetime"])
-    #         last_6_days_df.set_index("datetime", inplace=True)
-    #         last_6_days_df = last_6_days_df.resample("D").mean()
-
-    #         if len(last_6_days_df) >= 7:
-    #             # calculate average 7 days apy_1m included today
-    #             apy_1m = last_6_days_df.ffill()["apy_1m"].mean()
-    #             apy_1w = last_6_days_df.ffill()["apy_1w"].mean()
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault.id
@@ -299,7 +277,11 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
+        base_monthly_apy=monthly_apy*100,
+        reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
+        base_weekly_apy=weekly_apy*100,
+        reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
         risk_factor=risk_factor,
