@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
 import json
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 from uuid import UUID
+import click
 from sqlalchemy import and_, func, text
 from sqlmodel import Session, col, select
 
@@ -33,12 +34,21 @@ def get_user_reward(vault_id: UUID, wallet_address: str) -> UserRewards:
 
 
 def get_reward_distribution_config(
-    date: datetime, vault_id: UUID
+    date: datetime, vault_id: UUID, week: Optional[int] = None
 ) -> RewardDistributionConfig:
-    # This function retrieves the reward distribution configuration for a given vault and date.
-    # It filters the configurations based on the vault ID and the date range within which the configuration is active.
+    # This function retrieves the reward distribution configuration for a given vault, date, and optional week.
+    # If a week is specified, it directly fetches the configuration for that week.
+    # Otherwise, it filters the configurations based on the vault ID and the date range within which the configuration is active.
     # The date range is defined as the start date of the configuration to the start date plus 7 days.
     # The configurations are ordered by their start date, and the most recent one is returned.
+
+    if week:
+        return session.exec(
+            select(RewardDistributionConfig).where(
+                RewardDistributionConfig.week == week
+            )
+        ).first()
+
     return session.exec(
         select(RewardDistributionConfig)
         .where(RewardDistributionConfig.vault_id == vault_id)
@@ -66,7 +76,9 @@ def get_user_by_wallet(wallet_address: str):
     ).first()
 
 
-def calculate_reward_distributions(vault: Vault, current_date: datetime):
+def calculate_reward_distributions(
+    vault: Vault, current_date: datetime, week: Optional[int] = None
+):
     # Fetch the reward configuration for the vault
     reward_config = get_reward_distribution_config(current_date, vault_id=vault.id)
     if not reward_config:
@@ -207,7 +219,28 @@ def create_user_reward_audit(
     session.commit()
 
 
-def main():
+@click.group(invoke_without_command=True)
+@click.option(
+    "--week",
+    type=str,
+    default=None,
+    help="Optional week parameter to specify the week number for rewards distribution (e.g., 1 for the first week of the year)",
+)
+@click.pass_context
+def cli(ctx, week: Optional[str] = None):
+    """Rewards Distribution Job CLI."""
+    if ctx.invoked_subcommand is None:
+        main(week)
+
+
+@cli.command()
+@click.option(
+    "--week",
+    type=str,
+    default=None,
+    help="Optional week parameter to specify the week for rewards distribution (e.g., 2024-W01)",
+)
+def main(week: Optional[str] = None):
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
         select(Vault)
@@ -215,13 +248,14 @@ def main():
         .where(Vault.is_active == True)
     ).all()
 
+    week_number = int(week) if week else None
     # Get the current date in UTC timezone
     current_date = datetime.now(tz=timezone.utc)
-
+    logger.info(f"Calculating rewards {week_number}")
     for vault in vaults:
         try:
             logger.info(f"Calculating rewards for vault {vault.name}")
-            calculate_reward_distributions(vault, current_date)
+            calculate_reward_distributions(vault, current_date, week=week_number)
         except Exception as e:
             logger.error(
                 "An error occurred while calculating rewards for vault %s: %s",
@@ -239,4 +273,4 @@ if __name__ == "__main__":
         app="rewards_distribution_job_harmonix", level=logging.INFO, logger=logger
     )
 
-    main()
+    cli()
