@@ -37,6 +37,11 @@ def get_reward_distribution_config(
     date: datetime, vault_id: UUID, week: Optional[int] = None
 ) -> RewardDistributionConfig:
     # This function retrieves the reward distribution configuration for a given vault, date, and optional week.
+    # Parameters:
+    # - date: The date for which the configuration is needed.
+    # - vault_id: The unique identifier of the vault.
+    # - week: An optional parameter specifying the week number for which the configuration is needed.
+    #
     # If a week is specified, it directly fetches the configuration for that week.
     # Otherwise, it filters the configurations based on the vault ID and the date range within which the configuration is active.
     # The date range is defined as the start date of the configuration to the start date plus 7 days.
