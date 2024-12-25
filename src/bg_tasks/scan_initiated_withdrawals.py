@@ -38,11 +38,7 @@ class InitiatedWithdrawalWatcherJob:
         self.end_date_timestamp = int(self.end_date.timestamp())
 
     def __get_active_vaults(self) -> List[Vault]:
-        result = self.session.exec(
-            select(Vault)
-            .where(Vault.is_active)
-            .where(Vault.id == "176a024b-74b9-4390-97c5-066748c088e4")
-        ).all()
+        result = self.session.exec(select(Vault).where(Vault.is_active)).all()
         return result
 
     def get_withdrawals_for_current_day(
@@ -84,7 +80,7 @@ class InitiatedWithdrawalWatcherJob:
                         method_id,
                         ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
                     FROM public.onchain_transaction_history
-                    WHERE method_id = :withdraw_method_id
+                    WHERE method_id = ANY(:withdraw_method_id)
                     AND to_address = ANY(:vault_addresses)
                     AND timestamp >= :start_ts
                     AND timestamp <= :end_ts
@@ -99,7 +95,7 @@ class InitiatedWithdrawalWatcherJob:
                         SELECT 1
                         FROM public.onchain_transaction_history c
                         WHERE c.from_address = i.from_address
-                        AND c.method_id = :complete_method_id
+                        AND c.method_id = ANY(:complete_method_id)
                         AND c.timestamp > i.timestamp
                     )
                 )
@@ -118,8 +114,14 @@ class InitiatedWithdrawalWatcherJob:
             init_withdraws = self.session.execute(
                 query,
                 {
-                    "withdraw_method_id": constants.MethodID.WITHDRAW_PENDLE1.value,
-                    "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+                    "withdraw_method_id": [
+                        constants.MethodID.WITHDRAW_PENDLE1.value,
+                        constants.MethodID.WITHDRAW.value,
+                    ],
+                    "complete_method_id": [
+                        constants.MethodID.COMPPLETE_WITHDRAWAL.value,
+                        constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
+                    ],
                     "vault_addresses": all_vault_addresses,
                     "start_ts": self.start_date_timestamp,
                     "end_ts": self.end_date_timestamp,
