@@ -268,8 +268,8 @@ async def get_all_vaults(
                 for partner, points in group["points"].items()
             ],
             rewards=[
-                schemas.EarnedRewards(name="arb_rewards", rewards=rewards)
-                for partner, rewards in group["rewards"].items()
+                schemas.EarnedRewards(name=token_name, rewards=rewards)
+                for token_name, rewards in group["rewards"].items()
             ],
         )
         for group in grouped_vaults.values()
