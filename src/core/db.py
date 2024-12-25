@@ -36,7 +36,9 @@ def init_pps_history(session: Session, vault: Vault):
         today = datetime.now()
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
+                datetime=datetime(
+                    today.year, today.month, today.day, tzinfo=timezone.utc
+                ),
                 price_per_share=1,
                 vault_id=vault.id,
             )
@@ -484,6 +486,30 @@ def seed_vaults(session: Session):
             pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
         ),
         Vault(
+            name="Pendle Protected Yield Vault",
+            vault_capacity=4 * 1e3,
+            vault_currency="USDC",
+            contract_address="0xc0e2b9ECABcA12D5024B2C11788B1cFaf972E5aa",
+            slug="arbitrum-pendle-rseth-26jun2025",
+            routes=None,
+            category="real_yield",
+            underlying_asset="rsETH",
+            network_chain=NetworkChain.arbitrum_one,
+            monthly_apy=0,
+            weekly_apy=0,
+            ytd_apy=0,
+            apr=0,
+            tvl=0,
+            tags="pendle,new",
+            max_drawdown=0,
+            maturity_date="2025-06-26",
+            owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
+            is_active=False,
+            strategy_name=constants.PENDLE_HEDGING_STRATEGY,
+            pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
+            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
+        ),
+        Vault(
             name="Koi & Chill with Kelp Gain",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
@@ -645,11 +671,11 @@ def seed_vault_category(session: Session):
     try_add_vault_category(session, "rewards")
 
 
-def seed_reward_distribution_config(session: Session):
-    hype_vault = session.exec(
-        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
-    ).first()
-    if hype_vault is None:
+def seed_reward_distribution_config(
+    session: Session, vault_slug: str, total_reward: float
+):
+    vault = session.exec(select(Vault).where(Vault.slug == vault_slug)).first()
+    if vault is None:
         return
 
     reward_configs = [
@@ -659,15 +685,22 @@ def seed_reward_distribution_config(session: Session):
         {"week": 4, "distribution_percentage": 0.10},
     ]
     reward_token = "$HYPE"
-    total_reward = 100
+    total_reward = total_reward
     current_date = datetime.now(tz=timezone.utc)
 
     for config in reward_configs:
         week = config["week"]
         percentage = config["distribution_percentage"]
+        reward_distribution = session.exec(
+            select(RewardDistributionConfig)
+            .where(RewardDistributionConfig.week == week)
+            .where(RewardDistributionConfig.vault_id == vault.id)
+        ).first()
+        if reward_distribution:
+            continue
 
         reward_distribution = RewardDistributionConfig(
-            vault_id=hype_vault.id,
+            vault_id=vault.id,
             reward_token=reward_token,
             total_reward=total_reward,
             week=week,
@@ -717,7 +750,7 @@ def init_db(session: Session) -> None:
     init_new_vault(session, pendle_rs_26sep)
 
     pendle_rs_26dec = session.exec(
-        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26dec2024")
+        select(Vault).where(Vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG)
     ).first()
     init_new_vault(session, pendle_rs_26dec)
 
@@ -742,4 +775,14 @@ def init_db(session: Session) -> None:
     ).first()
     init_new_vault(session, hype_vault)
 
-    seed_reward_distribution_config(session=session)
+    pendle_rseth_26jun25_vault = session.exec(
+        select(Vault).where(Vault.slug == "arbitrum-pendle-rseth-26jun2025")
+    ).first()
+    init_new_vault(session, pendle_rseth_26jun25_vault)
+
+    seed_reward_distribution_config(
+        session=session, vault_slug=constants.HYPE_DELTA_NEUTRAL_SLUG, total_reward=50
+    )
+    seed_reward_distribution_config(
+        session=session, vault_slug="arbitrum-pendle-rseth-26jun2025", total_reward=60
+    )
