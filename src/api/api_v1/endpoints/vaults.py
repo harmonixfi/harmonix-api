@@ -6,11 +6,14 @@ import uuid
 import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import bindparam, text
+from sqlalchemy import bindparam, func, text
 from sqlmodel import Session, and_, select, or_
 from web3 import Web3
 
 from models.pps_history import PricePerShareHistory
+from models.reward_distribution_config import RewardDistributionConfig
+from models.reward_distribution_history import RewardDistributionHistory
+from models.user_rewards import UserRewards
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.whitelist_wallets import WhitelistWallet
 import schemas
@@ -70,6 +73,51 @@ def get_vault_earned_point_by_partner(
     return point_dist_hist
 
 
+def _get_vault_earned_reward_by_partner(
+    session: Session, vault: Vault, partner_name: str
+) -> RewardDistributionHistory:
+    """
+    Retrieve the latest RewardDistributionHistory record for a given vault and partner.
+
+    Args:
+        session (Session): The database session.
+        vault (Vault): The vault instance.
+        partner_name (str): The partner name.
+
+    Returns:
+        RewardDistributionHistory: The latest reward distribution history record. Returns a new instance with zero reward if no records are found.
+    """
+    statement = (
+        select(RewardDistributionHistory)
+        .where(
+            RewardDistributionHistory.vault_id == vault.id,
+            RewardDistributionHistory.partner_name == partner_name,
+        )
+        .order_by(RewardDistributionHistory.created_at.desc())
+    )
+    reward_dist_hist = session.exec(statement).first()
+    return reward_dist_hist
+
+
+def _get_name_token_reward(session: Session, vault: Vault) -> str:
+    """
+    Retrieve the reward token name for a given vault.
+
+    Args:
+        session (Session): The database session.
+        vault (Vault): The vault instance.
+
+    Returns:
+        str: The reward token name. Returns an empty string if no reward token is found.
+    """
+    statement = select(RewardDistributionConfig.reward_token).where(
+        RewardDistributionConfig.vault_id == vault.id
+    )
+    reward_token = session.exec(statement).first()
+
+    return reward_token
+
+
 def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
     routes = (
         json.loads(vault.routes) + [constants.EIGENLAYER]
@@ -111,6 +159,26 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
     return earned_points
 
 
+def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
+    partners = [
+        constants.HARMONIX,
+    ]
+    earned_rewards = []
+    for partner in partners:
+        reward = _get_vault_earned_reward_by_partner(session, vault, partner)
+        token_reward = _get_name_token_reward(session=session, vault=vault)
+        if reward:
+            earned_rewards.append(
+                schemas.EarnedRewards(
+                    name=token_reward,
+                    rewards=reward.total_reward,
+                    created_at=reward.created_at,
+                )
+            )
+
+    return earned_rewards
+
+
 @router.get("/", response_model=List[schemas.GroupSchema])
 async def get_all_vaults(
     session: SessionDep,
@@ -143,6 +211,7 @@ async def get_all_vaults(
         group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault, session=session)
         schema_vault.points = get_earned_points(session, vault)
+        schema_vault.rewards = get_earned_rewards(session, vault)
 
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
@@ -220,6 +289,7 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
     schema_vault = _update_vault_apy(vault, session=session)
     schema_vault.points = get_earned_points(session, vault)
+    schema_vault.rewards = get_earned_rewards(session, vault)
 
     # Check if the vault is part of a group
     if vault.vault_group:

@@ -104,7 +104,7 @@ def process_vault(
         constants.PENDLE_VAULT_VAULT_SLUG_DEC: handle_pendle_vault,
         constants.RENZO_VAULT_SLUG: handle_renzo_vault,
         constants.GOLD_LINK_SLUG: handle_goldlink_vault,
-        constants.HYPE_DELTA_NEUTRA_SLUG: handle_hype_vault,
+        constants.HYPE_DELTA_NEUTRAL_SLUG: handle_hype_vault,
     }
 
     handler = handlers.get(vault.slug)

@@ -1,8 +1,10 @@
 from datetime import datetime, timezone
 import json
 import logging
-from typing import Dict, List
+import traceback
+from typing import Dict, List, Optional
 from uuid import UUID
+import click
 from sqlalchemy import and_, func, text
 from sqlmodel import Session, col, select
 
@@ -10,6 +12,7 @@ from core import constants
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.reward_distribution_config import RewardDistributionConfig
+from models.reward_distribution_history import RewardDistributionHistory
 from models.user import User
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
@@ -33,18 +36,32 @@ def get_user_reward(vault_id: UUID, wallet_address: str) -> UserRewards:
 
 
 def get_reward_distribution_config(
-    date: datetime, vault_id: UUID
+    date: datetime, vault_id: UUID, week: Optional[int] = None
 ) -> RewardDistributionConfig:
-    # This function retrieves the reward distribution configuration for a given vault and date.
-    # It filters the configurations based on the vault ID and the date range within which the configuration is active.
+    # This function retrieves the reward distribution configuration for a given vault, date, and optional week.
+    # Parameters:
+    # - date: The date for which the configuration is needed.
+    # - vault_id: The unique identifier of the vault.
+    # - week: An optional parameter specifying the week number for which the configuration is needed.
+    #
+    # If a week is specified, it directly fetches the configuration for that week.
+    # Otherwise, it filters the configurations based on the vault ID and the date range within which the configuration is active.
     # The date range is defined as the start date of the configuration to the start date plus 7 days.
     # The configurations are ordered by their start date, and the most recent one is returned.
+
+    if week:
+        return session.exec(
+            select(RewardDistributionConfig)
+            .where(RewardDistributionConfig.vault_id == vault_id)
+            .where(RewardDistributionConfig.week == week)
+        ).first()
+
     return session.exec(
         select(RewardDistributionConfig)
         .where(RewardDistributionConfig.vault_id == vault_id)
         .where(
             and_(
-                RewardDistributionConfig.start_date + text("interval '7 days'") >= date,
+                RewardDistributionConfig.start_date + text("interval '7 days'") > date,
                 RewardDistributionConfig.start_date <= date,
             )
         )
@@ -66,10 +83,9 @@ def get_user_by_wallet(wallet_address: str):
     ).first()
 
 
-def calculate_reward_distributions(vault: Vault):
-    # Get the current date in UTC timezone
-    current_date = datetime.now(tz=timezone.utc)
-
+def calculate_reward_distributions(
+    vault: Vault, current_date: datetime, week: Optional[int] = None
+):
     # Fetch the reward configuration for the vault
     reward_config = get_reward_distribution_config(current_date, vault_id=vault.id)
     if not reward_config:
@@ -115,7 +131,9 @@ def calculate_reward_distributions(vault: Vault):
         )
 
 
-def process_user_reward(user: User, vault_id, start_date, reward_distribution, current_date):
+def process_user_reward(
+    user: User, vault_id, start_date, reward_distribution, current_date
+):
     """Process and update rewards for a specific user in the Harmonix vault.
 
     Args:
@@ -208,18 +226,94 @@ def create_user_reward_audit(
     session.commit()
 
 
-def main():
+def update_vault_rewards(current_time, vault: Vault):
+    """
+    Updates the rewards distribution history for a given vault.
+
+    This function calculates the total rewards earned by a vault from the Harmonix partner
+    and records this information in the rewards distribution history. It logs the total
+    rewards and updates the database with the new history entry.
+
+    Parameters:
+    - current_time: The current timestamp to be recorded in the history.
+    - vault: The Vault object for which the rewards distribution history is being updated.
+
+    Logs:
+    - Information about the total rewards earned by the vault.
+    - Confirmation of the rewards distribution history update.
+    - Errors encountered during the process.
+
+    Raises:
+    - Exception: If any error occurs during the database operations, it logs the error
+      and raises the exception.
+    """
+    try:
+        # get all earned points for the vault
+        total_rewards_query = (
+            select(func.sum(UserRewards.total_reward))
+            .where(UserRewards.vault_id == vault.id)
+            .where(UserRewards.partner_name == constants.HARMONIX)
+        )
+        total_rewards = session.exec(total_rewards_query).one()
+        logger.info(
+            f"Vault {vault.name} has earned {total_rewards_query} points from Harmonix."
+        )
+        # insert rewards distribution history
+        reward_distribution_history = RewardDistributionHistory(
+            vault_id=vault.id,
+            partner_name=constants.HARMONIX,
+            total_reward=total_rewards,
+            created_at=current_time,
+        )
+        session.add(reward_distribution_history)
+        session.commit()
+        logger.info("Rewards distribution history updated.")
+    except Exception as e:
+        logger.error(
+            f"An error occurred while updating rewards distribution history for vault {vault.name}: {e}",
+            exc_info=True,
+        )
+        logger.error(traceback.format_exc())
+
+
+@click.group(invoke_without_command=True)
+@click.option(
+    "--week",
+    type=str,
+    default=None,
+    help="Optional week parameter to specify the week number for rewards distribution (e.g., 1 for the first week of the year)",
+)
+@click.pass_context
+def cli(ctx, week: Optional[str] = None):
+    """Rewards Distribution Job CLI."""
+    if ctx.invoked_subcommand is None:
+        main(week)
+
+
+@cli.command()
+@click.option(
+    "--week",
+    type=str,
+    default=None,
+    help="Optional week parameter to specify the week for rewards distribution (e.g., 2024-W01)",
+)
+def main(week: Optional[str] = None):
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
         select(Vault)
-        .where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+        .where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
         .where(Vault.is_active == True)
     ).all()
 
+    week_number = int(week) if week else None
+    # Get the current date in UTC timezone
+    current_date = datetime.now(tz=timezone.utc)
+    logger.info(f"Calculating rewards {week_number}")
     for vault in vaults:
         try:
             logger.info(f"Calculating rewards for vault {vault.name}")
-            calculate_reward_distributions(vault)
+            calculate_reward_distributions(vault, current_date, week=week_number)
+            update_vault_rewards(current_time=current_date, vault=vault)
         except Exception as e:
             logger.error(
                 "An error occurred while calculating rewards for vault %s: %s",
@@ -237,4 +331,4 @@ if __name__ == "__main__":
         app="rewards_distribution_job_harmonix", level=logging.INFO, logger=logger
     )
 
-    main()
+    cli()
