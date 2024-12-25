@@ -8,12 +8,17 @@ from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
 
+from bg_tasks.update_delta_neutral_vault_performance_daily import (
+    calculate_reward_apy,
+    calculate_reward_distribution_progress,
+)
 from core.abi_reader import read_abi
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from core import constants
 from models.point_distribution_history import PointDistributionHistory
+from models.reward_distribution_history import RewardDistributionHistory
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.vault_performance import VaultPerformance
 from models.vault_reward_history import VaultRewardHistory
@@ -41,6 +46,7 @@ from services.apy_component_service import (
 )
 from services.gold_link_service import get_current_rewards_earned
 from services.market_data import get_price
+from utils.vault_utils import get_vault_currency_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -385,12 +391,27 @@ def main():
 
                 elif vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
                     wst_eth_value = lido_service.get_apy() * 100
-                    funding_fee_value = current_apy - wst_eth_value
 
+                    # For current week, calculate partial distribution
+                    # Get the total value locked (TVL) of the vault, default to 0.0 if not available
+                    tvl = vault.tvl if vault.tvl else float(0.0)
+
+                    # Calculate the weekly APY for the vault based on its ID and TVL
+                    weekly_apy, _ = calculate_reward_apy(
+                        vault_id=vault.id, total_tvl=tvl
+                    )
+
+                    # Calculate the annualized rewards PnL based on the weekly APY
+                    # The formula used here is to annualize the weekly APY by compounding it
+                    annualized_rewards_pnl = (1 + weekly_apy / 52) ** (1 / 7) - 1
+
+                    funding_fee_value = (
+                        current_apy - wst_eth_value - annualized_rewards_pnl
+                    )
                     hype_component_service = HypeApyComponentService(
                         vault.id,
                         current_apy,
-                        wst_eth_value,
+                        float(annualized_rewards_pnl),
                         float(funding_fee_value),
                         session,
                     )
