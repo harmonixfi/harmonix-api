@@ -212,6 +212,7 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
 
     total_weekly_reward_usd = 0
     total_monthly_reward_usd = 0
+    progress = 0
 
     for config in reward_configs:
         if not all([config.total_reward, config.distribution_percentage]):
@@ -424,6 +425,7 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
