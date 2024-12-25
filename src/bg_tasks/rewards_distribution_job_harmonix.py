@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 import json
 import logging
+import traceback
 from typing import Dict, List, Optional
 from uuid import UUID
 import click
@@ -11,6 +12,7 @@ from core import constants
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.reward_distribution_config import RewardDistributionConfig
+from models.reward_distribution_history import RewardDistributionHistory
 from models.user import User
 from models.user_portfolio import PositionStatus, UserPortfolio
 from models.user_rewards import UserRewardAudit, UserRewards
@@ -224,6 +226,56 @@ def create_user_reward_audit(
     session.commit()
 
 
+def update_vault_rewards(current_time, vault: Vault):
+    """
+    Updates the rewards distribution history for a given vault.
+
+    This function calculates the total rewards earned by a vault from the Harmonix partner
+    and records this information in the rewards distribution history. It logs the total
+    rewards and updates the database with the new history entry.
+
+    Parameters:
+    - current_time: The current timestamp to be recorded in the history.
+    - vault: The Vault object for which the rewards distribution history is being updated.
+
+    Logs:
+    - Information about the total rewards earned by the vault.
+    - Confirmation of the rewards distribution history update.
+    - Errors encountered during the process.
+
+    Raises:
+    - Exception: If any error occurs during the database operations, it logs the error
+      and raises the exception.
+    """
+    try:
+        # get all earned points for the vault
+        total_rewards_query = (
+            select(func.sum(UserRewards.total_reward))
+            .where(UserRewards.vault_id == vault.id)
+            .where(UserRewards.partner_name == constants.HARMONIX)
+        )
+        total_rewards = session.exec(total_rewards_query).one()
+        logger.info(
+            f"Vault {vault.name} has earned {total_rewards_query} points from Harmonix."
+        )
+        # insert rewards distribution history
+        reward_distribution_history = RewardDistributionHistory(
+            vault_id=vault.id,
+            partner_name=constants.HARMONIX,
+            total_reward=total_rewards,
+            created_at=current_time,
+        )
+        session.add(reward_distribution_history)
+        session.commit()
+        logger.info("Rewards distribution history updated.")
+    except Exception as e:
+        logger.error(
+            f"An error occurred while updating rewards distribution history for vault {vault.name}: {e}",
+            exc_info=True,
+        )
+        logger.error(traceback.format_exc())
+
+
 @click.group(invoke_without_command=True)
 @click.option(
     "--week",
@@ -261,6 +313,7 @@ def main(week: Optional[str] = None):
         try:
             logger.info(f"Calculating rewards for vault {vault.name}")
             calculate_reward_distributions(vault, current_date, week=week_number)
+            update_vault_rewards(current_time=current_date, vault=vault)
         except Exception as e:
             logger.error(
                 "An error occurred while calculating rewards for vault %s: %s",
