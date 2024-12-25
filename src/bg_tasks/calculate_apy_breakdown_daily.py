@@ -10,7 +10,6 @@ from web3.contract import Contract
 
 from bg_tasks.update_delta_neutral_vault_performance_daily import (
     calculate_reward_apy,
-    calculate_reward_distribution_progress,
 )
 from core.abi_reader import read_abi
 from core.db import engine
@@ -46,7 +45,6 @@ from services.apy_component_service import (
 )
 from services.gold_link_service import get_current_rewards_earned
 from services.market_data import get_price
-from utils.vault_utils import get_vault_currency_price
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -401,8 +399,8 @@ def main():
                         vault_id=vault.id, total_tvl=tvl
                     )
 
-                    # Calculate the annualized rewards PnL based on the weekly APY
-                    # The formula used here is to annualize the weekly APY by compounding it
+                    # Calculate the annualized rewards PnL based on the daily APY
+                    # The formula used here is to annualize the daily APY by compounding it
                     annualized_rewards_pnl = (1 + weekly_apy / 52) ** (1 / 7) - 1
 
                     funding_fee_value = (
