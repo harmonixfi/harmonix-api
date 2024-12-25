@@ -36,7 +36,9 @@ def init_pps_history(session: Session, vault: Vault):
         today = datetime.now()
         pps_history_data = [
             PricePerShareHistory(
-                datetime=datetime(today.year, today.month, today.day, tzinfo=timezone.utc),
+                datetime=datetime(
+                    today.year, today.month, today.day, tzinfo=timezone.utc
+                ),
                 price_per_share=1,
                 vault_id=vault.id,
             )
@@ -669,11 +671,11 @@ def seed_vault_category(session: Session):
     try_add_vault_category(session, "rewards")
 
 
-def seed_reward_distribution_config(session: Session, vault_slug: str, total_reward: float):
-    hype_vault = session.exec(
-        select(Vault).where(Vault.slug == vault_slug)
-    ).first()
-    if hype_vault is None:
+def seed_reward_distribution_config(
+    session: Session, vault_slug: str, total_reward: float
+):
+    vault = session.exec(select(Vault).where(Vault.slug == vault_slug)).first()
+    if vault is None:
         return
 
     reward_configs = [
@@ -689,9 +691,16 @@ def seed_reward_distribution_config(session: Session, vault_slug: str, total_rew
     for config in reward_configs:
         week = config["week"]
         percentage = config["distribution_percentage"]
+        reward_distribution = session.exec(
+            select(RewardDistributionConfig)
+            .where(RewardDistributionConfig.week == week)
+            .where(RewardDistributionConfig.vault_id == vault.id)
+        ).first()
+        if reward_distribution:
+            continue
 
         reward_distribution = RewardDistributionConfig(
-            vault_id=hype_vault.id,
+            vault_id=vault.id,
             reward_token=reward_token,
             total_reward=total_reward,
             week=week,
@@ -771,5 +780,9 @@ def init_db(session: Session) -> None:
     ).first()
     init_new_vault(session, pendle_rseth_26jun25_vault)
 
-    seed_reward_distribution_config(session=session, vault_slug=constants.HYPE_DELTA_NEUTRAL_SLUG, total_reward=50)
-    seed_reward_distribution_config(session=session, vault_slug="arbitrum-pendle-rseth-26jun2025", total_reward=60)
+    seed_reward_distribution_config(
+        session=session, vault_slug=constants.HYPE_DELTA_NEUTRAL_SLUG, total_reward=50
+    )
+    seed_reward_distribution_config(
+        session=session, vault_slug="arbitrum-pendle-rseth-26jun2025", total_reward=60
+    )
