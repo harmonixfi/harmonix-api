@@ -186,6 +186,8 @@ def calculate_performance(
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
 
+    weekly_reward_apy = 0
+    monthly_reward_apy = 0
     if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
         # Pendle 26 Dec 2024 run HL point program. 
         # The HL point is already stopped
@@ -251,8 +253,9 @@ def calculate_performance(
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
-    apy_1m = monthly_apy * 100
-    apy_1w = weekly_apy * 100
+    # Add reward APY to base APY
+    apy_1m = monthly_apy * 100 + monthly_reward_apy
+    apy_1w = weekly_apy * 100 + weekly_reward_apy
     apy_ytd = apy_ytd * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
@@ -274,7 +277,11 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
+        base_monthly_apy=monthly_apy*100,
+        reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
+        base_weekly_apy=weekly_apy*100,
+        reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
         risk_factor=risk_factor,

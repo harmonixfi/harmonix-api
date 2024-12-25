@@ -506,8 +506,8 @@ def seed_vaults(session: Session):
             owner_wallet_address="0xea065ed6E86f6b6a9468ae26366616AB2f5d4F21",
             is_active=False,
             strategy_name=constants.PENDLE_HEDGING_STRATEGY,
-            pt_address="0x355ec27c9d4530de01a103fa27f884a2f3da65ef",
-            pendle_market_address="0xcb471665bf23b2ac6196d84d947490fd5571215f",
+            pt_address="0x8Db96f2FcCf7Cdd74a60e8eFf5801df043cd11dE",
+            pendle_market_address="0x816f59ffa2239fd7106f94eabdc0a9547a892f2f",
         ),
         Vault(
             name="Koi & Chill with Kelp Gain",
