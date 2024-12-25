@@ -77,7 +77,7 @@ def _get_vault_earned_reward_by_partner(
     session: Session, vault: Vault, partner_name: str
 ) -> RewardDistributionHistory:
     """
-    Calculate the sum of rewards for a given vault and partner.
+    Retrieve the latest RewardDistributionHistory record for a given vault and partner.
 
     Args:
         session (Session): The database session.
@@ -85,7 +85,7 @@ def _get_vault_earned_reward_by_partner(
         partner_name (str): The partner name.
 
     Returns:
-        float: The total earned reward. Returns 0 if no rewards are found.
+        RewardDistributionHistory: The latest reward distribution history record. Returns a new instance with zero reward if no records are found.
     """
     statement = (
         select(RewardDistributionHistory)
