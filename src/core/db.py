@@ -556,7 +556,7 @@ def seed_vaults(session: Session):
             name="$HYPE delta neutral",
             vault_capacity=4 * 1e6,
             vault_currency="USDC",
-            slug=constants.HYPE_DELTA_NEUTRA_SLUG,
+            slug=constants.HYPE_DELTA_NEUTRAL_SLUG,
             contract_address="0x7d79c838Cf3cDA1Bd3734BE6b3C1a160234a09A3",
             routes=None,
             category="real_yield",
@@ -647,7 +647,7 @@ def seed_vault_category(session: Session):
 
 def seed_reward_distribution_config(session: Session):
     hype_vault = session.exec(
-        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
     ).first()
     if hype_vault is None:
         return
@@ -738,7 +738,7 @@ def init_db(session: Session) -> None:
     init_new_vault_metadata(session)
 
     hype_vault = session.exec(
-        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
     ).first()
     init_new_vault(session, hype_vault)
 

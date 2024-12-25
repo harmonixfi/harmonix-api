@@ -62,7 +62,7 @@ def hype_vault():
     return Vault(
         id=UUID("12345678-1234-5678-1234-567812345678"),
         name="$HYPE delta neutral",
-        slug=constants.HYPE_DELTA_NEUTRA_SLUG,
+        slug=constants.HYPE_DELTA_NEUTRAL_SLUG,
         vault_currency="USDC",
         is_active=True,
     )
