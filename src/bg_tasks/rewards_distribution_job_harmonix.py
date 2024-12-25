@@ -301,7 +301,7 @@ def main(week: Optional[str] = None):
     # get all vaults that have VaultCategory = points
     vaults = session.exec(
         select(Vault)
-        .where(Vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG)
+        .where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
         .where(Vault.is_active == True)
     ).all()
 

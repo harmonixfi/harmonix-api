@@ -383,7 +383,7 @@ def main():
                     )
                     rethink_component_service.save()
 
-                elif vault.slug == constants.HYPE_DELTA_NEUTRA_SLUG:
+                elif vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
                     wst_eth_value = lido_service.get_apy() * 100
                     funding_fee_value = current_apy - wst_eth_value
 
