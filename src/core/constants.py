@@ -36,6 +36,7 @@ STAKING_STRATEGY = "staking_strategy"
 GOLD_LINK_SLUG = "arbitrum-leverage-delta-neutral-link"
 ETH_WITH_LENDING_BOOST_YIELD = "arbitrum-delta-neutral-boost-yield-eth"
 PENDLE_RSETH_26DEC24_SLUG = "arbitrum-pendle-rseth-26dec2024"
+PENDLE_RSETH_26JUN25_SLUG = "arbitrum-pendle-rseth-26jun2025"
 HYPE_DELTA_NEUTRAL_SLUG = "hype-delta-neutral-v1"
 
 CHAIN_ARBITRUM = "arbitrum_one"
