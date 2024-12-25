@@ -44,9 +44,9 @@ def get_reward_distribution_config(
 
     if week:
         return session.exec(
-            select(RewardDistributionConfig).where(
-                RewardDistributionConfig.week == week
-            )
+            select(RewardDistributionConfig)
+            .where(RewardDistributionConfig.vault_id == vault_id)
+            .where(RewardDistributionConfig.week == week)
         ).first()
 
     return session.exec(
