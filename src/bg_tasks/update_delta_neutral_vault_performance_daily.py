@@ -196,7 +196,6 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         return 0.0, 0.0
 
     now = pendulum.now(tz=pendulum.UTC)
-    hype_price = get_hl_price("HYPE")  # Get current HYPE token price
 
     # Get all reward distributions
     reward_configs = session.exec(
@@ -207,6 +206,9 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
 
     if not reward_configs:
         return 0.0, 0.0
+    
+    token_name = reward_configs[0].reward_token.replace("$", "")
+    hype_price = get_hl_price(token_name)  # Get current HYPE token price
 
     total_weekly_reward_usd = 0
     total_monthly_reward_usd = 0
