@@ -12,6 +12,7 @@ from web3 import Web3
 
 from models.pps_history import PricePerShareHistory
 from models.reward_distribution_config import RewardDistributionConfig
+from models.reward_distribution_history import RewardDistributionHistory
 from models.user_rewards import UserRewards
 from models.vault_apy_breakdown import VaultAPYBreakdown
 from models.whitelist_wallets import WhitelistWallet
@@ -74,7 +75,7 @@ def get_vault_earned_point_by_partner(
 
 def _get_vault_earned_reward_by_partner(
     session: Session, vault: Vault, partner_name: str
-) -> float:
+) -> RewardDistributionHistory:
     """
     Calculate the sum of rewards for a given vault and partner.
 
@@ -86,13 +87,16 @@ def _get_vault_earned_reward_by_partner(
     Returns:
         float: The total earned reward. Returns 0 if no rewards are found.
     """
-    statement = select(func.sum(UserRewards.total_reward)).where(
-        UserRewards.vault_id == vault.id,
-        UserRewards.partner_name == partner_name,
+    statement = (
+        select(RewardDistributionHistory)
+        .where(
+            RewardDistributionHistory.vault_id == vault.id,
+            RewardDistributionHistory.partner_name == partner_name,
+        )
+        .order_by(RewardDistributionHistory.created_at.desc())
     )
-    total_reward = session.exec(statement).first()
-
-    return 0.0 if total_reward is None else float(total_reward)
+    reward_dist_hist = session.exec(statement).first()
+    return reward_dist_hist
 
 
 def _get_name_token_reward(session: Session, vault: Vault) -> str:
@@ -156,20 +160,19 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
 
 
 def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
-
     partners = [
         constants.HARMONIX,
     ]
     earned_rewards = []
     for partner in partners:
-        reward_amount = _get_vault_earned_reward_by_partner(session, vault, partner)
+        reward = _get_vault_earned_reward_by_partner(session, vault, partner)
         token_reward = _get_name_token_reward(session=session, vault=vault)
-        if token_reward:
+        if reward:
             earned_rewards.append(
                 schemas.EarnedRewards(
                     name=token_reward,
-                    rewards=reward_amount,
-                    created_at=datetime.now(tz=timezone.utc),
+                    rewards=reward.total_reward,
+                    created_at=reward.created_at,
                 )
             )
 
