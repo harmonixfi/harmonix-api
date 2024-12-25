@@ -104,7 +104,7 @@ def _get_name_token_reward(session: Session, vault_id) -> str:
 
 def get_user_earned_rewards(
     session: Session, position: UserPortfolio
-) -> List[schemas.EarnedRewards]:
+) -> List[schemas.UserEarnedRewards]:
     total_reward = session.exec(
         select(
             func.sum(UserRewards.total_reward),
@@ -117,9 +117,10 @@ def get_user_earned_rewards(
     token_name = _get_name_token_reward(session, position.vault_id)
     if token_name:
         earned_rewards.append(
-            schemas.EarnedRewards(
+            schemas.UserEarnedRewards(
                 name=token_name,
-                rewards=total_reward if total_reward else 0,
+                unclaim=total_reward if total_reward else 0,
+                claimed=0,
                 created_at=None,
             )
         )

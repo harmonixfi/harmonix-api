@@ -132,7 +132,8 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
         partners.append(constants.BSX)
 
     if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
-        partners.append(constants.HYPERLIQUID)
+        if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
+            partners.append(constants.HYPERLIQUID)
 
     if vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG:
         kelpgain_partners = [
@@ -160,12 +161,13 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
 
 
 def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRewards]:
-    partners = [
-        constants.HARMONIX,
-    ]
+
     earned_rewards = []
-    for partner in partners:
-        reward = _get_vault_earned_reward_by_partner(session, vault, partner)
+    if vault.slug in [
+        constants.PENDLE_RSETH_26JUN25_SLUG,
+        constants.HYPE_DELTA_NEUTRAL_SLUG,
+    ]:
+        reward = _get_vault_earned_reward_by_partner(session, vault, constants.HARMONIX)
         token_reward = _get_name_token_reward(session=session, vault=vault)
         if reward:
             earned_rewards.append(
@@ -173,6 +175,14 @@ def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRew
                     name=token_reward,
                     rewards=reward.total_reward,
                     created_at=reward.created_at,
+                )
+            )
+        else:
+            earned_rewards.append(
+                schemas.EarnedRewards(
+                    name=token_reward,
+                    rewards=0,
+                    created_at=datetime.now(),
                 )
             )
 
