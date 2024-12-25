@@ -55,10 +55,7 @@ def to_amount_pendle_of_event_initiate_force_withdrawal(
     eth_amount = int(input_data[64 : 64 * 2], 16) / 1e18
     sc_amount = int(input_data[64 * 2 : 3 * 64], 16) / 1e6
     usdc_amount = int(input_data[64 * 3 : 64 * 4], 16) / 1e6
-    web3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[network_chain]))
-    price = get_oracle_price(web3, 8, block_number)
-    total_amount = pt_amount * price + usdc_amount
-    return total_amount, pt_amount
+    return usdc_amount, pt_amount
 
 
 @staticmethod

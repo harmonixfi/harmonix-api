@@ -106,11 +106,12 @@ def build_transaction_message(
         # Accumulate totals for each vault
         try:
             amount_float = float(amount)
-            pt_amount_float = float(pt_amount if pt_amount else 0)
+            pt_amount_float = float(0.0)
+            pt_amount_float += float(pt_amount if pt_amount else 0)
             vault_totals[vault_address] = {
                 "total": vault_totals.get(vault_address, {}).get("total", 0)
                 + amount_float,
-                "pt_amount_float": pt_amount_float,
+                "pt_amount": pt_amount_float,
             }
         except ValueError:
             pass
@@ -120,7 +121,10 @@ def build_transaction_message(
     message += "-------\n"
     for vault_address, total_amount in vault_totals.items():
         message += f"Vault address: {vault_address}\n"
-        message += f"Pending withdrawals: {total_amount:.4f}\n"
+        message += "Pending withdrawals:\n"
+        message += f"  USDC Amount: {total_amount['total']:.4f}\n"
+        message += f"  PT Amount: {total_amount['pt_amount']:.4f}\n"
+
         if pool_amounts and vault_address.lower() in pool_amounts:
             message += (
                 f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
