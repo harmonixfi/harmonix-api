@@ -196,7 +196,6 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         return 0.0, 0.0
 
     now = pendulum.now(tz=pendulum.UTC)
-    hype_price = get_hl_price("HYPE")  # Get current HYPE token price
 
     # Get all reward distributions
     reward_configs = session.exec(
@@ -207,9 +206,13 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
 
     if not reward_configs:
         return 0.0, 0.0
+    
+    token_name = reward_configs[0].reward_token.replace("$", "")
+    hype_price = get_hl_price(token_name)  # Get current HYPE token price
 
     total_weekly_reward_usd = 0
     total_monthly_reward_usd = 0
+    progress = 0
 
     for config in reward_configs:
         if not all([config.total_reward, config.distribution_percentage]):
@@ -251,13 +254,18 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         if week_start >= thirty_days_ago and now >= week_end:
             total_monthly_reward_usd += weekly_reward_usd
 
-    # Calculate APYs
-    # Weekly APY = (weekly reward / TVL) * 52 weeks * 100%
-    weekly_apy = (total_weekly_reward_usd / total_tvl) * 52 * 100
+    # Projected total weekly reward based on progress
+    projected_weekly_reward_usd = total_weekly_reward_usd / progress if progress > 0 else 0
 
-    # Monthly APY = (monthly reward * 12/30 days) * 100%
-    # Multiply by 12/30 to annualize the monthly rate
-    monthly_apy = (total_monthly_reward_usd / total_tvl) * (365 / 30) * 100
+    # Calculate APYs
+    # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
+    weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
+
+    # Projected total monthly reward based on progress
+    projected_monthly_reward_usd = total_monthly_reward_usd / (now.day / 30) if now.day > 0 else 0
+
+    # Monthly APY = (projected monthly reward / TVL) * 12 months * 100%
+    monthly_apy = (projected_monthly_reward_usd / total_tvl) * 12 * 100
 
     return weekly_apy, monthly_apy
 
@@ -417,6 +425,7 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
