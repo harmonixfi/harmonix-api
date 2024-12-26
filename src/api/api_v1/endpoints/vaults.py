@@ -165,7 +165,7 @@ def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRew
     earned_rewards = []
     if vault.slug in [
         constants.PENDLE_RSETH_26JUN25_SLUG,
-        constants.HYPE_DELTA_NEUTRAL_SLUG,
+        # constants.HYPE_DELTA_NEUTRAL_SLUG,
     ]:
         reward = _get_vault_earned_reward_by_partner(session, vault, constants.HARMONIX)
         token_reward = _get_name_token_reward(session=session, vault=vault)
