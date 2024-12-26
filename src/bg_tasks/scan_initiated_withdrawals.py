@@ -164,7 +164,6 @@ class InitiatedWithdrawalWatcherJob:
                                 Web3.to_checksum_address(item.to_address),
                                 input_data,
                                 item.block_number,
-                                item.method_id,
                             )
 
                         date = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
