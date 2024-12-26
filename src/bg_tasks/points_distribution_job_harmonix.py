@@ -386,7 +386,7 @@ def update_vault_points(current_time):
             point_distribution_history = PointDistributionHistory(
                 vault_id=vault.id,
                 partner_name=constants.HARMONIX,
-                point=total_points,
+                point=total_points if total_points else 0,
                 created_at=current_time,
             )
             session.add(point_distribution_history)
