@@ -257,12 +257,23 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
     # Projected total weekly reward based on progress
     projected_weekly_reward_usd = total_weekly_reward_usd / progress if progress > 0 else 0
 
+    # Calculate the number of days from the start of the campaign
+    campaign_start_date = min(config.start_date for config in reward_configs)
+    days_since_campaign_start = (now - pendulum.instance(campaign_start_date)).days
+
+    # Determine the number of days to use for monthly projection
+    if days_since_campaign_start < 30:
+        days_to_use = days_since_campaign_start if days_since_campaign_start > 0 else 1
+    else:
+        # If more than 30 days have passed, use the start of the month
+        days_to_use = (now.day - 1)  # Days in the current month
+
+    # Projected total monthly reward based on the determined days
+    projected_monthly_reward_usd = total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
+
     # Calculate APYs
     # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
     weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
-
-    # Projected total monthly reward based on progress
-    projected_monthly_reward_usd = total_monthly_reward_usd / (now.day / 30) if now.day > 0 else 0
 
     # Monthly APY = (projected monthly reward / TVL) * 12 months * 100%
     monthly_apy = (projected_monthly_reward_usd / total_tvl) * 12 * 100
@@ -425,7 +436,6 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
-            .where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
