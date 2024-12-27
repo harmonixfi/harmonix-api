@@ -113,12 +113,11 @@ def handle_pendle_hedging_strategy(vault: Vault, current_apy: float):
     )
 
     fixed_value = calculate_fixed_value(pendle_data)
-    funding_fee_value = 0
 
     if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
         handle_rseth_dec24_vault(vault, current_apy, fixed_value)
     else:
-        handle_other_pendle_vaults(vault, current_apy, fixed_value, funding_fee_value)
+        handle_other_pendle_vaults(vault, current_apy, fixed_value)
 
 
 def calculate_fixed_value(pendle_data: list[PendleMarket]):
@@ -145,7 +144,7 @@ def handle_rseth_dec24_vault(vault, current_apy, fixed_value):
     )
 
 
-def handle_other_pendle_vaults(vault, current_apy, fixed_value, funding_fee_value):
+def handle_other_pendle_vaults(vault, current_apy, fixed_value):
     """Handle calculations for other Pendle vaults"""
     vault_performance = get_latest_vault_performance(vault.id)
     reward_monthly_apy = (
@@ -153,7 +152,7 @@ def handle_other_pendle_vaults(vault, current_apy, fixed_value, funding_fee_valu
         if vault_performance and vault_performance.reward_monthly_apy is not None
         else 0
     )
-
+    funding_fee_value = current_apy - fixed_value - reward_monthly_apy
     save_pendle_jun2025_components(
         vault.id, current_apy, fixed_value, reward_monthly_apy, float(funding_fee_value)
     )
