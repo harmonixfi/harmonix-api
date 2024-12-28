@@ -119,11 +119,7 @@ def _get_name_token_reward(session: Session, vault: Vault) -> str:
 
 
 def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
-    routes = (
-        json.loads(vault.routes) + [constants.EIGENLAYER]
-        if vault.routes is not None
-        else []
-    )
+    routes = json.loads(vault.routes) if vault.routes is not None else []
     partners = routes + [
         constants.HARMONIX,
     ]
