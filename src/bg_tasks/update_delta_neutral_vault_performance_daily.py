@@ -206,7 +206,7 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
 
     if not reward_configs:
         return 0.0, 0.0
-    
+
     token_name = reward_configs[0].reward_token.replace("$", "")
     hype_price = get_hl_price(token_name)  # Get current HYPE token price
 
@@ -226,9 +226,7 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
             continue
 
         # Calculate weekly reward in HYPE tokens
-        weekly_reward_tokens = (
-            config.total_reward * config.distribution_percentage
-        )
+        weekly_reward_tokens = config.total_reward * config.distribution_percentage
 
         # Convert to USD
         weekly_reward_usd = weekly_reward_tokens * hype_price
@@ -255,7 +253,9 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
             total_monthly_reward_usd += weekly_reward_usd
 
     # Projected total weekly reward based on progress
-    projected_weekly_reward_usd = total_weekly_reward_usd / progress if progress > 0 else 0
+    projected_weekly_reward_usd = (
+        total_weekly_reward_usd / progress if progress > 0 else 0
+    )
 
     # Calculate the number of days from the start of the campaign
     campaign_start_date = min(config.start_date for config in reward_configs)
@@ -266,10 +266,12 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         days_to_use = days_since_campaign_start if days_since_campaign_start > 0 else 1
     else:
         # If more than 30 days have passed, use the start of the month
-        days_to_use = (now.day - 1)  # Days in the current month
+        days_to_use = now.day - 1  # Days in the current month
 
     # Projected total monthly reward based on the determined days
-    projected_monthly_reward_usd = total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
+    projected_monthly_reward_usd = (
+        total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
+    )
 
     # Calculate APYs
     # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
@@ -391,10 +393,10 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
-        base_monthly_apy=monthly_apy*100,
+        base_monthly_apy=monthly_apy * 100,
         reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
-        base_weekly_apy=weekly_apy*100,
+        base_weekly_apy=weekly_apy * 100,
         reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
@@ -436,6 +438,7 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
