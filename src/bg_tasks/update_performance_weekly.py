@@ -6,7 +6,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3 import Web3
 from web3.contract import Contract
 

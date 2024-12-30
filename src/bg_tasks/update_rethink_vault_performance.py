@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pendulum
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3.contract import Contract
 
 from bg_tasks.utils import get_before_price_per_shares
