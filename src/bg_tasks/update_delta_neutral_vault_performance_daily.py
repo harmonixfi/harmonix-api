@@ -438,7 +438,7 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
-            .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
+            # .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
         ).all()
 
