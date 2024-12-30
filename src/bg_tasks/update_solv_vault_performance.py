@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import pendulum
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3.contract import Contract
 
 from bg_tasks.utils import sortino_ratio, downside_risk, calculate_risk_factor
