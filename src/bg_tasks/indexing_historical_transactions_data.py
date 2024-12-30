@@ -114,7 +114,7 @@ def live_index_data():
         for network_chain in [
             NetworkChain.arbitrum_one,
             NetworkChain.ethereum,
-            NetworkChain.base,
+            # NetworkChain.base,
         ]:
             vaults = session.exec(
                 select(Vault)
