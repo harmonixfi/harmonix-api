@@ -168,7 +168,9 @@ def main():
 
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
-            select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
+            select(Vault)
+            .where(Vault.slug == "arbitrum-wbtc-vault")
+            .where(not_(Vault.tags.contains("ended")))
             # .where(Vault.is_active == True)
         ).all()
         logger.info("Start updating solv performance...")

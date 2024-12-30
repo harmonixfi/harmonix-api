@@ -268,7 +268,9 @@ def main():
     try:
         # Get the vault from the Vault table with name = "Stablecoin Vault"
         vault = session.exec(
-            select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
+            select(Vault)
+            .where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
+            .where(not_(Vault.tags.contains("ended")))
         ).first()
 
         vault_contract, _ = get_vault_contract(vault)
