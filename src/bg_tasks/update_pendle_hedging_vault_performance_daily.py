@@ -188,24 +188,7 @@ def calculate_performance(
 
     weekly_reward_apy = 0
     monthly_reward_apy = 0
-    if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
-        # Pendle 26 Dec 2024 run HL point program. 
-        # The HL point is already stopped
-        points_earned = get_earned_hl_point(vault)
-
-        # Incorporate HL Points:
-        # Each point earned can be converted to $5.
-        # Points earned over the month need to be calculated.
-        # Total value of points = Total points earned * $5
-        # Calculate the value of the points
-        points_value = points_earned * 5
-
-        # Adjust the total balance (TVL)
-        adjusted_tvl = total_balance + points_value
-
-        # Adjust the current PPS
-        current_price_per_share = adjusted_tvl / vault_state.total_shares
-    else:
+    if vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG:
         weekly_reward_apy, monthly_reward_apy = calculate_reward_apy(
             vault.id, total_balance
         )
