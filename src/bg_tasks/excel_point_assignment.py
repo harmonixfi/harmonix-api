@@ -39,6 +39,10 @@ def process_excel_points(df: pd.DataFrame):
 
     df["Wallet"] = df["Wallet"].str.lower()
 
+    hype_vault = session.exec(
+        select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
+    ).first()
+
     # Process each wallet-points pair
     for _, row in df.iterrows():
         wallet = row["Wallet"]
@@ -51,17 +55,10 @@ def process_excel_points(df: pd.DataFrame):
                 .where(UserPortfolio.status == PositionStatus.ACTIVE)
             ).first()
 
+            # Set default vault_id to user's active portfolio vault, fallback to hype vault
+            vault_id = user_portfolio.vault_id if user_portfolio else hype_vault.id
             if user_portfolio is None:
-                logger.error(f"Active portfolio not found for wallet address: {wallet}")
-                continue
-
-            user = session.exec(
-                select(User).where(func.lower(User.wallet_address) == wallet)
-            ).first()
-
-            if user is None:
-                logger.error(f"User not found for wallet address: {wallet}")
-                continue
+                logger.warning("No active portfolio found %s", wallet)
 
             # Check if user points record exists
             user_points = session.exec(
@@ -79,7 +76,7 @@ def process_excel_points(df: pd.DataFrame):
                     wallet_address=wallet,
                     points=points,
                     partner_name=constants.HARMONIX,
-                    vault_id=user_portfolio.vault_id,
+                    vault_id=vault_id,
                 )
 
             session.add(user_points)
@@ -108,10 +105,11 @@ def process_excel_points(df: pd.DataFrame):
             )
             continue
 
-    # session.commit()
+    session.commit()
 
 
-def update_vault_points(current_time):
+def update_distribution_history_for_vaults(current_time):
+    logger.info("Processing update distribution history for vaults...")
     active_vaults_query = select(Vault).where(Vault.is_active == True)
     active_vaults = session.exec(active_vaults_query).all()
 
@@ -135,7 +133,7 @@ def update_vault_points(current_time):
                 created_at=current_time,
             )
             session.add(point_distribution_history)
-            # session.commit()
+            session.commit()
         except Exception as e:
             logger.error(
                 f"An error occurred while updating points distribution history for vault {vault.name}: {e}",
@@ -156,7 +154,7 @@ def main():
         # Process the points
         process_excel_points(extracted_data)
         current_time = datetime.now(tz=timezone.utc)
-        update_vault_points(current_time)
+        update_distribution_history_for_vaults(current_time)
 
     except Exception as e:
         logger.error("Failed to process Excel points: %s", str(e), exc_info=True)
