@@ -1,5 +1,6 @@
 from typing import List
 from fastapi import APIRouter, HTTPException
+from sqlalchemy import or_
 from sqlmodel import select
 from models.referral_points import ReferralPoints
 from models.referralcodes import ReferralCode
@@ -121,9 +122,15 @@ async def get_points(session: SessionDep, wallet_address: str):
         statement = (
             select(UserPoints)
             .where(UserPoints.session_id == reward_session.session_id)
-            .where(UserPoints.partner_name == constants.HARMONIX)
+            .where(
+                or_(
+                    UserPoints.partner_name == constants.HARMONIX,
+                    UserPoints.partner_name == constants.HARMONIX_MKT,
+                )
+            )
             .where(UserPoints.wallet_address == wallet_address)
         )
+
         user_points = session.exec(statement).all()
         total_user_points = sum(up.points for up in user_points) if user_points else 0
 

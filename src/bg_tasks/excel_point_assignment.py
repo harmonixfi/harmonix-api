@@ -10,6 +10,7 @@ from core import constants
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models.point_distribution_history import PointDistributionHistory
+from models.reward_sessions import RewardSessions
 from models.user import User
 from models.user_points import UserPointAudit, UserPoints
 from models.user_portfolio import PositionStatus, UserPortfolio
@@ -43,6 +44,18 @@ def process_excel_points(df: pd.DataFrame):
         select(Vault).where(Vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG)
     ).first()
 
+    reward_session_query = (
+        select(RewardSessions)
+        .where(RewardSessions.partner_name == constants.HARMONIX)
+        .where(RewardSessions.end_date == None)
+    )
+    reward_session = session.exec(reward_session_query).first()
+    if reward_session is None:
+        logger.error(
+            "No active reward session found for partner: %s", constants.HARMONIX
+        )
+        raise ValueError("No active reward session found.")
+
     # Process each wallet-points pair
     for _, row in df.iterrows():
         wallet = row["Wallet"]
@@ -65,6 +78,7 @@ def process_excel_points(df: pd.DataFrame):
                 select(UserPoints)
                 .where(func.lower(UserPoints.wallet_address) == wallet)
                 .where(UserPoints.partner_name == constants.HARMONIX_MKT)
+                .where(UserPoints.session_id == reward_session.session_id)
             ).first()
 
             if user_points:
@@ -77,6 +91,7 @@ def process_excel_points(df: pd.DataFrame):
                     points=points,
                     partner_name=constants.HARMONIX_MKT,
                     vault_id=vault_id,
+                    session_id=reward_session.session_id,
                 )
 
             session.add(user_points)
