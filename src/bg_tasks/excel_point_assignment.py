@@ -64,7 +64,7 @@ def process_excel_points(df: pd.DataFrame):
             user_points = session.exec(
                 select(UserPoints)
                 .where(func.lower(UserPoints.wallet_address) == wallet)
-                .where(UserPoints.partner_name == constants.HARMONIX)
+                .where(UserPoints.partner_name == constants.HARMONIX_MKT)
             ).first()
 
             if user_points:
@@ -75,7 +75,7 @@ def process_excel_points(df: pd.DataFrame):
                 user_points = UserPoints(
                     wallet_address=wallet,
                     points=points,
-                    partner_name=constants.HARMONIX,
+                    partner_name=constants.HARMONIX_MKT,
                     vault_id=vault_id,
                 )
 
@@ -119,7 +119,7 @@ def update_distribution_history_for_vaults(current_time):
             total_points_query = (
                 select(func.sum(UserPoints.points))
                 .where(UserPoints.vault_id == vault.id)
-                .where(UserPoints.partner_name == constants.HARMONIX)
+                .where(UserPoints.partner_name == constants.HARMONIX_MKT)
             )
             total_points = session.exec(total_points_query).one()
             logger.info(
@@ -128,7 +128,7 @@ def update_distribution_history_for_vaults(current_time):
             # insert points distribution history
             point_distribution_history = PointDistributionHistory(
                 vault_id=vault.id,
-                partner_name=constants.HARMONIX,
+                partner_name=constants.HARMONIX_MKT,
                 point=total_points if total_points else 0,
                 created_at=current_time,
             )
