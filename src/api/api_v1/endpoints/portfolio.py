@@ -284,14 +284,27 @@ async def get_total_points(session: SessionDep, user_address: str):
         .where(UserPoints.wallet_address == user_address.lower())
         .group_by(UserPoints.partner_name)
     ).all()
-    earned_points = []
+
+    points_dict = {}
+
     for user_point in user_points:
-        earned_points.append(
-            schemas.EarnedPoints(
-                name=user_point.partner_name,
-                point=user_point.points,
-                created_at=None,
-            )
+        partner_name = (
+            constants.HARMONIX
+            if user_point.partner_name in [constants.HARMONIX, constants.HARMONIX_MKT]
+            else user_point.partner_name
         )
+        if partner_name in points_dict:
+            points_dict[partner_name] += user_point.points
+        else:
+            points_dict[partner_name] = user_point.points
+
+    earned_points = [
+        schemas.EarnedPoints(
+            name=partner_name,
+            point=points,
+            created_at=None,
+        )
+        for partner_name, points in points_dict.items()
+    ]
 
     return schemas.PortfolioPoint(points=earned_points)
