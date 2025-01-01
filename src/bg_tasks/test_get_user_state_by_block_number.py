@@ -60,17 +60,12 @@ def main():
         # Get the vaults from the Vault table
         entry = event_data()
         vault = session.exec(
-            select(Vault).where(Vault.id == "2e63ed8f-c42a-4ac8-bf31-092270fc9ed1")
+            select(Vault).where(Vault.id == "65f75bd7-a2d2-4764-ae31-78e4bb132c62")
         ).first()
         vault_contract_service = VaultContractService()
-        abi_name, _ = vault_contract_service.get_vault_abi(vault=vault)
-
-        vault_contract, _ = vault_contract_service.get_vault_contract(
-            vault.network_chain, vault.contract_address, abi_name
-        )
         pre_block_number = _extract_block_number_from_event(entry=entry) - 1
-        user_state = get_user_state_by_block_number(
-            vault_contract,
+        user_state = vault_contract_service.get_user_state_by_block_number(
+            vault,
             "0x6F60abAFbE336cDd5035B107c4cDeb95e4FC978b",
             pre_block_number,
         )

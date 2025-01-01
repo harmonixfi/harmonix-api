@@ -202,14 +202,11 @@ async def handle_event(vault_address: str, entry, event_name):
     if user_portfolio:
         try:
             vault_contract_service = VaultContractService()
-            abi_name, decimals = vault_contract_service.get_vault_abi(vault=vault)
+            _, decimals = vault_contract_service.get_vault_abi(vault=vault)
 
-            vault_contract, _ = vault_contract_service.get_vault_contract(
-                vault.network_chain, vault.contract_address, abi_name
-            )
             pre_block_number = _extract_block_number_from_event(entry=entry) - 1
-            user_state = get_user_state_by_block_number(
-                vault_contract, user_portfolio.user_addres, pre_block_number
+            user_state = vault_contract_service.get_user_state_by_block_number(
+                vault, user_portfolio.user_addres, pre_block_number
             )
             if user_state:
                 deposit_amount = user_state[0] / decimals
