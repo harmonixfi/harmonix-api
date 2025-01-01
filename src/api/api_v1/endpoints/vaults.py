@@ -55,8 +55,20 @@ def get_vault_earned_point_by_partner(
     session: Session, vault: Vault, partner_name: str
 ) -> PointDistributionHistory:
     """
-    Get the latest PointDistributionHistory record for the given vault_id
+    Get the latest PointDistributionHistory record for the given vault_id and partner name.
+
+    If the partner name is 'HARMONIX', it also includes points from 'HARMONIX_MKT'.
+
+    Args:
+        session (Session): The database session used to execute queries.
+        vault (Vault): The vault instance for which the points are being retrieved.
+        partner_name (str): The name of the partner for which to retrieve the points.
+
+    Returns:
+        PointDistributionHistory: The latest PointDistributionHistory record for the specified vault and partner.
+        If no record is found, a new instance is returned with zero points.
     """
+
     statement = (
         select(PointDistributionHistory)
         .where(
@@ -66,10 +78,32 @@ def get_vault_earned_point_by_partner(
         .order_by(PointDistributionHistory.created_at.desc())
     )
     point_dist_hist = session.exec(statement).first()
+
+    mkt_point: float = 0
+    if partner_name == constants.HARMONIX:
+        statement_mtk = (
+            select(PointDistributionHistory.point)
+            .where(
+                PointDistributionHistory.vault_id == vault.id,
+                PointDistributionHistory.partner_name == constants.HARMONIX_MKT,
+            )
+            .order_by(PointDistributionHistory.created_at.desc())
+        )
+        point_dist_hist_mkt = session.exec(statement_mtk).first()
+        mkt_point = point_dist_hist_mkt if point_dist_hist_mkt else 0
+
     if point_dist_hist is None:
+        if partner_name == constants.HARMONIX:
+            return PointDistributionHistory(
+                vault_id=vault.id, partner_name=constants.HARMONIX, point=mkt_point
+            )
         return PointDistributionHistory(
             vault_id=vault.id, partner_name=partner_name, point=0.0
         )
+
+    if partner_name == constants.HARMONIX:
+        point_dist_hist.point += mkt_point
+
     return point_dist_hist
 
 
@@ -119,14 +153,8 @@ def _get_name_token_reward(session: Session, vault: Vault) -> str:
 
 
 def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoints]:
-    routes = (
-        json.loads(vault.routes) + [constants.EIGENLAYER]
-        if vault.routes is not None
-        else []
-    )
-    partners = routes + [
-        constants.HARMONIX,
-    ]
+    routes = json.loads(vault.routes) if vault.routes is not None else []
+    partners = routes + [constants.HARMONIX]
 
     if vault.network_chain == NetworkChain.base:
         partners.append(constants.BSX)
@@ -151,7 +179,7 @@ def get_earned_points(session: Session, vault: Vault) -> List[schemas.EarnedPoin
         if partner != constants.PARTNER_KELPDAOGAIN:
             earned_points.append(
                 schemas.EarnedPoints(
-                    name=partner,
+                    name=point_dist_hist.partner_name,
                     point=point_dist_hist.point,
                     created_at=point_dist_hist.created_at,
                 )
@@ -165,7 +193,7 @@ def get_earned_rewards(session: Session, vault: Vault) -> List[schemas.EarnedRew
     earned_rewards = []
     if vault.slug in [
         constants.PENDLE_RSETH_26JUN25_SLUG,
-        constants.HYPE_DELTA_NEUTRAL_SLUG,
+        # constants.HYPE_DELTA_NEUTRAL_SLUG,
     ]:
         reward = _get_vault_earned_reward_by_partner(session, vault, constants.HARMONIX)
         token_reward = _get_name_token_reward(session=session, vault=vault)

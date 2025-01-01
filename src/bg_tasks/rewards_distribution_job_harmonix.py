@@ -96,37 +96,48 @@ def calculate_reward_distributions(
         )
         return
 
-    # Calculate the total reward for distribution based on configuration
-    total_reward = reward_config.total_reward * reward_config.distribution_percentage
-    logger.info("Total reward for vault %s: %s", vault.name, total_reward)
+    # Calculate hourly reward (total weekly reward * distribution percentage / (7 days * 24 hours))
+    total_weekly_reward = reward_config.total_reward * reward_config.distribution_percentage
+    hourly_reward = total_weekly_reward / (7 * 24)  # 0.59% of total weekly reward
+    logger.info("Hourly reward for vault %s: %s", vault.name, hourly_reward)
 
     # Fetch all active user positions in the vault
     user_positions = get_active_user_positions(vault.id)
     logger.info("Total user positions of vault %s: %s", vault.name, len(user_positions))
 
-    # Calculate the total deposit amount from all active user positions
+    # Calculate the total deposit amount and user shares
     total_deposit_amount = sum(user.init_deposit for user in user_positions)
     logger.info(
         "Total deposit amount for vault %s: %s", vault.name, total_deposit_amount
     )
 
-    # Iterate through each user position to distribute rewards
+    # Calculate and store user shares percentages
+    user_shares = {
+        position.user_address: position.init_deposit / total_deposit_amount
+        for position in user_positions
+    }
+
+    # Distribute hourly rewards based on user shares
     for portfolio in user_positions:
         user = get_user_by_wallet(portfolio.user_address)
         if not user:
             logger.info("User with wallet address %s not found", portfolio.user_address)
             continue
 
-        # Calculate the percentage of shares for the user based on their deposit
-        shares_pct = portfolio.init_deposit / total_deposit_amount
-        # Calculate the reward distribution for the user based on their shares percentage
-        reward_distribution = shares_pct * total_reward
+        # Calculate user's hourly reward based on their share percentage
+        user_share_pct = user_shares[portfolio.user_address]
+        user_hourly_reward = hourly_reward * user_share_pct
+        
+        logger.info(
+            f"User {user.wallet_address} share: {user_share_pct:.2%}, hourly reward: {user_hourly_reward}"
+        )
+
         # Process the reward distribution for the user
         process_user_reward(
             user,
             vault.id,
             reward_config.start_date,
-            reward_distribution,
+            user_hourly_reward,
             current_date,
         )
 

@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import pendulum
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3.contract import Contract
 
 from bg_tasks.utils import get_before_price_per_shares
@@ -28,6 +28,7 @@ logger = logging.getLogger("update_rethink_vault_performance")
 
 session = Session(engine)
 
+
 def get_fee_info():
     fee_structure = [0, 0, 10, 1]
     fee_info = FeeInfo(
@@ -38,14 +39,16 @@ def get_fee_info():
     )
     return fee_info.model_dump_json()
 
+
 def calculate_roi(after: float, before: float, days: int) -> float:
     tvl_delta = (after - before) / (before or 1)
     annualized_roi = (1 + tvl_delta) ** (365.2425 / days) - 1
     return annualized_roi
 
+
 def get_historical_tvl(vault_id: uuid.UUID, days_ago: int) -> float:
     target_date = pendulum.now(tz=pendulum.UTC) - timedelta(days=days_ago)
-    
+
     # Get the VaultPerformance record closest to but before the target date
     historical_performance = session.exec(
         select(VaultPerformance)
@@ -95,33 +98,33 @@ def calculate_tvl_statistics(vault_id: uuid.UUID):
         return 0, 0, 0, 0
 
     # Create DataFrame with TVL data
-    df = pd.DataFrame([
-        {"datetime": p.datetime, "tvl": p.total_locked_value}
-        for p in performances
-    ])
+    df = pd.DataFrame(
+        [{"datetime": p.datetime, "tvl": p.total_locked_value} for p in performances]
+    )
     df.set_index("datetime", inplace=True)
     df.sort_index(inplace=True)
-    
+
     # Calculate percentage changes
     df["pct_change"] = df["tvl"].pct_change()
-    
+
     all_time_high_tvl = None
-    
+
     # Calculate risk metrics
     returns = df["pct_change"].dropna().values
-    
+
     # Calculate Sortino ratio
     risk_free_rate = 0
     excess_returns = returns - risk_free_rate
     downside_returns = np.where(returns < risk_free_rate, returns - risk_free_rate, 0)
     downside = np.sqrt(np.mean(np.square(downside_returns)))
     sortino = np.mean(excess_returns) / downside if downside != 0 else 0
-    
+
     # Calculate risk factor (standard deviation of negative returns)
     negative_returns = returns[returns < 0]
     risk_factor = np.std(negative_returns) if len(negative_returns) > 0 else 0
 
     return all_time_high_tvl, sortino, downside, risk_factor
+
 
 def calculate_performance(vault: Vault, vault_contract: Contract):
     current_price_per_share = get_current_pps(vault_contract, decimals=1e18)
@@ -136,7 +139,9 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
 
     time_diff = pendulum.now(tz=pendulum.UTC) - month_ago_datetime
     days = min((time_diff).days, 30) if time_diff.days > 0 else time_diff.hours / 24
-    monthly_apy = calculate_roi(current_price_per_share, month_ago_price_per_share.price_per_share, days=days)
+    monthly_apy = calculate_roi(
+        current_price_per_share, month_ago_price_per_share.price_per_share, days=days
+    )
     monthly_apy *= 100
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
@@ -151,19 +156,26 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
     weekly_apy *= 100
 
     # Calculate YTD APY
-    start_of_year = pendulum.now(tz=pendulum.UTC).start_of('year')
-    ytd_tvl = get_historical_tvl(vault.id, days_ago=(pendulum.now(tz=pendulum.UTC) - start_of_year).days)
+    start_of_year = pendulum.now(tz=pendulum.UTC).start_of("year")
+    ytd_tvl = get_historical_tvl(
+        vault.id, days_ago=(pendulum.now(tz=pendulum.UTC) - start_of_year).days
+    )
     if ytd_tvl:
-        apy_ytd = calculate_roi(
-            current_tvl,
-            ytd_tvl,
-            days=(pendulum.now(tz=pendulum.UTC) - start_of_year).days,
-        ) * 100
+        apy_ytd = (
+            calculate_roi(
+                current_tvl,
+                ytd_tvl,
+                days=(pendulum.now(tz=pendulum.UTC) - start_of_year).days,
+            )
+            * 100
+        )
     else:
         apy_ytd = 0
 
     # Calculate risk statistics using TVL
-    all_time_high_tvl, sortino, downside, risk_factor = calculate_tvl_statistics(vault.id)
+    all_time_high_tvl, sortino, downside, risk_factor = calculate_tvl_statistics(
+        vault.id
+    )
 
     update_price_per_share(vault.id, current_price_per_share)
 
@@ -189,24 +201,28 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
         unique_depositors=count,
         fee_structure=fee_info,
         benchmark=0,
-        pct_benchmark=0
+        pct_benchmark=0,
     )
+
 
 @click.command()
 @click.option("--chain", default="arbitrum_one", help="Blockchain network to use")
 def main(chain: str):
     try:
         setup_logging_to_console()
-        setup_logging_to_file(f"update_rethink_vault_performance_{chain}", logger=logger)
-        
+        setup_logging_to_file(
+            f"update_rethink_vault_performance_{chain}", logger=logger
+        )
+
         network_chain = NetworkChain[chain.lower()]
-        
+
         # Get active Rethink vaults
         vaults = session.exec(
             select(Vault)
             .where(Vault.category == VaultCategory.real_yield_v2)
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(not_(Vault.tags.contains("ended")))
         ).all()
 
         for vault in vaults:
@@ -237,6 +253,7 @@ def main(chain: str):
             exc_info=True,
         )
         raise e
+
 
 if __name__ == "__main__":
     main()

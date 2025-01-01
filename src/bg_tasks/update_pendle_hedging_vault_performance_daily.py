@@ -7,7 +7,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, not_, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -166,7 +166,7 @@ def get_earned_hl_point(vault: Vault):
     ).first()
     if not point_dist:
         return 0
-    
+
     return point_dist.point
 
 
@@ -188,24 +188,7 @@ def calculate_performance(
 
     weekly_reward_apy = 0
     monthly_reward_apy = 0
-    if vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
-        # Pendle 26 Dec 2024 run HL point program. 
-        # The HL point is already stopped
-        points_earned = get_earned_hl_point(vault)
-
-        # Incorporate HL Points:
-        # Each point earned can be converted to $5.
-        # Points earned over the month need to be calculated.
-        # Total value of points = Total points earned * $5
-        # Calculate the value of the points
-        points_value = points_earned * 5
-
-        # Adjust the total balance (TVL)
-        adjusted_tvl = total_balance + points_value
-
-        # Adjust the current PPS
-        current_price_per_share = adjusted_tvl / vault_state.total_shares
-    else:
+    if vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG:
         weekly_reward_apy, monthly_reward_apy = calculate_reward_apy(
             vault.id, total_balance
         )
@@ -277,10 +260,10 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
-        base_monthly_apy=monthly_apy*100,
+        base_monthly_apy=monthly_apy * 100,
         reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
-        base_weekly_apy=weekly_apy*100,
+        base_weekly_apy=weekly_apy * 100,
         reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
@@ -315,6 +298,7 @@ def main(chain: str):
             .where(Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY)
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(not_(Vault.tags.contains("ended")))
         ).all()
 
         for vault in vaults:
