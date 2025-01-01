@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import pendulum
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3.contract import Contract
 
 from bg_tasks.utils import sortino_ratio, downside_risk, calculate_risk_factor
@@ -168,7 +168,9 @@ def main():
 
         # Get the vault from the Vault table with name = "Delta Neutral Vault"
         vaults = session.exec(
-            select(Vault).where(Vault.slug == "arbitrum-wbtc-vault")
+            select(Vault)
+            .where(Vault.slug == "arbitrum-wbtc-vault")
+            .where(not_(Vault.tags.contains("ended")))
             # .where(Vault.is_active == True)
         ).all()
         logger.info("Start updating solv performance...")

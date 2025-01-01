@@ -8,8 +8,10 @@ from web3 import Web3
 
 from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
+from models.reward_distribution_config import RewardDistributionConfig
 from models.user_points import UserPoints
 from models.user_portfolio import PositionStatus
+from models.user_rewards import UserRewards
 from models.vaults import VaultCategory
 import schemas
 from api.api_v1.deps import SessionDep
@@ -82,6 +84,50 @@ def get_user_earned_points(
     return earned_points
 
 
+def _get_name_token_reward(session: Session, vault_id) -> str:
+    """
+    Retrieve the reward token name for a given vault.
+
+    Args:
+        session (Session): The database session.
+
+    Returns:
+        str: The reward token name. Returns an empty string if no reward token is found.
+    """
+    statement = select(RewardDistributionConfig.reward_token).where(
+        RewardDistributionConfig.vault_id == vault_id
+    )
+    reward_token = session.exec(statement).first()
+
+    return reward_token
+
+
+def get_user_earned_rewards(
+    session: Session, position: UserPortfolio
+) -> List[schemas.UserEarnedRewards]:
+    total_reward = session.exec(
+        select(
+            func.sum(UserRewards.total_reward),
+        )
+        .where(UserRewards.vault_id == position.vault_id)
+        .where(UserRewards.wallet_address == position.user_address.lower())
+    ).one()
+
+    earned_rewards = []
+    token_name = _get_name_token_reward(session, position.vault_id)
+    if token_name:
+        earned_rewards.append(
+            schemas.UserEarnedRewards(
+                name=token_name,
+                unclaim=total_reward if total_reward else 0,
+                claimed=0,
+                created_at=None,
+            )
+        )
+
+    return earned_rewards
+
+
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(
     session: SessionDep,
@@ -132,6 +178,7 @@ async def get_portfolio_info(
             slug=vault.slug,
             initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
             points=get_user_earned_points(session, pos),
+            rewards=get_user_earned_rewards(session=session, position=pos),
             vault_network=vault.network_chain,
         )
 
@@ -237,14 +284,27 @@ async def get_total_points(session: SessionDep, user_address: str):
         .where(UserPoints.wallet_address == user_address.lower())
         .group_by(UserPoints.partner_name)
     ).all()
-    earned_points = []
+
+    points_dict = {}
+
     for user_point in user_points:
-        earned_points.append(
-            schemas.EarnedPoints(
-                name=user_point.partner_name,
-                point=user_point.points,
-                created_at=None,
-            )
+        partner_name = (
+            constants.HARMONIX
+            if user_point.partner_name in [constants.HARMONIX, constants.HARMONIX_MKT]
+            else user_point.partner_name
         )
+        if partner_name in points_dict:
+            points_dict[partner_name] += user_point.points
+        else:
+            points_dict[partner_name] = user_point.points
+
+    earned_points = [
+        schemas.EarnedPoints(
+            name=partner_name,
+            point=points,
+            created_at=None,
+        )
+        for partner_name, points in points_dict.items()
+    ]
 
     return schemas.PortfolioPoint(points=earned_points)

@@ -2,6 +2,9 @@ import uuid
 from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Dict, Any
+
+from schemas.earned_rewards import EarnedRewards
+from schemas.user_earned_reward import UserEarnedRewards
 from .earned_point import EarnedPoints
 
 
@@ -29,6 +32,7 @@ class Position(BaseModel):
     vault_network: str | None = None
     initiated_withdrawal_at: str | None = None
     points: List[EarnedPoints] = []
+    rewards: List[UserEarnedRewards] = []
 
 
 class PortfolioBase(BaseModel):
