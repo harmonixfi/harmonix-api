@@ -160,3 +160,41 @@ class VaultContractService:
                 f"Error getting withdrawal pool amount for vault {vault.name}: {e}"
             )
             return 0.0
+
+    def get_user_state_by_block_number(
+        self, vault: Vault, user_address: str, blockNumber: int
+    ) -> tuple[int, int, int, int]:
+        abi_name, _ = self.get_vault_abi(vault=vault)
+        vault_contract, _ = self.get_vault_contract(
+            vault.network_chain, vault.contract_address, abi_name
+        )
+
+        if vault.slug == constants.ETH_WITH_LENDING_BOOST_YIELD:
+            # Not found
+            print("Unsupport")
+        elif vault.slug == constants.SOLV_VAULT_SLUG:
+            # Not found
+            print("Unsupport")
+        elif vault.slug in [
+            constants.GOLD_LINK_SLUG,
+            constants.OPTIONS_WHEEL_STRATEGY,
+            constants.PENDLE_HEDGING_STRATEGY,
+        ]:
+            # getVaultState
+            user_state = vault_contract.functions.getUserVaultState().call(
+                {"from": Web3.to_checksum_address(user_address)},
+                block_identifier=blockNumber,
+            )
+            return user_state
+        elif (
+            vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY
+            and vault.slug != constants.GOLD_LINK_SLUG
+        ):
+            # getUserVaultState
+            user_state = vault_contract.functions.getUserVaultState().call(
+                {"from": Web3.to_checksum_address(user_address)},
+                block_identifier=blockNumber,
+            )
+            return user_state
+        # Log ?
+        return 0, 0, 0, 0
