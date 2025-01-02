@@ -178,13 +178,16 @@ class VaultContractService:
     def get_withdraw_pool_amount_pendle_vault(self, vault: Vault):
         try:
             # Call the getWithdrawPoolAmount function
-            abi, decimals = self.get_vault_abi(vault=vault)
+            abi, _ = self.get_vault_abi(vault=vault)
             vault_contract, _ = self.get_vault_contract(
                 vault.network_chain,
                 Web3.to_checksum_address(vault.contract_address),
                 abi,
             )
+
+            # Call the getWithdrawPoolAmount function
             result = vault_contract.functions.getWithdrawPoolAmount().call()
+
             # Extract scWithdrawPoolAmount and ptWithdrawPoolAmount
             scWithdrawPoolAmount = result[0] / 1e6  # Convert to float
             ptWithdrawPoolAmount = result[1] / 1e18  # Convert to float

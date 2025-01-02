@@ -90,31 +90,24 @@ def build_transaction_message(
 
     # Track vault totals for summary
     vault_totals = {}
-    has_pt_amount = False
     # Add transaction details
     for field in fields:
-        tx_hash, vault_address, date, amount, age, pt_amount = field
+        tx_hash, vault_address, date, amount, age, vault_name = field
         message += "----------------------\n"
         message += f"tx_hash: {tx_hash}\n"
+        message += f"vault: {vault_name}\n"
         message += f"vault_address: {vault_address}\n"
         message += f"date: {date}\n"
         message += f"amount: {amount}\n"
-        if pt_amount:
-            message += f"pt_amount: {pt_amount}\n"
-            has_pt_amount = True
 
         message += f"age: {age}\n"
 
         # Accumulate totals for each vault
         try:
             amount_float = float(amount)
-            pt_amount_float = float(0.0)
-
-            pt_amount_float += float(pt_amount if pt_amount else 0)
             vault_totals[vault_address] = {
                 "total": vault_totals.get(vault_address, {}).get("total", 0)
-                + amount_float,
-                **({"pt_amount": pt_amount_float} if has_pt_amount else {}),
+                + amount_float
             }
 
         except ValueError:
@@ -125,16 +118,56 @@ def build_transaction_message(
     message += "-------\n"
     for vault_address, total_amount in vault_totals.items():
         message += f"Vault address: {vault_address}\n"
-        message += "Pending withdrawals:\n"
-        message += f"  USDC Amount: {total_amount['total']:.4f}\n"
-        if has_pt_amount:
-            message += f"  PT Amount: {total_amount['pt_amount']:.4f}\n"
-
+        message += f"Total need to withdraw : {total_amount['total']:.4f}\n"
         if pool_amounts and vault_address.lower() in pool_amounts:
             message += (
                 f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
             )
         message += "-------\n"
+
+    message += "</pre>"
+    return message
+
+
+def build_transaction_message_pendle_vault(
+    fields: List[Tuple[str, str, str, str, str]], report: dict = None
+) -> str:
+    total_requests = len(fields)
+
+    # Start the message
+    message = "<pre>\n"
+    message += f"Initiated Withdrawal Requests:\n"
+    message += f"Total request: {total_requests}\n\n"
+    message += f"Transactions:\n"
+
+    # Track vault totals for summary
+    vault_totals = {}
+    has_pt_amount = False
+    # Add transaction details
+    for field in fields:
+        tx_hash, vault_address, date, age, pt_amount, sc_amount, shares = field
+        message += "----------------------\n"
+        message += f"tx_hash: {tx_hash}\n"
+        message += f"vault_address: {vault_address}\n"
+        message += f"date: {date}\n"
+        message += f"pt_amount: {pt_amount}\n"
+        message += f"sc_amount: {sc_amount}\n"
+        message += f"shares: {shares}\n"
+        message += f"age: {age}\n"
+
+    # Add summary section
+    message += "\nSummary:\n"
+    message += "-------\n"
+    message += f"Vault: {report['vault']}\n"
+    message += f"Vault address: {report['vault_address']}\n"
+    message += f"Total SC Withdrawn: {report['total_sc_withdrawn']}\n"
+    message += f"Total PT Withdrawn: {report['total_pt_withdrawn']}\n"
+    message += f"Total Shares Withdrawn: {report['total_shares_withdrawn']}\n"
+    message += f"Withdraw Pool SC Amount: {report['sc_withdraw_pool_amount']}\n"
+    message += f"Withdraw Pool PT Amount: {report['pt_withdraw_pool_amount']}\n"
+    message += "-------\n"
+    message += f"Total SC Needed to Withdraw: {report['total_sc_amount_needed']}\n"
+    message += f"Total PT Needed to Withdraw: {report['total_pt_amount_needed']}\n"
 
     message += "</pre>"
     return message
