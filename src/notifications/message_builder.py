@@ -152,55 +152,5 @@ def send_telegram_alert(alert_details):
     return message
 
 
-def build_transaction_page(
-    fields: List[Tuple[str, str, str, str, str, str]], page: int, page_size: int = 5
-) -> (str, InlineKeyboardMarkup):
-    """
-    Build a transaction message for the given page with inline keyboard pagination.
-    """
-    total_requests = len(fields)
-    total_pages = (len(fields) + page_size - 1) // page_size  # Calculate total pages
-
-    # Get transactions for the current page
-    start = page * page_size
-    end = start + page_size
-    transactions = fields[start:end]
-
-    # Start the message
-    message = [
-        f"<b>Page {page + 1}/{total_pages}</b>",
-        f"Initiated Withdrawal Requests:",
-        f"Total requests: {total_requests}",
-        "",
-        "Transactions:",
-    ]
-
-    # Add transaction details
-    for tx_hash, vault_address, date, amount, age, pt_amount in transactions:
-        transaction_details = [
-            "----------------------",
-            f"tx_hash: {tx_hash}",
-            f"vault_address: {vault_address}",
-            f"date: {date}",
-            f"amount: {amount}",
-            f"age: {age}",
-        ]
-        if pt_amount:
-            transaction_details.append(f"pt_amount: {pt_amount}")
-        message.extend(transaction_details)
-
-    # Inline keyboard buttons
-    buttons = []
-    if page > 0:
-        buttons.append(
-            InlineKeyboardButton("⬅️ Previous", callback_data=f"page_{page - 1}")
-        )
-    if page < total_pages - 1:
-        buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"page_{page + 1}"))
-
-    keyboard = InlineKeyboardMarkup([buttons] if buttons else [])
-    return "\n".join(message), keyboard
-
-
 def get_current_time():
     return datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

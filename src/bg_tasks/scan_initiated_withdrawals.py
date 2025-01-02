@@ -10,11 +10,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import Vault
 from notifications import telegram_bot
-from notifications.message_builder import (
-    build_transaction_message,
-    build_transaction_messages_media,
-    build_transaction_page,
-)
+from notifications.message_builder import build_transaction_message
 import schemas
 from services.market_data import get_price
 from services.scan_initiated_withdrawals_base_service import (
@@ -195,8 +191,8 @@ class InitiatedWithdrawalWatcherJob:
             for withdrawal in init_withdraws
         ]
 
-        await telegram_bot.send_alert_by_media(
-            build_transaction_page(fields=fields, pool_amounts=pool_amounts),
+        await telegram_bot.send_alert(
+            build_transaction_message(fields=fields, pool_amounts=pool_amounts),
             channel="transaction",
         )
 

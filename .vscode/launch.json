@@ -408,7 +408,7 @@
             "name": "calculate_apy_breakdown_daily",
             "type": "debugpy",
             "request": "launch",
-            "module": "bg_tasks.calculate_apy_breakdown_daily",
+            "module": "bg_tasks.scan_initiated_withdrawals",
             "justMyCode": true,
             "cwd": "${workspaceFolder}/src"
         },
