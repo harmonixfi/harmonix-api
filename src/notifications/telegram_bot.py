@@ -16,21 +16,7 @@ async def send_alert(message, channel="transaction"):
         elif channel == "error":
             g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
 
-        await _send(g_id, message)
-    except Exception as e:
-        logger.error(f"Error sending alert: {e}")
-        logger.error(traceback.format_exc())
-
-
-async def send_alert_by_media(message, channel="transaction"):
-    try:
-        if channel == "transaction":
-            g_id = settings.TRANSACTION_ALERTS_GROUP_CHATID
-            # g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
-        elif channel == "error":
-            g_id = settings.SYSTEM_ERROR_ALERTS_GROUP_CHATID
-
-        await _send_media_group(g_id, message)
+        await _send_v2(g_id, message)
     except Exception as e:
         logger.error(f"Error sending alert: {e}")
         logger.error(traceback.format_exc())
@@ -57,24 +43,90 @@ async def _send(chat_id, msg):
                 logger.error(f"Failed to send message: {await response.text()}")
 
 
-async def _send_media_group(chat_id, media_group):
-    url = f"https://api.telegram.org/bot{settings.TELEGRAM_TOKEN}/sendMediaGroup"
+async def _send_v2(chat_id, msg, parse_mode="HTML"):
+    """
+    Send message via Telegram API, automatically split if message is too long
+    Args:
+        chat_id: Chat ID to send message to
+        msg: Message content
+        parse_mode: "HTML" or "MarkdownV2"
+    """
+    max_length = 4000  # Safe limit for each message
+    base_url = f"https://api.telegram.org/bot{settings.TELEGRAM_TOKEN}/sendMessage"
 
-    # Phân nhóm media_group thành các phần nhỏ, tối đa 10 mục mỗi nhóm
-    max_items = 10
-    for i in range(0, len(media_group), max_items):
-        batch = media_group[i : i + max_items]
-        payload = {"chat_id": chat_id, "media": batch}
-
+    # If message is short enough, send it normally
+    if len(msg) <= max_length:
+        payload = {"chat_id": chat_id, "text": msg, "parse_mode": parse_mode}
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload) as response:
+            async with session.post(base_url, json=payload) as response:
                 if response.status != 200:
-                    error_message = await response.text()
-                    print(f"Failed to send media group: {error_message}")
+                    logger.error(f"Failed to send message: {await response.text()}")
+        return
+
+    # If message is too long, split and send in parts
+    messages = []
+    while msg:
+        if len(msg) > max_length:
+            # Find the last complete transaction before max_length
+            transaction_marker = "----------------------"
+            split_index = msg[:max_length].rfind(transaction_marker)
+
+            if split_index == -1:
+                # If no transaction marker found, try to split at newline
+                split_index = msg[:max_length].rfind("\n\n")
+                if split_index == -1:
+                    split_index = max_length
+            else:
+                # Move split point to before the transaction marker
+                split_index = msg[:split_index].rstrip().rfind("\n") + 1
+
+            # Handle HTML tags properly
+            if parse_mode == "HTML":
+                current_msg = msg[:split_index]
+                if current_msg.count("<pre>") > current_msg.count("</pre>"):
+                    current_msg += "</pre>"
+                    msg = "<pre>" + msg[split_index:].lstrip()
                 else:
-                    print(
-                        f"Media group sent successfully (batch {i // max_items + 1})!"
+                    msg = msg[split_index:].lstrip()
+            else:
+                current_msg = msg[:split_index]
+                msg = msg[split_index:].lstrip()
+
+            # Add continuation indicator
+            if parse_mode == "MarkdownV2":
+                current_msg += "\n\n_(Continued in next message...)_"
+            else:
+                current_msg += "\n\n<i>(Continued in next message...)</i>"
+        else:
+            current_msg = msg
+            msg = ""
+
+        messages.append(current_msg)
+
+    # Send each part
+    async with aiohttp.ClientSession() as session:
+        for i, message_part in enumerate(messages, 1):
+            # Add continuation indicator from previous message
+            if i > 1:
+                if parse_mode == "MarkdownV2":
+                    message_part = (
+                        f"_(Continued from previous message...)_\n\n{message_part}"
                     )
+                else:
+                    message_part = (
+                        f"<i>(Continued from previous message...)</i>\n\n{message_part}"
+                    )
+
+            payload = {
+                "chat_id": chat_id,
+                "text": message_part,
+                "parse_mode": parse_mode,
+            }
+
+            async with session.post(base_url, json=payload) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error(f"Failed to send message part {i}: {error_text}")
 
 
 async def get_updates(start_date: int):
