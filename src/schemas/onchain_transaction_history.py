@@ -16,3 +16,4 @@ class OnchainTransactionHistory(BaseModel):
     vault_address: Optional[str] = None
     user_address: Optional[str] = None
     pt_amount: Optional[float] = None
+    vault_name: Optional[float] = None
