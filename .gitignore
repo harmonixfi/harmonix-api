@@ -44,4 +44,3 @@ set_env.sh
 env.sh
 volume/cache
 *.xlsx
-*.csv
