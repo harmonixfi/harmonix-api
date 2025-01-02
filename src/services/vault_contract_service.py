@@ -159,9 +159,14 @@ class VaultContractService:
                 Web3.to_checksum_address(vault.contract_address),
                 abi,
             )
-            pool_amount = vault_contract.functions.getWithdrawPoolAmount().call(
-                {"from": vault.owner_wallet_address}
-            )
+            if vault.slug in [
+                constants.HYPE_DELTA_NEUTRAL_SLUG,
+            ]:
+                pool_amount = vault_contract.functions.getWithdrawPoolAmount().call()
+            else:
+                pool_amount = vault_contract.functions.getWithdrawPoolAmount().call(
+                    {"from": vault.owner_wallet_address}
+                )
             # Convert from wei to standard units
             return float(pool_amount / decimals)
         except Exception as e:
@@ -169,6 +174,25 @@ class VaultContractService:
                 f"Error getting withdrawal pool amount for vault {vault.name}: {e}"
             )
             return 0.0
+
+    def get_withdraw_pool_amount_pendle_vault(self, vault: Vault):
+        try:
+            # Call the getWithdrawPoolAmount function
+            abi, decimals = self.get_vault_abi(vault=vault)
+            vault_contract, _ = self.get_vault_contract(
+                vault.network_chain,
+                Web3.to_checksum_address(vault.contract_address),
+                abi,
+            )
+            result = vault_contract.functions.getWithdrawPoolAmount().call()
+            # Extract scWithdrawPoolAmount and ptWithdrawPoolAmount
+            scWithdrawPoolAmount = result[0] / 1e6  # Convert to float
+            ptWithdrawPoolAmount = result[1] / 1e18  # Convert to float
+
+            return scWithdrawPoolAmount, ptWithdrawPoolAmount
+        except Exception as e:
+            logging.error(f"Error fetching withdraw pool amounts: {e}")
+            return 0.0, 0.0
 
     def get_input_data_from_transaction_receipt_event(self, vault: Vault, tx_hash: str):
         try:

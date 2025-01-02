@@ -10,9 +10,16 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import Vault
 from notifications import telegram_bot
-from notifications.message_builder import build_transaction_message
+from notifications.message_builder import (
+    build_transaction_message,
+    build_transaction_messages_media,
+    build_transaction_page,
+)
 import schemas
 from services.market_data import get_price
+from services.scan_initiated_withdrawals_base_service import (
+    get_pending_initiated_withdrawals_query,
+)
 from services.vault_contract_service import VaultContractService
 from web3 import Web3
 
@@ -38,7 +45,11 @@ class InitiatedWithdrawalWatcherJob:
         self.end_date_timestamp = int(self.end_date.timestamp())
 
     def __get_active_vaults(self) -> List[Vault]:
-        result = self.session.exec(select(Vault).where(Vault.is_active)).all()
+        result = self.session.exec(
+            select(Vault)
+            .where(Vault.is_active)
+            .where(Vault.id == "176a024b-74b9-4390-97c5-066748c088e4")
+        ).all()
         return result
 
     def get_withdrawals_for_current_day(
@@ -50,10 +61,39 @@ class InitiatedWithdrawalWatcherJob:
             result = []
             pool_amounts = {}  # Track withdrawal pool amounts per vault
 
+            # Complex query to get latest initiated withdrawals without completions
+            query = get_pending_initiated_withdrawals_query()
+
             # Get withdrawal pool amounts for each vault
             for vault in vaults:
-                pool_amount = service.get_withdrawal_pool_amount(vault)
-                pool_amounts[vault.contract_address.lower()] = pool_amount
+                vault_addresses = service.get_vault_address_historical(vault)
+                if vault.slug in [
+                    constants.HYPE_DELTA_NEUTRAL_SLUG,
+                    constants.KELPDAO_VAULT_ARBITRUM_SLUG,
+                ]:
+                    pool_amount = service.get_withdrawal_pool_amount(vault)
+                    pool_amounts[vault.contract_address.lower()] = pool_amount
+                    # Define parameters for the query
+                    params = {
+                        "withdraw_method_id_1": constants.MethodID.WITHDRAW.value,  # First initiate withdrawal method ID
+                        "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL.value,  # Complete withdrawal method ID
+                        "vault_addresses": vault_addresses,
+                        "start_ts": self.start_date_timestamp,
+                        "end_ts": self.end_date_timestamp,
+                    }
+                elif vault.slug == constants.PENDLE_RSETH_26DEC24_SLUG:
+                    pool_amount, _ = service.get_withdraw_pool_amount_pendle_vault(
+                        vault
+                    )
+                    pool_amounts[vault.contract_address.lower()] = pool_amount
+
+                    params = {
+                        "withdraw_method_id_1": constants.MethodID.WITHDRAW_PENDLE2.value,  # First initiate withdrawal method ID
+                        "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL.value,  # Complete withdrawal method ID
+                        "vault_addresses": vault_addresses,
+                        "start_ts": self.start_date_timestamp,
+                        "end_ts": self.end_date_timestamp,
+                    }
 
             # Get all historical vault addresses
             all_vault_addresses = []
@@ -65,68 +105,8 @@ class InitiatedWithdrawalWatcherJob:
                     ]
                 )
 
-            # Complex query to get latest initiated withdrawals without completions
-            query = text(
-                """
-                WITH latest_initiated_withdrawals AS (
-                    SELECT 
-                        id,
-                        from_address,
-                        to_address,
-                        tx_hash,
-                        timestamp,
-                        input,
-                        block_number,
-                        method_id,
-                        ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
-                    FROM public.onchain_transaction_history
-                    WHERE method_id = ANY(:withdraw_method_id)
-                    AND to_address = ANY(:vault_addresses)
-                    AND timestamp >= :start_ts
-                    AND timestamp <= :end_ts
-                ),
-                has_later_completion AS (
-                    SELECT DISTINCT 
-                        i.from_address,
-                        i.tx_hash
-                    FROM latest_initiated_withdrawals i
-                    WHERE i.rn = 1
-                    AND EXISTS (
-                        SELECT 1
-                        FROM public.onchain_transaction_history c
-                        WHERE c.from_address = i.from_address
-                        AND c.method_id = ANY(:complete_method_id)
-                        AND c.timestamp > i.timestamp
-                    )
-                )
-                SELECT *
-                FROM latest_initiated_withdrawals i
-                WHERE i.rn = 1
-                AND NOT EXISTS (
-                    SELECT 1 
-                    FROM has_later_completion h 
-                    WHERE h.from_address = i.from_address
-                );
-            """
-            )
-
             # Execute raw SQL query with parameters
-            init_withdraws = self.session.execute(
-                query,
-                {
-                    "withdraw_method_id": [
-                        constants.MethodID.WITHDRAW_PENDLE1.value,
-                        constants.MethodID.WITHDRAW.value,
-                    ],
-                    "complete_method_id": [
-                        constants.MethodID.COMPPLETE_WITHDRAWAL.value,
-                        constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
-                    ],
-                    "vault_addresses": all_vault_addresses,
-                    "start_ts": self.start_date_timestamp,
-                    "end_ts": self.end_date_timestamp,
-                },
-            ).all()
+            init_withdraws = self.session.execute(query, params).all()
 
             # Process results and calculate additional fields
             for item in init_withdraws:
@@ -149,7 +129,10 @@ class InitiatedWithdrawalWatcherJob:
                         input_data = item.input
                         pt_amount: Optional[float] = None
 
-                        if item.method_id == constants.MethodID.WITHDRAW_PENDLE1.value:
+                        if item.method_id in [
+                            constants.MethodID.WITHDRAW_PENDLE1.value,
+                            constants.MethodID.WITHDRAW_PENDLE2.value,
+                        ]:
                             input_data = (
                                 service.get_input_data_from_transaction_receipt_event(
                                     matching_vault, item.tx_hash
@@ -207,13 +190,13 @@ class InitiatedWithdrawalWatcherJob:
                 withdrawal.datetime.strftime("%Y-%m-%d %H:%M:%S"),
                 str(withdrawal.amount),
                 str(withdrawal.age),
-                str(withdrawal.pt_amount),
+                str(withdrawal.pt_amount) if withdrawal.pt_amount else None,
             )
             for withdrawal in init_withdraws
         ]
 
-        await telegram_bot.send_alert(
-            build_transaction_message(fields=fields, pool_amounts=pool_amounts),
+        await telegram_bot.send_alert_by_media(
+            build_transaction_page(fields=fields, pool_amounts=pool_amounts),
             channel="transaction",
         )
 

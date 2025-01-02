@@ -19,6 +19,7 @@ import io
 from typing import List, Optional, Tuple
 from rich.table import Table
 from rich.console import Console
+from telegram import InlineKeyboardMarkup, InlineKeyboardButton
 
 
 def build_message(
@@ -89,7 +90,7 @@ def build_transaction_message(
 
     # Track vault totals for summary
     vault_totals = {}
-
+    has_pt_amount = False
     # Add transaction details
     for field in fields:
         tx_hash, vault_address, date, amount, age, pt_amount = field
@@ -100,6 +101,7 @@ def build_transaction_message(
         message += f"amount: {amount}\n"
         if pt_amount:
             message += f"pt_amount: {pt_amount}\n"
+            has_pt_amount = True
 
         message += f"age: {age}\n"
 
@@ -107,12 +109,14 @@ def build_transaction_message(
         try:
             amount_float = float(amount)
             pt_amount_float = float(0.0)
+
             pt_amount_float += float(pt_amount if pt_amount else 0)
             vault_totals[vault_address] = {
                 "total": vault_totals.get(vault_address, {}).get("total", 0)
                 + amount_float,
-                "pt_amount": pt_amount_float,
+                **({"pt_amount": pt_amount_float} if has_pt_amount else {}),
             }
+
         except ValueError:
             pass
 
@@ -123,7 +127,8 @@ def build_transaction_message(
         message += f"Vault address: {vault_address}\n"
         message += "Pending withdrawals:\n"
         message += f"  USDC Amount: {total_amount['total']:.4f}\n"
-        message += f"  PT Amount: {total_amount['pt_amount']:.4f}\n"
+        if has_pt_amount:
+            message += f"  PT Amount: {total_amount['pt_amount']:.4f}\n"
 
         if pool_amounts and vault_address.lower() in pool_amounts:
             message += (
@@ -145,6 +150,56 @@ def send_telegram_alert(alert_details):
         f"🔔 _Immediate attention required to bring the server back online._"
     )
     return message
+
+
+def build_transaction_page(
+    fields: List[Tuple[str, str, str, str, str, str]], page: int, page_size: int = 5
+) -> (str, InlineKeyboardMarkup):
+    """
+    Build a transaction message for the given page with inline keyboard pagination.
+    """
+    total_requests = len(fields)
+    total_pages = (len(fields) + page_size - 1) // page_size  # Calculate total pages
+
+    # Get transactions for the current page
+    start = page * page_size
+    end = start + page_size
+    transactions = fields[start:end]
+
+    # Start the message
+    message = [
+        f"<b>Page {page + 1}/{total_pages}</b>",
+        f"Initiated Withdrawal Requests:",
+        f"Total requests: {total_requests}",
+        "",
+        "Transactions:",
+    ]
+
+    # Add transaction details
+    for tx_hash, vault_address, date, amount, age, pt_amount in transactions:
+        transaction_details = [
+            "----------------------",
+            f"tx_hash: {tx_hash}",
+            f"vault_address: {vault_address}",
+            f"date: {date}",
+            f"amount: {amount}",
+            f"age: {age}",
+        ]
+        if pt_amount:
+            transaction_details.append(f"pt_amount: {pt_amount}")
+        message.extend(transaction_details)
+
+    # Inline keyboard buttons
+    buttons = []
+    if page > 0:
+        buttons.append(
+            InlineKeyboardButton("⬅️ Previous", callback_data=f"page_{page - 1}")
+        )
+    if page < total_pages - 1:
+        buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"page_{page + 1}"))
+
+    keyboard = InlineKeyboardMarkup([buttons] if buttons else [])
+    return "\n".join(message), keyboard
 
 
 def get_current_time():
