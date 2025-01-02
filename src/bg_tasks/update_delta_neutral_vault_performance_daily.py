@@ -8,7 +8,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, or_, select, not_
 from web3 import Web3
 from web3.contract import Contract
 
@@ -440,6 +440,7 @@ def main(chain: str):
             .where(Vault.network_chain == network_chain)
             # .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
+            .where(not_(Vault.tags.contains("ended")))
         ).all()
 
         for vault in vaults:

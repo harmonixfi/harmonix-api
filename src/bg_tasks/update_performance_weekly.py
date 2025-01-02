@@ -6,7 +6,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, select
+from sqlmodel import Session, not_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -268,7 +268,9 @@ def main():
     try:
         # Get the vault from the Vault table with name = "Stablecoin Vault"
         vault = session.exec(
-            select(Vault).where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
+            select(Vault)
+            .where(Vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY)
+            .where(not_(Vault.tags.contains("ended")))
         ).first()
 
         vault_contract, _ = get_vault_contract(vault)

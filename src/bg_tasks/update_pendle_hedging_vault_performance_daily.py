@@ -7,7 +7,7 @@ import pandas as pd
 import pendulum
 import seqlog
 from sqlalchemy import func
-from sqlmodel import Session, or_, select
+from sqlmodel import Session, not_, or_, select
 from web3 import Web3
 from web3.contract import Contract
 
@@ -166,7 +166,7 @@ def get_earned_hl_point(vault: Vault):
     ).first()
     if not point_dist:
         return 0
-    
+
     return point_dist.point
 
 
@@ -260,10 +260,10 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
-        base_monthly_apy=monthly_apy*100,
+        base_monthly_apy=monthly_apy * 100,
         reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
-        base_weekly_apy=weekly_apy*100,
+        base_weekly_apy=weekly_apy * 100,
         reward_weekly_apy=weekly_reward_apy,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
@@ -298,6 +298,7 @@ def main(chain: str):
             .where(Vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY)
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
+            .where(not_(Vault.tags.contains("ended")))
         ).all()
 
         for vault in vaults:
