@@ -117,7 +117,6 @@ def build_transaction_message(
                 f"Withdrawal pool amount: {pool_amounts[vault_address.lower()]:.4f}\n"
             )
 
-    message += "</pre>"
     for report in reports_pendle:
         # Start the message
         message += "======================\n"
