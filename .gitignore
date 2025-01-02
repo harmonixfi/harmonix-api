@@ -44,3 +44,5 @@ set_env.sh
 env.sh
 volume/cache
 *.xlsx
+src/notebooks/data/*.csv
+src/notebooks/*.csv
