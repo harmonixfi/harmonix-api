@@ -118,14 +118,9 @@ def build_transaction_message(
             )
 
     message += "</pre>"
-
-    message = "<pre>\n"
     for report in reports_pendle:
         # Start the message
         message += "======================\n"
-
-        # Add summary section
-        message += "-------\n"
         message += f"Vault: {report['vault']}\n"
         message += f"Vault address: {report['vault_address']}\n"
         message += f"Total SC Withdrawn: {report['total_sc_withdrawn']}\n"
