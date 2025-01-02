@@ -5,7 +5,6 @@ from typing import List, Optional, Tuple
 import pandas as pd
 from sqlalchemy import text
 from sqlmodel import Session, col, select
-from telegram import Contact
 from bg_tasks.utils import (
     get_pending_initiated_withdrawals_query,
     get_pending_initiated_withdrawals_query_pendle_vault,
@@ -14,13 +13,9 @@ from bg_tasks.utils import (
 from core import constants
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
-from models.onchain_transaction_history import OnchainTransactionHistory
 from models.vaults import Vault
 from notifications import telegram_bot
-from notifications.message_builder import (
-    build_transaction_message,
-    build_transaction_message_pendle_vault,
-)
+from notifications.message_builder import build_transaction_message
 import schemas
 from services.market_data import get_price
 from services.vault_contract_service import VaultContractService
@@ -112,22 +107,15 @@ class InitiatedWithdrawalWatcherJob:
                         )
 
                         date = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
-
                         result.append(
-                            schemas.OnchainTransactionHistory(
-                                id=item.id,
-                                method_id=constants.MethodID.WITHDRAW.value,
-                                timestamp=item.timestamp,
-                                input=item.input,
-                                tx_hash=item.tx_hash,
-                                datetime=date,
-                                amount=amount,
-                                age=convert_timedelta_to_time(self.end_date - date),
-                                vault_address=item.to_address,
-                                user_address=item.from_address,
-                                pt_amount=None,
-                                vault_name=vault.name,
-                            )
+                            {
+                                "tx_hash": item.tx_hash,
+                                "age": convert_timedelta_to_time(self.end_date - date),
+                                "date": date.strftime("%Y-%m-%d %H:%M:%S"),
+                                "vault_address": item.to_address,
+                                "amount": amount,
+                                "vault_name": vault.name,
+                            }
                         )
                     except Exception as inner_e:
                         logger.error(
@@ -143,143 +131,122 @@ class InitiatedWithdrawalWatcherJob:
             return [], {}
 
     def get_pendle_vault_withdrawals_for_current_day(
-        self, vault: Vault
-    ) -> Tuple[List[dict], dict]:
+        self, vaults: List[Vault]
+    ) -> List[dict]:
         try:
-            service = VaultContractService()
-            abi_name, _ = service.get_vault_abi(vault=vault)
-            pendle_vault_contract, w3 = service.get_vault_contract(
-                vault.network_chain, vault.contract_address, abi_name
-            )
-            query = get_pending_initiated_withdrawals_query_pendle_vault()
-            vault_addresses = service.get_vault_address_historical(vault)
-            sc_withdraw_pool_amount, pt_withdraw_pool_amount = (
-                service.get_withdraw_pool_amount_pendle_vault(vault)
-            )
+            reports = []
+            for vault in vaults:
+                service = VaultContractService()
+                abi_name, _ = service.get_vault_abi(vault=vault)
+                pendle_vault_contract, w3 = service.get_vault_contract(
+                    vault.network_chain, vault.contract_address, abi_name
+                )
+                query = get_pending_initiated_withdrawals_query_pendle_vault()
+                vault_addresses = service.get_vault_address_historical(vault)
+                sc_withdraw_pool_amount, pt_withdraw_pool_amount = (
+                    service.get_withdraw_pool_amount_pendle_vault(vault)
+                )
 
-            params = {
-                "withdraw_method_id_1": constants.MethodID.WITHDRAW_PENDLE2.value,
-                "withdraw_method_id_2": constants.MethodID.WITHDRAW_PENDLE1.value,
-                "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
-                "vault_addresses": vault_addresses,
-                "start_ts": self.start_date_timestamp,
-                "end_ts": self.end_date_timestamp,
-            }
+                params = {
+                    "withdraw_method_id_1": constants.MethodID.WITHDRAW_PENDLE2.value,
+                    "withdraw_method_id_2": constants.MethodID.WITHDRAW_PENDLE1.value,
+                    "complete_method_id": constants.MethodID.COMPPLETE_WITHDRAWAL2.value,
+                    "vault_addresses": vault_addresses,
+                    "start_ts": self.start_date_timestamp,
+                    "end_ts": self.end_date_timestamp,
+                }
 
-            # Execute raw SQL query with parameters
-            init_withdraws = self.session.execute(query, params).all()
-            result = []
+                # Execute raw SQL query with parameters
+                init_withdraws = self.session.execute(query, params).all()
+                result = []
 
-            for item in init_withdraws:
-                try:
-                    pt_amount, sc_amount, shares = get_user_withdrawals(
-                        item.from_address, pendle_vault_contract
-                    )
-                    date = datetime.fromtimestamp(item.timestamp, tz=timezone.utc)
-                    age = convert_timedelta_to_time(self.end_date - date)
+                for item in init_withdraws:
+                    try:
+                        pt_amount, sc_amount, shares = get_user_withdrawals(
+                            item.from_address, pendle_vault_contract
+                        )
 
-                    result.append(
-                        {
-                            "tx_hash": item.tx_hash,
-                            "age": age,
-                            "date": date.strftime("%Y-%m-%d %H:%M:%S"),
-                            "vault_address": item.to_address,
-                            "pt_amount": pt_amount,
-                            "sc_amount": sc_amount,
-                            "shares": shares,
-                        }
-                    )
+                        result.append(
+                            {
+                                "pt_amount": pt_amount,
+                                "sc_amount": sc_amount,
+                                "shares": shares,
+                            }
+                        )
 
-                except Exception as inner_e:
-                    logger.error(
-                        f"Error processing withdrawal item {item.id}: {inner_e}",
-                        exc_info=True,
-                    )
-                    continue
-            # Create a DataFrame for the withdrawal details
-            df_withdrawal_details = pd.DataFrame(result)
+                    except Exception as inner_e:
+                        logger.error(
+                            f"Error processing withdrawal item {item.id}: {inner_e}",
+                            exc_info=True,
+                        )
+                        continue
+                # Create a DataFrame for the withdrawal details
+                df_withdrawal_details = pd.DataFrame(result)
 
-            # Calculate total Pendle withdrawal from df_withdrawal_details
-            total_sc_withdrawn = (
-                df_withdrawal_details["sc_amount"].sum()
-                if "sc_amount" in df_withdrawal_details
-                else 0
-            )
-            total_pt_withdrawn = (
-                df_withdrawal_details["pt_amount"].sum()
-                if "pt_amount" in df_withdrawal_details
-                else 0
-            )
-            total_shares_withdrawn = (
-                df_withdrawal_details["shares"].sum()
-                if "shares" in df_withdrawal_details
-                else 0
-            )
-            # Create a report
-            report = {
-                "total_sc_withdrawn": total_sc_withdrawn,
-                "total_pt_withdrawn": total_pt_withdrawn,
-                "total_shares_withdrawn": total_shares_withdrawn,
-                "sc_withdraw_pool_amount": sc_withdraw_pool_amount,
-                "pt_withdraw_pool_amount": pt_withdraw_pool_amount,
-                "total_sc_amount_needed": round(
-                    total_sc_withdrawn - sc_withdraw_pool_amount, 2
-                ),
-                "total_pt_amount_needed": round(
-                    total_pt_withdrawn - pt_withdraw_pool_amount, 2
-                ),
-                "vault": vault.name,
-                "vault_address": vault.contract_address,
-            }
+                # Calculate total Pendle withdrawal from df_withdrawal_details
+                total_sc_withdrawn = (
+                    df_withdrawal_details["sc_amount"].sum()
+                    if "sc_amount" in df_withdrawal_details
+                    else 0
+                )
+                total_pt_withdrawn = (
+                    df_withdrawal_details["pt_amount"].sum()
+                    if "pt_amount" in df_withdrawal_details
+                    else 0
+                )
+                total_shares_withdrawn = (
+                    df_withdrawal_details["shares"].sum()
+                    if "shares" in df_withdrawal_details
+                    else 0
+                )
+                # Create a report
+                reports.append(
+                    {
+                        "total_sc_withdrawn": total_sc_withdrawn,
+                        "total_pt_withdrawn": total_pt_withdrawn,
+                        "total_shares_withdrawn": total_shares_withdrawn,
+                        "sc_withdraw_pool_amount": sc_withdraw_pool_amount,
+                        "pt_withdraw_pool_amount": pt_withdraw_pool_amount,
+                        "total_sc_amount_needed": round(
+                            total_sc_withdrawn - sc_withdraw_pool_amount, 2
+                        ),
+                        "total_pt_amount_needed": round(
+                            total_pt_withdrawn - pt_withdraw_pool_amount, 2
+                        ),
+                        "vault": vault.name,
+                        "vault_address": vault.contract_address,
+                    }
+                )
 
-            return result, report
+            return reports
 
         except Exception as e:
             logger.error(
                 f"Error in get_pendle_vault_withdrawals_for_current_day: {e}",
                 exc_info=True,
             )
-            return [], {}
+            return []
 
     async def run(self):
-        for vault in self._get_pendle_active_vaults():
-            init_withdraws, report = self.get_pendle_vault_withdrawals_for_current_day(
-                vault
-            )
-            fields = [
-                (
-                    withdrawal["tx_hash"],
-                    withdrawal["vault_address"],
-                    withdrawal["date"],
-                    str(withdrawal["age"]),
-                    withdrawal["pt_amount"],
-                    withdrawal["sc_amount"],
-                    withdrawal["shares"],
-                )
-                for withdrawal in init_withdraws
-            ]
 
-            await telegram_bot.send_alert(
-                build_transaction_message_pendle_vault(fields=fields, report=report),
-                channel="transaction",
-            )
         vaults = self._get_non_pendle_active_vaults()
         init_withdraws, pool_amounts = self.get_withdrawals_for_current_day(vaults)
-
         fields = [
             (
-                withdrawal.tx_hash,
-                withdrawal.vault_address,
-                withdrawal.datetime.strftime("%Y-%m-%d %H:%M:%S"),
-                str(withdrawal.amount),
-                str(withdrawal.age),
-                withdrawal.vault_name,
+                withdrawal["vault_address"],
+                withdrawal["amount"] if str(withdrawal["amount"]) else None,
+                withdrawal["vault_name"],
             )
             for withdrawal in init_withdraws
         ]
+        reports = self.get_pendle_vault_withdrawals_for_current_day(
+            self._get_pendle_active_vaults()
+        )
 
         await telegram_bot.send_alert(
-            build_transaction_message(fields=fields, pool_amounts=pool_amounts),
+            message=build_transaction_message(
+                fields=fields, pool_amounts=pool_amounts, reports_pendle=reports
+            ),
             channel="transaction",
         )
 
