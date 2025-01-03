@@ -15,3 +15,5 @@ class OnchainTransactionHistory(BaseModel):
     age: time
     vault_address: Optional[str] = None
     user_address: Optional[str] = None
+    pt_amount: Optional[float] = None
+    vault_name: Optional[str] = None
