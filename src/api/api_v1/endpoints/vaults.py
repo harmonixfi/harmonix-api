@@ -276,9 +276,8 @@ async def get_all_vaults(
         else:
             grouped_vaults[group_id]["vaults"].append(schema_vault)
             grouped_vaults[group_id]["tvl"] += vault.tvl or 0
-            grouped_vaults[group_id]["apy"] = max(
-                grouped_vaults[group_id]["apy"], schema_vault.apy or 0
-            )
+            if vault.vault_group and vault.vault_group.default_vault_id == vault.id:
+                grouped_vaults[group_id]["apy"] = schema_vault.apy or 0
 
         # Aggregate points for each partner
         for point in schema_vault.points:
