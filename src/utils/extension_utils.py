@@ -47,6 +47,18 @@ def to_amount_pendle(input_data: str, block_number: int, network_chain: str):
 
 
 @staticmethod
+def to_amount_pendle_of_event_initiate_force_withdrawal(
+    input_data: str, block_number: int, network_chain: str
+):
+    input_data = input_data[2:].lower()
+    pt_amount = int(input_data[:64], 16) / 1e18
+    eth_amount = int(input_data[64 : 64 * 2], 16) / 1e18
+    sc_amount = int(input_data[64 * 2 : 3 * 64], 16) / 1e6
+    usdc_amount = int(input_data[64 * 3 : 64 * 4], 16) / 1e6
+    return usdc_amount, pt_amount
+
+
+@staticmethod
 def to_tx_aumount_rethink(input_data: str):
     input_data = input_data[10:].lower()
     amount = input_data[0:64]
