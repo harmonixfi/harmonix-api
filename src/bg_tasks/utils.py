@@ -1,9 +1,12 @@
+from asyncio.log import logger
 from datetime import timedelta
 import uuid
 import numpy as np
 import pandas as pd
 import pendulum
+from sqlalchemy import text
 from sqlmodel import Session, select
+from web3 import Web3
 from models.pps_history import PricePerShareHistory
 from empyrical import sortino_ratio, downside_risk
 
@@ -72,7 +75,7 @@ def calculate_pps_statistics(session, vault_id):
     df.sort_index(inplace=True)
     df["pct_change"] = df["price_per_share"].pct_change()
 
-    all_time_high_per_share = df['price_per_share'].max()
+    all_time_high_per_share = df["price_per_share"].max()
 
     sortino = float(sortino_ratio(df["pct_change"], period="weekly"))
     if np.isnan(sortino) or np.isinf(sortino):
@@ -88,3 +91,126 @@ def calculate_pps_statistics(session, vault_id):
 def get_pps_by_blocknumber(vault_contract, block_number: int) -> float:
     pps = vault_contract.functions.pricePerShare().call(block_identifier=block_number)
     return pps / 1e6
+
+
+def get_pending_initiated_withdrawals_query():
+    query = text(
+        """
+    WITH latest_initiated_withdrawals AS (
+        SELECT 
+            id,
+            from_address,
+            to_address,
+            tx_hash,
+            timestamp,
+            input,
+            block_number,
+            method_id,
+            ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
+        FROM public.onchain_transaction_history
+        WHERE method_id IN (:withdraw_method_id_1)
+        AND to_address = ANY(:vault_addresses)
+        AND timestamp >= :start_ts
+        AND timestamp <= :end_ts
+    ),
+    has_later_completion AS (
+        SELECT DISTINCT 
+            i.from_address,
+            i.tx_hash
+        FROM latest_initiated_withdrawals i
+        WHERE i.rn = 1
+        AND EXISTS (
+            SELECT 1
+            FROM public.onchain_transaction_history c
+            WHERE c.from_address = i.from_address
+            AND to_address = ANY(:vault_addresses)
+            AND c.method_id = :complete_method_id
+            AND c.timestamp > i.timestamp
+        )
+    )
+    SELECT *
+    FROM latest_initiated_withdrawals i
+    WHERE i.rn = 1
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM has_later_completion h 
+        WHERE h.from_address = i.from_address
+    );
+    """
+    )
+    return query
+
+
+def get_pending_initiated_withdrawals_query_pendle_vault():
+    query = text(
+        """
+    WITH latest_initiated_withdrawals AS (
+        SELECT 
+            id,
+            from_address,
+            to_address,
+            tx_hash,
+            timestamp,
+            input,
+            block_number,
+            method_id,
+            ROW_NUMBER() OVER (PARTITION BY from_address ORDER BY timestamp DESC) AS rn
+        FROM public.onchain_transaction_history
+        WHERE method_id IN (:withdraw_method_id_1, :withdraw_method_id_2)
+        AND to_address = ANY(:vault_addresses)
+        AND timestamp >= :start_ts
+        AND timestamp <= :end_ts
+    ),
+    has_later_completion AS (
+        SELECT DISTINCT 
+            i.from_address,
+            i.tx_hash
+        FROM latest_initiated_withdrawals i
+        WHERE i.rn = 1
+        AND EXISTS (
+            SELECT 1
+            FROM public.onchain_transaction_history c
+            WHERE c.from_address = i.from_address
+            AND to_address = ANY(:vault_addresses)
+            AND c.method_id = :complete_method_id
+            AND c.timestamp > i.timestamp
+        )
+    )
+    SELECT *
+    FROM latest_initiated_withdrawals i
+    WHERE i.rn = 1
+    AND NOT EXISTS (
+        SELECT 1 
+        FROM has_later_completion h 
+        WHERE h.from_address = i.from_address
+    );
+    """
+    )
+    return query
+
+
+def get_user_withdrawals(user_address: str, pendle_vault):
+    try:
+        # Call the getUserWithdraw function
+        result = pendle_vault.functions.getUserWithdraw().call(
+            {"from": Web3.to_checksum_address(user_address)}
+        )
+
+        # Extract ptWithdrawAmount and scWithdrawAmount
+        withdrawalShares = result[0]
+        ptWithdrawAmount = result[2]  # Assuming ptWithdrawAmount is the third element
+        scWithdrawAmount = result[3]  # Assuming scWithdrawAmount is the fourth element
+
+        # Convert to float
+        ptWithdrawAmount_float = ptWithdrawAmount / 1e18
+        scWithdrawAmount_float = scWithdrawAmount / 1e6
+        withdrawalShares_float = withdrawalShares / 1e6
+
+        return (
+            ptWithdrawAmount_float,
+            scWithdrawAmount_float,
+            withdrawalShares_float,
+        )
+    except Exception as e:
+        logger.error(f"Error fetching withdrawal details for {user_address}: {e}")
+    return 0.0, 0.0, 0.0
