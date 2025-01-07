@@ -24,7 +24,7 @@ To contribute to Harmonix Vault, follow these steps:
 ## Contribute Guide
 We welcome contributions from the community! If you'd like to contribute to Rock Onyx Vault, please follow these guidelines:
 
-- **Issues**: Check the [issue tracker](https://github.com/harmonixfi/rock-onyx-vault-backend/issues) for existing issues or create a new one.
+- **Issues**: Check the [issue tracker](https://github.com/harmonixfi/harmonix-api/issues) for existing issues or create a new one.
 - **Fork the Repository**: Fork this repository to your GitHub account.
 - **Branch Naming**: Create a new branch with a descriptive name (e.g., `feature/add-authentication`).
 - **Code Style**: Follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide for Python code.
