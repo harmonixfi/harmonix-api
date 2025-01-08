@@ -9,6 +9,9 @@ from sqlmodel import Session, select
 from web3 import Web3
 from models.pps_history import PricePerShareHistory
 from empyrical import sortino_ratio, downside_risk
+from core.config import settings
+from models.vaults import Vault
+from services.vault_contract_service import VaultContractService
 
 
 def get_before_price_per_shares(
@@ -214,3 +217,58 @@ def get_user_withdrawals(user_address: str, pendle_vault):
     except Exception as e:
         logger.error(f"Error fetching withdrawal details for {user_address}: {e}")
     return 0.0, 0.0, 0.0
+
+
+def get_logs_from_tx_hash(vault: Vault, tx_hash: str, topic: str = None) -> list:
+    vault_service = VaultContractService()
+    # Connect to the Ethereum node
+    abi, _ = vault_service.get_vault_abi(vault=vault)
+    _, web3 = vault_service.get_vault_contract(
+        vault.network_chain,
+        Web3.to_checksum_address(vault.contract_address),
+        abi,
+    )
+
+    # Check if the connection is successful
+    if not web3.is_connected():
+        raise ConnectionError("Failed to connect to the Ethereum node.")
+
+    # Get the transaction receipt
+    tx_receipt = web3.eth.get_transaction_receipt(tx_hash)
+
+    if not tx_receipt:
+        raise ValueError(f"No transaction found for hash: {tx_hash}")
+
+    # Extract logs from the transaction receipt
+    logs = tx_receipt["logs"]
+
+    # Filter logs by topic if provided
+    if topic is not None:
+        logs = [log for log in logs if log["topics"][0].hex() == topic]
+
+    return logs
+
+
+def extract_pendle_event(entry):
+    # Parse the account parameter from the topics field
+    from_address = None
+    if len(entry["topics"]) >= 2:
+        from_address = f'0x{entry["topics"][1].hex()[26:]}'  # For deposit event
+
+    # Parse the amount and shares parameters from the data field
+    data = entry["data"].hex()
+
+    if entry["topics"][0].hex() == settings.PENDLE_COMPLETE_WITHDRAW_EVENT_TOPIC:
+        pt_amount = int(data[2:66], 16) / 1e18
+        sc_amount = int(data[66 : 66 + 64], 16) / 1e6
+        shares = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 2 * 64 : 66 + 3 * 64], 16) / 1e6
+        eth_amount = 0
+    else:
+        pt_amount = int(data[2:66], 16) / 1e18
+        eth_amount = int(data[66 : 66 + 64], 16) / 1e18
+        sc_amount = int(data[66 + 64 : 66 + 2 * 64], 16) / 1e6
+        total_amount = int(data[66 + 64 * 2 : 66 + 3 * 64], 16) / 1e6
+        shares = int(data[66 + 3 * 64 : 66 + 4 * 64], 16) / 1e6
+
+    return pt_amount, eth_amount, sc_amount, total_amount, shares, from_address
