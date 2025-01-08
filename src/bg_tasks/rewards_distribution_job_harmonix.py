@@ -286,10 +286,10 @@ def distribute_rewards_daily(
         (df_balances["datetime"] >= start_date) & (df_balances["datetime"] <= end_date)
     ]
 
-    # Calculate rewards per day
-    total_balance = df_period["balance"].sum()
-    if total_balance > 0:
-        for day, day_group in df_period.groupby("datetime"):
+    for day, day_group in df_period.groupby("datetime"):
+        # Calculate rewards per day
+        total_balance = day_group["balance"].sum()
+        if total_balance > 0:
             for _, position in day_group.iterrows():
                 if position["balance"] <= 0:
                     continue
@@ -314,8 +314,8 @@ def distribute_rewards_daily(
                     f"Share: {user_share:.4%} "
                     f"Reward: {user_reward:.6f}"
                 )
-    else:
-        logger.info("No rewards distributed - Total balance is 0")
+        else:
+            logger.info("No rewards distributed - Total balance is 0")
 
     # Aggregate total rewards per user
     df_rewards = pd.DataFrame(reward_records)
@@ -413,12 +413,7 @@ def calculate_reward_distributions(
     for _, row in reward_users.iterrows():
         user_address = row["user_address"]
         total_reward = row["total_reward"]
-        user = get_user_by_wallet(user_address)
-        if not user:
-            logger.info("User with wallet address %s not found", user_address)
-            continue
-
-        logger.info(f"User {user.wallet_address} reward: {total_reward}")
+        logger.info(f"User {user_address} reward: {total_reward}")
 
         # Process the reward distribution for the user
         process_user_reward(
@@ -431,7 +426,7 @@ def calculate_reward_distributions(
 
 
 def process_user_reward(
-    user: User, vault_id, start_date, reward_distribution, current_date
+    wallet_address: str, vault_id, start_date, reward_distribution, current_date
 ):
     """Process and update rewards for a specific user in the Harmonix vault.
 
@@ -449,12 +444,10 @@ def process_user_reward(
         4. Create audit trail for reward changes
     """
     try:
-        logger.info(
-            f"Processing rewards for user {user.wallet_address} in vault {vault_id}"
-        )
+        logger.info(f"Processing rewards for user {wallet_address} in vault {vault_id}")
 
         # Get existing reward record for the user if any
-        user_reward = get_user_reward(vault_id, user.wallet_address)
+        user_reward = get_user_reward(vault_id, wallet_address)
         # Store old reward value for audit purposes
         old_value = user_reward.total_reward if user_reward else 0
 
@@ -466,7 +459,7 @@ def process_user_reward(
             and user_reward.updated_at.replace(tzinfo=timezone.utc) >= start_date
         ):
             logger.info(
-                f"Rewards already processed for user {user.wallet_address} after {start_date}"
+                f"Rewards already processed for user {wallet_address} after {start_date}"
             )
             return
 
@@ -479,7 +472,7 @@ def process_user_reward(
             else:
                 user_reward = UserRewards(
                     vault_id=vault_id,
-                    wallet_address=user.wallet_address,
+                    wallet_address=wallet_address,
                     total_reward=reward_distribution,
                     created_at=current_date,
                     updated_at=current_date,
@@ -504,7 +497,7 @@ def process_user_reward(
 
     except Exception as e:
         logger.error(
-            f"Failed to process rewards for user {user.wallet_address}: {str(e)}",
+            f"Failed to process rewards for user {wallet_address}: {str(e)}",
             exc_info=True,
         )
         if session:
