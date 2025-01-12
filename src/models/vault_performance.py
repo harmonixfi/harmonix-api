@@ -26,6 +26,9 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     base_monthly_apy: float | None = None
     reward_weekly_apy: float | None = None
     reward_monthly_apy: float | None = None
+    reward_monthly_apy: float | None = None
+    apy_15d: float | None = None
+    apy_45d: float | None = None
 
 
 class VaultPerformance(VaultPerformanceBase, table=True):

@@ -8,9 +8,6 @@ from sqlmodel import Session, select
 from web3 import Web3
 from web3.contract import Contract
 
-from bg_tasks.update_delta_neutral_vault_performance_daily import (
-    calculate_reward_apy,
-)
 from core.abi_reader import read_abi
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file

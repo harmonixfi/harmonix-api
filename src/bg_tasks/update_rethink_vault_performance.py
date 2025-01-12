@@ -172,6 +172,40 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
     else:
         apy_ytd = 0
 
+    # apy 15days
+    price_per_share_15_days_ago = get_before_price_per_shares(
+        session, vault.id, days=15
+    )
+    datetime_15_days_ago = pendulum.instance(
+        price_per_share_15_days_ago.datetime
+    ).in_tz(pendulum.UTC)
+    time_diff = pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago
+    days_15 = min(time_diff.days, 15) if time_diff.days > 0 else time_diff.hours / 24
+    apy_15d = calculate_roi(
+        current_price_per_share,
+        price_per_share_15_days_ago.price_per_share,
+        days=days_15,
+    )
+
+    apy_15d = apy_15d * 100
+
+    # apy 45days
+    price_per_share_45_days_ago = get_before_price_per_shares(
+        session, vault.id, days=45
+    )
+    datetime_45_days_ago = pendulum.instance(
+        price_per_share_45_days_ago.datetime
+    ).in_tz(pendulum.UTC)
+    time_diff = pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago
+    days_45 = min(time_diff.days, 45) if time_diff.days > 0 else time_diff.hours / 24
+    apy_45d = calculate_roi(
+        current_price_per_share,
+        price_per_share_45_days_ago.price_per_share,
+        days=days_45,
+    )
+
+    apy_45d = apy_45d * 100
+
     # Calculate risk statistics using TVL
     all_time_high_tvl, sortino, downside, risk_factor = calculate_tvl_statistics(
         vault.id
@@ -202,6 +236,8 @@ def calculate_performance(vault: Vault, vault_contract: Contract):
         fee_structure=fee_info,
         benchmark=0,
         pct_benchmark=0,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
     )
 
 

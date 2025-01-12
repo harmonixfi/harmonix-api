@@ -221,11 +221,33 @@ def calculate_performance(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
 
+    # Calculate 15-day APY
+    price_15_days_ago = get_before_price_per_shares(session, vault_id, days=15)
+    datetime_15_days_ago = pendulum.instance(price_15_days_ago.datetime).in_tz(
+        pendulum.UTC
+    )
+    days_15 = min((pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago).days, 15)
+    apy_15d = calculate_roi(
+        current_price_per_share, price_15_days_ago.price_per_share, days=days_15
+    )
+
+    # Calculate 45-day APY
+    price_45_days_ago = get_before_price_per_shares(session, vault_id, days=45)
+    datetime_45_days_ago = pendulum.instance(price_45_days_ago.datetime).in_tz(
+        pendulum.UTC
+    )
+    days_45 = min((pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago).days, 45)
+    apy_45d = calculate_roi(
+        current_price_per_share, price_45_days_ago.price_per_share, days=days_45
+    )
+
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
     apy_1m = monthly_apy * 100
     apy_1w = weekly_apy * 100
     apy_ytd = apy_ytd * 100
+    apy_15d = apy_15d * 100
+    apy_45d = apy_45d * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault_id
@@ -257,6 +279,8 @@ def calculate_performance(
         earned_fee=vault_state.performance_fee + vault_state.management_fee,
         fee_structure=fee_info,
         unique_depositors=count,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
