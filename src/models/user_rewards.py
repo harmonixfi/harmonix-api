@@ -11,6 +11,7 @@ class UserRewards(SQLModel, table=True):
     vault_id: UUID = Field(foreign_key="vaults.id")
     wallet_address: str = Field(index=True)
     total_reward: float
+    claimed: float = 0
     partner_name: str = Field(index=True)
     created_at: datetime = Field(default=datetime.now(timezone.utc), index=True)
     updated_at: datetime = Field(default=datetime.now(timezone.utc), index=True)
