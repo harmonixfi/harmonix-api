@@ -102,7 +102,11 @@ def harmonix_distribute_points(current_time):
     )
     active_portfolios = session.exec(active_portfolios_query).all()
     active_portfolios.sort(key=lambda x: x.trade_start_date)
+
     for portfolio in active_portfolios:
+        logger.info(
+            f"Processing portfolio for user {portfolio.user_address} in vault {portfolio.vault_id}"
+        )
 
         vault_multiplier = 1
         if portfolio.vault_id in multiplier_config_dict:
@@ -113,7 +117,11 @@ def harmonix_distribute_points(current_time):
         user_query = select(User).where(User.wallet_address == portfolio.user_address)
         user = session.exec(user_query).first()
         if not user:
+            logger.warning(
+                f"No user found for wallet address {portfolio.user_address}, skipping"
+            )
             continue
+
         # get referral by referee_id
         referral_query = select(Referral).where(Referral.referee_id == user.user_id)
         referral = session.exec(referral_query).first()
@@ -130,6 +138,10 @@ def harmonix_distribute_points(current_time):
                         current_time - referrer.created_at.replace(tzinfo=timezone.utc)
                     ).days < 14:
                         referrer_mutiplier = 2
+                        logger.info(
+                            f"Applied referrer multiplier: {referrer_mutiplier} for referrer {referrer.user_id}"
+                        )
+
         # get user points distributed for the user by wallet_address
         user_points_query = (
             select(UserPoints)
@@ -145,6 +157,7 @@ def harmonix_distribute_points(current_time):
         user_points = session.exec(user_points_query).first()
         # if  user points is none then insert user points
         if not user_points:
+            logger.info(f"Creating new user points entry for {portfolio.user_address}")
             # Calculate points to be distributed
             duration_hours = (
                 current_time
@@ -157,7 +170,6 @@ def harmonix_distribute_points(current_time):
             converted_balance = portfolio.total_balance
             currency_price = get_vault_currency_price(vault.vault_currency)
             converted_balance = portfolio.total_balance * currency_price
-
             points = (
                 (converted_balance / POINT_PER_DOLLAR)
                 * duration_hours
@@ -195,6 +207,7 @@ def harmonix_distribute_points(current_time):
                 session.commit()
                 break
         else:
+            logger.info(f"Updating existing user points for {portfolio.user_address}")
             # get last user points history
             user_points_history_query = (
                 select(UserPointsHistory)
@@ -210,20 +223,24 @@ def harmonix_distribute_points(current_time):
 
             currency_price = get_vault_currency_price(vault.vault_currency)
             converted_balance = portfolio.total_balance * currency_price
-
             points = (
                 (converted_balance / POINT_PER_DOLLAR)
                 * duration_hours
                 * vault_multiplier
                 * referrer_mutiplier
             )
+
             # Check if the total points exceed the maximum allowed
             if total_points_distributed + points > reward_session_config.max_points:
                 points = reward_session_config.max_points - total_points_distributed
 
             # Update UserPoints entry
+            previous_points = user_points.points
             user_points.points += points
             user_points.updated_at = current_time
+            logger.info(
+                f"Updated total points from {previous_points} to {user_points.points} with user: {portfolio.user_address}"
+            )
             user_points_history = UserPointsHistory(
                 user_points_id=user_points.id,
                 point=points,
@@ -255,7 +272,7 @@ def update_referral_points(
     referrals_query = select(Referral).order_by(Referral.referrer_id)
     referrals = session.exec(referrals_query).all()
     logger.info(f"Found {len(referrals)} total referrals")
-    
+
     referrals_copy = referrals.copy()
     unique_referrers = []
     for referral in referrals_copy:
@@ -288,7 +305,9 @@ def update_referral_points(
                     referral, reward_session, session
                 )
                 if not user_points:
-                    logger.info(f"No user points found for referee {referral.referee_id}")
+                    logger.info(
+                        f"No user points found for referee {referral.referee_id}"
+                    )
                     continue
                 # get points from points_history
                 user_points_history_query = (
@@ -298,13 +317,13 @@ def update_referral_points(
                 )
                 user_points_history = session.exec(user_points_history_query).first()
                 referral_points += user_points_history.point
-            
+
             logger.info(f"Raw referral points calculated: {referral_points}")
             referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
             )
             logger.info(f"Adjusted referral points: {referral_points}")
-            
+
             user_referral_points.points += referral_points
             user_referral_points.updated_at = current_time
             referral_points_history = ReferralPointsHistory(
@@ -328,10 +347,12 @@ def update_referral_points(
                     referral, reward_session, session
                 )
                 if not user_points:
-                    logger.info(f"No user points found for referee {referral.referee_id}")
+                    logger.info(
+                        f"No user points found for referee {referral.referee_id}"
+                    )
                     continue
                 referral_points += user_points.points
-            
+
             logger.info(f"Raw referral points calculated: {referral_points}")
             referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
@@ -362,7 +383,9 @@ def update_referral_points(
                 break
 
     session.commit()
-    logger.info(f"Referral Points distribution job completed. Total points distributed: {total_points_distributed}")
+    logger.info(
+        f"Referral Points distribution job completed. Total points distributed: {total_points_distributed}"
+    )
 
 
 def adjust_referral_points_within_bounds(
