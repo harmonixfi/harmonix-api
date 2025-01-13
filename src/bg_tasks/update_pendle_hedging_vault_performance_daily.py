@@ -358,6 +358,8 @@ def main(chain: str):
             vault.ytd_apy = new_performance_rec.apy_ytd
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
+            vault.apy_15d = new_performance_rec.apy_15d
+            vault.apy_45d = new_performance_rec.apy_45d
             vault.tvl = new_performance_rec.total_locked_value
             vault.next_close_round_date = None
             logger.info(

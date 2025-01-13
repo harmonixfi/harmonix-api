@@ -309,6 +309,8 @@ def main():
         vault.ytd_apy = new_performance_rec.apy_ytd
         vault.monthly_apy = new_performance_rec.apy_1m
         vault.weekly_apy = new_performance_rec.apy_1w
+        vault.apy_15d = new_performance_rec.apy_15d
+        vault.apy_45d = new_performance_rec.apy_45d
         # vault.current_round = get_current_round()
         vault.current_round = 1  # TODO: Remove this line once the contract is updated
         vault.next_close_round_date = get_next_friday()

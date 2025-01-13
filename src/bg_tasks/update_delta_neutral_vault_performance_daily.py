@@ -534,6 +534,8 @@ def main(chain: str):
             vault.weekly_apy = new_performance_rec.apy_1w
             vault.base_weekly_apy = new_performance_rec.base_weekly_apy
             vault.reward_weekly_apy = new_performance_rec.reward_weekly_apy
+            vault.apy_15d = new_performance_rec.apy_15d
+            vault.apy_45d = new_performance_rec.apy_45d
             vault.next_close_round_date = None
             update_tvl(vault.id, new_performance_rec.total_locked_value)
             logger.info(
