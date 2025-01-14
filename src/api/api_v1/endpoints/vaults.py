@@ -266,6 +266,8 @@ async def get_all_vaults(
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
                 "tvl": schema_vault.tvl or 0,
                 "apy": schema_vault.apy or 0,
+                "apy_15d": schema_vault.apy_15d or 0,
+                "apy_45d": schema_vault.apy_45d or 0,
                 "default_vault_id": (
                     vault.vault_group.default_vault_id if vault.vault_group else None
                 ),
@@ -278,6 +280,8 @@ async def get_all_vaults(
             grouped_vaults[group_id]["tvl"] += vault.tvl or 0
             if vault.vault_group and vault.vault_group.default_vault_id == vault.id:
                 grouped_vaults[group_id]["apy"] = schema_vault.apy or 0
+                grouped_vaults[group_id]["apy_15d"] = schema_vault.apy_15d or 0
+                grouped_vaults[group_id]["apy_45d"] = schema_vault.apy_45d or 0
 
         # Aggregate points for each partner
         for point in schema_vault.points:
@@ -299,6 +303,8 @@ async def get_all_vaults(
             name=group["name"],
             tvl=group["tvl"],
             apy=group["apy"],
+            apy_15d=group["apy_15d"],
+            apy_45d=group["apy_45d"],
             vaults=group["vaults"],
             points=[
                 schemas.EarnedPoints(name=partner, point=points)

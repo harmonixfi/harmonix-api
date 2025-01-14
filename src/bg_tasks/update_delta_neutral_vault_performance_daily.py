@@ -259,23 +259,17 @@ def calculate_reward_apy(
         # For 15-day and 45-day APYs, include completed distributions from the respective periods
         fifteen_days_ago = now.subtract(days=15)
         forty_five_days_ago = now.subtract(days=45)
-
+        total_15day_reward_usd += current_week_reward_usd
         if week_start >= fifteen_days_ago and now >= week_end:
             total_15day_reward_usd += weekly_reward_usd
 
+        total_45day_reward_usd += current_week_reward_usd
         if week_start >= forty_five_days_ago and now >= week_end:
             total_45day_reward_usd += weekly_reward_usd
 
     # Projected total weekly reward based on progress
     projected_weekly_reward_usd = (
         total_weekly_reward_usd / progress if progress > 0 else 0
-    )
-
-    projected_15day_reward_usd = (
-        total_15day_reward_usd / progress * 15 / 7 if progress > 0 else 0
-    )
-    projected_45day_reward_usd = (
-        total_45day_reward_usd / progress * 45 / 7 if progress > 0 else 0
     )
 
     # Calculate the number of days from the start of the campaign
@@ -289,11 +283,41 @@ def calculate_reward_apy(
         # If more than 30 days have passed, use the start of the month
         days_to_use = now.day - 1  # Days in the current month
 
+    # Determine the number of days to use for 15 days projection
+    if days_since_campaign_start < 15:
+        fifteen_days_to_use = (
+            days_since_campaign_start if days_since_campaign_start > 0 else 1
+        )
+    else:
+        # If more than 15 days have passed, use the start of the month
+        fifteen_days_to_use = now.day - 1  # Days in the current month
+
+    # Determine the number of days to use for 45 days projection
+    if days_since_campaign_start < 45:
+        forty_five_days_to_use = (
+            days_since_campaign_start if days_since_campaign_start > 0 else 1
+        )
+    else:
+        # If more than 45 days have passed, use the start of the month
+        forty_five_days_to_use = now.day - 1  # Days in the current month
+
     # Projected total monthly reward based on the determined days
     projected_monthly_reward_usd = (
         total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
     )
 
+    # Projected total 15days reward based on the determined days
+    projected_15day_reward_usd = (
+        total_15day_reward_usd / fifteen_days_to_use * 15
+        if fifteen_days_to_use > 0
+        else 0
+    )
+    # Projected total 45days reward based on the determined days
+    projected_45day_reward_usd = (
+        total_45day_reward_usd / forty_five_days_to_use * 45
+        if fifteen_days_to_use > 0
+        else 0
+    )
     # Calculate APYs
     # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
     weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
