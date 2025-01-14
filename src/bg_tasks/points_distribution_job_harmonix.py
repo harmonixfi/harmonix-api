@@ -399,7 +399,7 @@ def adjust_referral_points_within_bounds(
 
 
 def get_user_points_by_referee_id(referral, reward_session, session):
-    user_query = select(User).where(User.user_id == referral.referee_id)
+    user_query = select(User).where(User.user_id == referral.referrer_id)
     user = session.exec(user_query).first()
     if not user:
         return None
