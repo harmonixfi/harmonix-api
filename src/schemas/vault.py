@@ -60,6 +60,8 @@ class SupportedNetwork(BaseModel):
 # Properties to return to client
 class Vault(VaultInDBBase):
     apy: float | None = None
+    apy_15d: float | None = None
+    apy_45d: float | None = None
     tvl: float | None = None
     is_default: bool | None = None
 
@@ -85,6 +87,8 @@ class GroupSchema(BaseModel):
     name: str
     tvl: float | None = None
     apy: float | None = None
+    apy_15d: float | None = None
+    apy_45d: float | None = None
     vaults: List[Vault] = []
     points: List[EarnedPoints] = []
     rewards: List[EarnedRewards] = []

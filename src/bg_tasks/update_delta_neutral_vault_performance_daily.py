@@ -190,7 +190,9 @@ def calculate_reward_distribution_progress(
     return max(0, min(1, elapsed_seconds / total_week_seconds))
 
 
-def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, float]:
+def calculate_reward_apy(
+    vault_id: uuid.UUID, total_tvl: float
+) -> Tuple[float, float, float, float]:
     """Calculate weekly and monthly reward APY based on distribution config."""
     if total_tvl <= 0:
         return 0.0, 0.0
@@ -212,6 +214,8 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
 
     total_weekly_reward_usd = 0
     total_monthly_reward_usd = 0
+    total_15day_reward_usd = 0
+    total_45day_reward_usd = 0
     progress = 0
 
     for config in reward_configs:
@@ -252,6 +256,17 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         if week_start >= thirty_days_ago and now >= week_end:
             total_monthly_reward_usd += weekly_reward_usd
 
+        # For 15-day and 45-day APYs, include completed distributions from the respective periods
+        fifteen_days_ago = now.subtract(days=15)
+        forty_five_days_ago = now.subtract(days=45)
+        total_15day_reward_usd += current_week_reward_usd
+        if week_start >= fifteen_days_ago and now >= week_end:
+            total_15day_reward_usd += weekly_reward_usd
+
+        total_45day_reward_usd += current_week_reward_usd
+        if week_start >= forty_five_days_ago and now >= week_end:
+            total_45day_reward_usd += weekly_reward_usd
+
     # Projected total weekly reward based on progress
     projected_weekly_reward_usd = (
         total_weekly_reward_usd / progress if progress > 0 else 0
@@ -268,11 +283,41 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
         # If more than 30 days have passed, use the start of the month
         days_to_use = now.day - 1  # Days in the current month
 
+    # Determine the number of days to use for 15 days projection
+    if days_since_campaign_start < 15:
+        fifteen_days_to_use = (
+            days_since_campaign_start if days_since_campaign_start > 0 else 1
+        )
+    else:
+        # If more than 15 days have passed, use the start of the month
+        fifteen_days_to_use = now.day - 1  # Days in the current month
+
+    # Determine the number of days to use for 45 days projection
+    if days_since_campaign_start < 45:
+        forty_five_days_to_use = (
+            days_since_campaign_start if days_since_campaign_start > 0 else 1
+        )
+    else:
+        # If more than 45 days have passed, use the start of the month
+        forty_five_days_to_use = now.day - 1  # Days in the current month
+
     # Projected total monthly reward based on the determined days
     projected_monthly_reward_usd = (
         total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
     )
 
+    # Projected total 15days reward based on the determined days
+    projected_15day_reward_usd = (
+        total_15day_reward_usd / fifteen_days_to_use * 15
+        if fifteen_days_to_use > 0
+        else 0
+    )
+    # Projected total 45days reward based on the determined days
+    projected_45day_reward_usd = (
+        total_45day_reward_usd / forty_five_days_to_use * 45
+        if fifteen_days_to_use > 0
+        else 0
+    )
     # Calculate APYs
     # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
     weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
@@ -280,7 +325,13 @@ def calculate_reward_apy(vault_id: uuid.UUID, total_tvl: float) -> Tuple[float, 
     # Monthly APY = (projected monthly reward / TVL) * 12 months * 100%
     monthly_apy = (projected_monthly_reward_usd / total_tvl) * 12 * 100
 
-    return weekly_apy, monthly_apy
+    # 15-day APY
+    apy_15day = (projected_15day_reward_usd / total_tvl) * (365 / 15) * 100
+
+    # 45-day APY
+    apy_45day = (projected_45day_reward_usd / total_tvl) * (365 / 45) * 100
+
+    return weekly_apy, monthly_apy, apy_15day, apy_45day
 
 
 # Step 4: Calculate Performance Metrics
@@ -326,9 +377,11 @@ def calculate_performance(
     # Calculate reward APY if this is the Hype vault
     weekly_reward_apy = 0
     monthly_reward_apy = 0
+    apy_reward_15day = 0
+    apy_reward_45day = 0
     if vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
-        weekly_reward_apy, monthly_reward_apy = calculate_reward_apy(
-            vault.id, total_balance
+        weekly_reward_apy, monthly_reward_apy, apy_reward_15day, apy_reward_45day = (
+            calculate_reward_apy(vault.id, total_balance)
         )
         logger.info(
             "Reward APY calculated - Weekly: %.2f%%, Monthly: %.2f%%",
@@ -360,6 +413,36 @@ def calculate_performance(
 
     apy_ytd = calculate_apy_ytd(vault.id, current_price_per_share)
 
+    # apy 15days
+    price_per_share_15_days_ago = get_before_price_per_shares(
+        session, vault.id, days=15
+    )
+    datetime_15_days_ago = pendulum.instance(
+        price_per_share_15_days_ago.datetime
+    ).in_tz(pendulum.UTC)
+    time_diff = pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago
+    days_15 = min(time_diff.days, 15) if time_diff.days > 0 else time_diff.hours / 24
+    apy_15d = calculate_roi(
+        current_price_per_share,
+        price_per_share_15_days_ago.price_per_share,
+        days=days_15,
+    )
+
+    # apy 45days
+    price_per_share_45_days_ago = get_before_price_per_shares(
+        session, vault.id, days=45
+    )
+    datetime_45_days_ago = pendulum.instance(
+        price_per_share_45_days_ago.datetime
+    ).in_tz(pendulum.UTC)
+    time_diff = pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago
+    days_45 = min(time_diff.days, 45) if time_diff.days > 0 else time_diff.hours / 24
+    apy_45d = calculate_roi(
+        current_price_per_share,
+        price_per_share_45_days_ago.price_per_share,
+        days=days_45,
+    )
+
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
     ).first()
@@ -372,6 +455,8 @@ def calculate_performance(
     # Add reward APY to base APY
     apy_1m = monthly_apy * 100 + monthly_reward_apy
     apy_1w = weekly_apy * 100 + weekly_reward_apy
+    apy_15d = apy_15d * 100 + apy_reward_15day
+    apy_45d = apy_45d * 100 + apy_reward_45day
     apy_ytd = apy_ytd * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
@@ -408,6 +493,8 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
@@ -471,6 +558,8 @@ def main(chain: str):
             vault.weekly_apy = new_performance_rec.apy_1w
             vault.base_weekly_apy = new_performance_rec.base_weekly_apy
             vault.reward_weekly_apy = new_performance_rec.reward_weekly_apy
+            vault.apy_15d = new_performance_rec.apy_15d
+            vault.apy_45d = new_performance_rec.apy_45d
             vault.next_close_round_date = None
             update_tvl(vault.id, new_performance_rec.total_locked_value)
             logger.info(

@@ -112,6 +112,8 @@ def calculate_performance(
     # Calculate the APYs
     apy_1m = solv_service.get_monthly_apy(df, column="adjustedNav")
     apy_1w = solv_service.get_weekly_apy(df)
+    apy_15d = solv_service.calculate_periodic_apy(df, days=15)
+    apy_45d = solv_service.calculate_periodic_apy(df, days=45)
     apy_ytd = 0
 
     performance_history = session.exec(
@@ -125,6 +127,8 @@ def calculate_performance(
 
     apy_1m = apy_1m * 100
     apy_1w = apy_1w * 100
+    apy_15d = apy_15d * 100
+    apy_45d = apy_45d * 100
     apy_ytd = apy_ytd * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = (
@@ -157,6 +161,8 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=0,
         fee_structure=fee_info,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
     )
     update_price_per_share(vault_id, current_price_per_share)
 
@@ -192,6 +198,8 @@ def main():
             vault.ytd_apy = new_performance_rec.apy_ytd
             vault.monthly_apy = new_performance_rec.apy_1m
             vault.weekly_apy = new_performance_rec.apy_1w
+            vault.apy_15d = new_performance_rec.apy_15d
+            vault.apy_45d = new_performance_rec.apy_45d
             vault.next_close_round_date = None
 
             session.commit()

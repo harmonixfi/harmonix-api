@@ -8,6 +8,7 @@ from api.api_v1.endpoints import (
     partners,
     healthz,
     reports,
+    configs,
 )
 
 api_router = APIRouter()
@@ -20,4 +21,5 @@ api_router.include_router(referral.router, prefix="/referral", tags=["Referral"]
 api_router.include_router(partners.router, prefix="/partners", tags=["Partners"])
 api_router.include_router(healthz.router, prefix="/healthz", tags=["Others"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
+api_router.include_router(configs.router, prefix="/app-config", tags=["App Configs"])
 api_router.redirect_slashes = False

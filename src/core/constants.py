@@ -190,3 +190,7 @@ class MethodID(str, Enum):
 class UpdateFrequency(str, Enum):
     daily = "daily"
     weekly = "weekly"
+
+
+class AppConfigKey(str, Enum):
+    APY_PERIOD = "apy_period"
