@@ -361,7 +361,9 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
 
 @router.get("/{vault_slug}/performance")
-async def get_vault_performance(session: SessionDep, vault_slug: str):
+async def get_vault_performance(
+    session: SessionDep, vault_slug: str, apy_option: Optional[str] = None
+):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.slug == vault_slug)
     vault = session.exec(statement).first()
@@ -384,9 +386,11 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
-
+    apy_mapping_dict = {"15D": "apy_15d", "45D": "apy_45d"}
     if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
+        pps_history_df["apy"] = pps_history_df[
+            apy_mapping_dict.get(apy_option, "apy_1m")
+        ]
 
     # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
     #     pps_history_df = pps_history_df[["date", "apy"]].copy()
@@ -404,9 +408,14 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
     #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
 
     elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df["apy_ytd"]
+        pps_history_df["apy"] = pps_history_df[
+            apy_mapping_dict.get(apy_option, "apy_ytd")
+        ]
+
     else:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
+        pps_history_df["apy"] = pps_history_df[
+            apy_mapping_dict.get(apy_option, "apy_1m")
+        ]
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
