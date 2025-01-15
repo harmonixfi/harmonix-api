@@ -311,6 +311,8 @@ def calculate_performance(
         fee_structure=fee_info,
         apy_15d=apy_15d,
         apy_45d=apy_45d,
+        reward_15d_apy=apy_reward_15day,
+        reward_45d_apy=apy_reward_45day,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
