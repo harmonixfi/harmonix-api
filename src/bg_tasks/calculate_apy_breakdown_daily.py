@@ -295,17 +295,11 @@ def handle_pendle_hedging_strategy(
 def handle_rseth_dec24_vault(vault, apy, fixed_value, period: int):
     point_dist = get_latest_hyperliquid_distribution(vault.id)
     hyperliquid_point_value = calculate_hyperliquid_value(point_dist, vault.tvl)
-
-    period_pendle_fixed_apy = 0
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_pendle_fixed_apy = fixed_value * (period / DAYS_IN_YEAR)
-
-    funding_fee_value = apy - period_pendle_fixed_apy - hyperliquid_point_value
-
+    funding_fee_value = apy - fixed_value - hyperliquid_point_value
     save_pendle_components(
         vault.id,
         apy,
-        period_pendle_fixed_apy,
+        fixed_value,
         hyperliquid_point_value,
         float(funding_fee_value),
         period,
@@ -348,8 +342,6 @@ def handle_other_pendle_vaults(vault, apy, fixed_value, period: int):
 # Keep existing handler functions
 def handle_kelpdao_arb(vault_id, apy, allocated_apy: float, period: int):
     period_apy = allocated_apy
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_apy = allocated_apy * (period / DAYS_IN_YEAR)
 
     funding_fee_value = apy - period_apy
     service = KelpDaoArbitrumApyComponentService(
@@ -366,18 +358,12 @@ def handle_kelpdao_arb(vault_id, apy, allocated_apy: float, period: int):
 def handle_kelpdao(
     vault_id, apy, rs_eth_value: float, ae_usd_value: float, period: int
 ):
-    period_rs_eth = rs_eth_value
-    period_ae_usd = ae_usd_value
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_rs_eth = period_rs_eth * (period / DAYS_IN_YEAR)
-        period_ae_usd = period_ae_usd * (period / DAYS_IN_YEAR)
-
-    funding_fee_value = apy - period_rs_eth - period_ae_usd
+    funding_fee_value = apy - rs_eth_value - ae_usd_value
     kelpdao_component_service = KelpDaoApyComponentService(
         vault_id,
         apy,
-        period_rs_eth,
-        period_ae_usd,
+        rs_eth_value,
+        ae_usd_value,
         float(funding_fee_value),
         period,
         session,
@@ -386,18 +372,12 @@ def handle_kelpdao(
 
 
 def handle_renzo(vault_id, apy, ez_eth_value: float, ae_usd_value: float, period: int):
-    period_ez_eth = ez_eth_value
-    period_ae_usd = ae_usd_value
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_ez_eth = period_ez_eth * (period / DAYS_IN_YEAR)
-        period_ae_usd = period_ae_usd * (period / DAYS_IN_YEAR)
-
-    funding_fee_value = apy - period_ez_eth - period_ae_usd
+    funding_fee_value = apy - ez_eth_value - ae_usd_value
     renzo_component_service = RenzoApyComponentService(
         vault_id,
         apy,
-        period_ez_eth,
-        period_ae_usd,
+        ez_eth_value,
+        ae_usd_value,
         float(funding_fee_value),
         period,
         session,
@@ -410,10 +390,6 @@ def handle_delta_neutral(
 ):
     period_wst_eth = wst_eth_value
     period_ae_usd = ae_usd_value
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_wst_eth = period_wst_eth * (period / DAYS_IN_YEAR)
-        period_ae_usd = period_ae_usd * (period / DAYS_IN_YEAR)
-
     funding_fee_value = apy - period_wst_eth - period_ae_usd
     delta_neutral_component_service = DeltaNeutralApyComponentService(
         vault_id,
@@ -432,10 +408,6 @@ def handle_kelp_gain(
 ):
     period_rs_eth = rs_eth_value
     period_ae_usd = ae_usd_value
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_rs_eth = period_rs_eth * (period / DAYS_IN_YEAR)
-        period_ae_usd = period_ae_usd * (period / DAYS_IN_YEAR)
-
     funding_fee_value = apy - period_rs_eth - period_ae_usd
     kelpdao_component_service = KelpDaoApyComponentService(
         vault_id,
@@ -451,9 +423,6 @@ def handle_kelp_gain(
 
 def handle_rethink(vault_id, apy, wst_eth_value: float, period: int):
     period_wst_eth = wst_eth_value
-    if period in [PERIOD_15_DAYS, PERIOD_45_DAYS]:
-        period_wst_eth = period_wst_eth * (period / DAYS_IN_YEAR)
-
     funding_fee_value = apy - period_wst_eth
     rethink_component_service = RethinkApyComponentService(
         vault_id,
