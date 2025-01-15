@@ -17,5 +17,5 @@ def get_apy_config(
     )
     app_config = session.exec(statement).first()
     return {
-        constants.AppConfigKey.APY_PERIOD.value: app_config.key if app_config else 15
+        constants.AppConfigKey.APY_PERIOD.value: app_config.key if app_config else 45
     }

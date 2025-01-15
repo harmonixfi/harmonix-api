@@ -505,7 +505,9 @@ async def get_vault_performance_chart(session: SessionDep):
 
 
 @router.get("/apy-breakdown/{vault_id}")
-def get_apy_breakdown(session: SessionDep, vault_id: str):
+def get_apy_breakdown(
+    session: SessionDep, vault_id: str, apy_option: Optional[str] = None
+):
     statement = select(Vault).where(Vault.id == vault_id)
     vault = session.exec(statement).first()
     if vault is None:
@@ -514,7 +516,16 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
             detail="The data not found in the database.",
         )
 
-    statement = select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
+    apy_period_map = {
+        "15D": 15,
+        "45D": 45,
+    }
+    period = apy_period_map.get(apy_option, 30)
+    statement = (
+        select(VaultAPYBreakdown)
+        .where(VaultAPYBreakdown.vault_id == vault_id)
+        .where(VaultAPYBreakdown.period == period)
+    )
     vault_apy = session.exec(statement).first()
     if vault_apy is None:
         return {}
