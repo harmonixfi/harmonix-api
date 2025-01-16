@@ -8,6 +8,7 @@ from typing import Optional
 import uuid
 
 import click
+from hexbytes import HexBytes
 import seqlog
 from sqlmodel import select
 from sqlmodel import Session
@@ -237,7 +238,10 @@ def handle_withdrawn_event(
         ).call()
         price_per_share = vault_contract.functions.pricePerShare().call()
 
-        shares = shares / decimals
+        if vault.slug == constants.SOLV_VAULT_SLUG:
+            shares = shares / 1e18
+        else:
+            shares = shares / decimals
         price_per_share = price_per_share / decimals
         user_portfolio.total_balance = price_per_share * shares
 
@@ -489,6 +493,45 @@ async def run(network: str):
     await web3_listener.run(network)
 
 
+def test():
+    from web3.datastructures import AttributeDict
+
+    msg = {
+        "subscription": "0x29ddee6dde05ff956da4dc54234e80bb",
+        "result": AttributeDict(
+            {
+                "address": "0x9d95527A298c68526Ad5227fe241B75329D3b91F",
+                "topics": [
+                    HexBytes(
+                        "0x92ccf450a286a957af52509bc1c9939d1a6a481783e142e41e2499f0bb66ebc6"
+                    ),
+                    HexBytes(
+                        "0x000000000000000000000000d8c1aaa863c7251a0603b4905eac0d37eaf91f63"
+                    ),
+                ],
+                "data": HexBytes(
+                    "0x00000000000000000000000000000000000000000000000000000000001e9f1e00000000000000000000000000000000000000000000000000400a8d2eb89fce"
+                ),
+                "blockNumber": 295679459,
+                "transactionHash": HexBytes(
+                    "0x175915f1568914e1397d16747814f102fb92259f194e8db1a6b19aba6947ab68"
+                ),
+                "transactionIndex": 3,
+                "blockHash": HexBytes(
+                    "0x0c62efb7a1117351b369aa1ae058c34af9bcb359f4ac8ab69d4ae8b7f49c52c5"
+                ),
+                "logIndex": 13,
+                "removed": False,
+            }
+        ),
+    }
+    with Session(engine) as session:
+        res = msg["result"]
+        if res["topics"][0].hex() in EVENT_FILTERS.keys():
+            event_filter = EVENT_FILTERS[res["topics"][0].hex()]
+            handle_event(session, res["address"], res, event_filter["event"])
+
+
 @click.command()
 @click.option("--network", default="arbitrum_one", help="Blockchain network to use")
 def main(network: str):
@@ -496,7 +539,8 @@ def main(network: str):
     setup_logging_to_file(
         app=f"web3_listener_{network}", level=logging.INFO, logger=logger
     )
-    asyncio.run(run(network))
+    # asyncio.run(run(network))
+    test()
 
 
 if __name__ == "__main__":
