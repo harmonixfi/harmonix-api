@@ -539,8 +539,7 @@ def main(network: str):
     setup_logging_to_file(
         app=f"web3_listener_{network}", level=logging.INFO, logger=logger
     )
-    # asyncio.run(run(network))
-    test()
+    asyncio.run(run(network))
 
 
 if __name__ == "__main__":
