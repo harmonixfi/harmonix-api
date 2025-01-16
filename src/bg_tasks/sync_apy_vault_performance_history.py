@@ -40,7 +40,14 @@ def get_date_init_vault(vault: Vault) -> datetime:
     return result.date()
 
 
-def update_apy(vault: Vault, datetime: datetime, apy_15d: float, apy_45d: float):
+def update_apy(
+    vault: Vault,
+    datetime: datetime,
+    apy_15d: float,
+    apy_45d: float,
+    reward_15d_apy: float,
+    reward_45d_apy: float,
+):
     statement = (
         select(VaultPerformance)
         .where(func.date(VaultPerformance.datetime) == datetime)
@@ -51,6 +58,8 @@ def update_apy(vault: Vault, datetime: datetime, apy_15d: float, apy_45d: float)
         for result in results:
             result.apy_15d = apy_15d
             result.apy_45d = apy_45d
+            result.reward_15d_apy = reward_15d_apy
+            result.reward_45d_apy = reward_45d_apy
             session.add(result)
         session.commit()
 
@@ -192,14 +201,7 @@ def main():
         )
         # Get the vaults from the Vault table
         # vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
-        vaults = session.exec(
-            select(Vault).where(
-                and_(
-                    Vault.is_active == True,
-                    Vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG,
-                )
-            )
-        ).all()
+        vaults = session.exec(select(Vault).where(and_(Vault.is_active == True))).all()
         date_now = datetime.now().date()
 
         for vault in vaults:
@@ -232,11 +234,16 @@ def main():
                     else:
                         apy_15d = result["apy_15d"]
                         apy_45d = result["apy_45d"]
+                        reward_15d_apy = result.get("reward_15d_apy", None)
+                        reward_45d_apy = result.get("reward_45d_apy", None)
+
                         update_apy(
                             vault=vault,
                             datetime=current_date,
                             apy_15d=apy_15d,
                             apy_45d=apy_45d,
+                            reward_15d_apy=reward_15d_apy,
+                            reward_45d_apy=reward_45d_apy,
                         )
                         logger.info(
                             f"Successfully updated APY data for {current_date}: APY 15 days = {apy_15d}, APY 45 days = {apy_45d}"
