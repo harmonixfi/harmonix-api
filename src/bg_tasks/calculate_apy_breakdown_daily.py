@@ -306,10 +306,9 @@ def handle_rseth_dec24_vault(vault, apy, fixed_value, period: int):
     )
 
 
-def handle_other_pendle_vaults(vault, apy, fixed_value, period: int):
+def handle_other_pendle_vaults(vault, apy, period_pendle_fixed_apy, period: int):
     vault_performance = get_latest_vault_performance(vault.id)
 
-    period_pendle_fixed_apy = fixed_value
     period_reward_apy = 0
 
     if period == PERIOD_15_DAYS:
@@ -318,14 +317,12 @@ def handle_other_pendle_vaults(vault, apy, fixed_value, period: int):
             if vault_performance and vault_performance.reward_15d_apy is not None
             else 0
         )
-        period_pendle_fixed_apy = fixed_value * (period / DAYS_IN_YEAR)
     elif period == PERIOD_45_DAYS:
         period_reward_apy = (
             vault_performance.reward_45d_apy
             if vault_performance and vault_performance.reward_45d_apy is not None
             else 0
         )
-        period_pendle_fixed_apy = fixed_value * (period / DAYS_IN_YEAR)
     else:
         period_reward_apy = (
             vault_performance.reward_monthly_apy
@@ -335,7 +332,12 @@ def handle_other_pendle_vaults(vault, apy, fixed_value, period: int):
 
     funding_fee_value = apy - period_pendle_fixed_apy - period_reward_apy
     save_pendle_jun2025_components(
-        vault.id, apy, fixed_value, period_reward_apy, float(funding_fee_value), period
+        vault.id,
+        apy,
+        period_pendle_fixed_apy,
+        period_reward_apy,
+        float(funding_fee_value),
+        period,
     )
 
 
