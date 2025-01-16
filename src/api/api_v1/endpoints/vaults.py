@@ -406,7 +406,11 @@ async def get_vault_performance(
     pps_history_df.reset_index(inplace=True)
 
     # Make one_month_ago timezone-naive to match DataFrame
-    one_month_ago = (datetime.now(tz=timezone.utc) - timedelta(days=30)).replace(tzinfo=None)
+
+    current_date = min(
+        datetime.now(tz=timezone.utc).replace(tzinfo=None), pps_history_df["date"].max()
+    )
+    one_month_ago = current_date - timedelta(days=30)
     pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.ffill(inplace=True)

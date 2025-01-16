@@ -13,6 +13,7 @@ from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
 from models.pps_history import PricePerShareHistory
 from models.vault_performance import VaultPerformance
+from services import pendle_service
 
 # Initialize logger
 logging.basicConfig(level=logging.INFO)
@@ -58,6 +59,8 @@ def update_apy(
         for result in results:
             result.apy_15d = apy_15d
             result.apy_45d = apy_45d
+            result.base_15d_apy = apy_15d - reward_15d_apy
+            result.base_45d_apy = apy_45d - reward_45d_apy
             result.reward_15d_apy = reward_15d_apy
             result.reward_45d_apy = reward_45d_apy
             session.add(result)
@@ -102,6 +105,7 @@ def get_apy_history(vault: Vault) -> pd.DataFrame:
     df.set_index("datetime", inplace=True)
     # Resample to daily frequency, calculate mean funding rate, and forward-fill missing values
     df_daily = df.resample("D").last()
+    df_daily = df_daily.ffill()
     df_daily.index = pd.to_datetime(df_daily.index)
 
     # Calculate APY for different windows
@@ -128,7 +132,7 @@ def get_apy_history(vault: Vault) -> pd.DataFrame:
                     apys[current_date] = 0
                 else:
                     # Calculate APY
-                    apys[current_date] = (
+                    calculated_apy = (
                         calculate_roi(
                             df_daily.loc[
                                 current_date, "price_per_share"
@@ -138,12 +142,34 @@ def get_apy_history(vault: Vault) -> pd.DataFrame:
                         )
                         * 100
                     )  # Convert to percentage
+
+                    logger.info(
+                        "Calculating %d-day APY - Date: %s, Past date: %s, APY: %.2f%%",
+                        window_days,
+                        current_date.strftime("%Y-%m-%d"),
+                        past_date.strftime("%Y-%m-%d"),
+                        calculated_apy,
+                    )
+
+                    apys[current_date] = calculated_apy
             except Exception as e:
                 print(current_date)
                 traceback.print_exc()
 
         # Add the results to df_daily
         df_daily[col_name] = apys
+        df_daily[f"base_{window_days}d_apy"] = apys
+
+    if vault.strategy_name == constants.PENDLE_HEDGING_STRATEGY:
+        pendle_data = pendle_service.get_market(
+            constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+        )
+        if pendle_data:
+            pendle_market_data = pendle_data[0]
+        if pendle_market_data:
+            pendle_fixed_yield = (pendle_market_data.implied_apy / 2) * 100
+            df_daily.loc[current_date, "apy_15d"] += pendle_fixed_yield
+            df_daily.loc[current_date, "apy_45d"] += pendle_fixed_yield
 
     # Add reward APY if this is the Pendle RSeth vault
     if vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG:
@@ -164,23 +190,25 @@ def get_apy_history(vault: Vault) -> pd.DataFrame:
             )
 
             # Calculate reward APYs for this date
-            weekly_apy, monthly_apy, apy_15d, apy_45d = calculate_reward_apy(
-                vault_id=vault.id,
-                total_tvl=tvl,
-                current_date=pendulum.instance(current_date),
+            reward_weekly_apy, reward_monthly_apy, reward_apy_15d, reward_apy_45d = (
+                calculate_reward_apy(
+                    vault_id=vault.id,
+                    total_tvl=tvl,
+                    current_date=pendulum.instance(current_date),
+                )
             )
 
             # Add reward APYs to DataFrame
-            df_daily.loc[current_date, reward_columns[7]] = weekly_apy
-            df_daily.loc[current_date, reward_columns[15]] = apy_15d
-            df_daily.loc[current_date, reward_columns[30]] = monthly_apy
-            df_daily.loc[current_date, reward_columns[45]] = apy_45d
+            df_daily.loc[current_date, reward_columns[7]] = reward_weekly_apy
+            df_daily.loc[current_date, reward_columns[15]] = reward_apy_15d
+            df_daily.loc[current_date, reward_columns[30]] = reward_monthly_apy
+            df_daily.loc[current_date, reward_columns[45]] = reward_apy_45d
 
             # Add reward APYs to base APYs
-            df_daily.loc[current_date, "apy_15d"] += apy_15d
-            df_daily.loc[current_date, "apy_45d"] += apy_45d
+            df_daily.loc[current_date, "apy_15d"] += reward_apy_15d
+            df_daily.loc[current_date, "apy_45d"] += reward_apy_45d
 
-    apy_columns = ["apy_15d", "apy_45d"]
+    apy_columns = ["apy_15d", "apy_45d", "base_15d_apy", "base_45d_apy"]
     df_daily[apy_columns] = df_daily[apy_columns].ffill()
 
     return df_daily
@@ -193,6 +221,45 @@ def update_tvl(vault_id: uuid.UUID, current_tvl: float):
         session.commit()
 
 
+def update_ended_vault_apy(vault: Vault):
+    """
+    Update APY values for ended vaults by copying weekly/monthly APYs to 15d/45d APYs
+    and setting all reward APYs to 0.
+    """
+    if "ended" not in vault.get_tags():
+        return
+
+    logger.info(f"Updating ended vault APY for vault: {vault.name}")
+
+    # Update vault's APY fields
+    vault.apy_15d = vault.weekly_apy
+    vault.apy_45d = vault.monthly_apy
+    session.add(vault)
+
+    statement = select(VaultPerformance).where(VaultPerformance.vault_id == vault.id)
+    performances = session.exec(statement).all()
+
+    for perf in performances:
+        # Copy weekly APY to 15d APY
+        perf.apy_15d = perf.apy_1w
+        perf.base_15d_apy = (
+            perf.base_weekly_apy if perf.base_weekly_apy else perf.apy_1w
+        )
+        perf.reward_15d_apy = 0
+
+        # Copy monthly APY to 45d APY
+        perf.apy_45d = perf.apy_1m
+        perf.base_45d_apy = (
+            perf.base_monthly_apy if perf.base_monthly_apy else perf.apy_1m
+        )
+        perf.reward_45d_apy = 0
+
+        session.add(perf)
+
+    session.commit()
+    logger.info(f"Successfully updated ended vault APY for vault: {vault.name}")
+
+
 # Main Execution
 def main():
     try:
@@ -200,11 +267,22 @@ def main():
             "Starting the process to sync_apy_vault_performance_history for vaults..."
         )
         # Get the vaults from the Vault table
-        # vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
-        vaults = session.exec(select(Vault).where(and_(Vault.is_active == True))).all()
+        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        # vaults = session.exec(
+        #     select(Vault).where(
+        #         and_(
+        #             Vault.is_active == True,
+        #             Vault.tags.contains("ended")
+        #         )
+        #     )
+        # ).all()
         date_now = datetime.now().date()
 
         for vault in vaults:
+            if 'ended' in vault.get_tags():
+                update_ended_vault_apy(vault)
+                continue
+
             df_daily = get_apy_history(vault=vault)
             start_date = get_date_init_vault(vault=vault)
             current_date = start_date
@@ -234,8 +312,8 @@ def main():
                     else:
                         apy_15d = result["apy_15d"]
                         apy_45d = result["apy_45d"]
-                        reward_15d_apy = result.get("reward_15d_apy", None)
-                        reward_45d_apy = result.get("reward_45d_apy", None)
+                        reward_15d_apy = result.get("reward_15d_apy", 0)
+                        reward_45d_apy = result.get("reward_45d_apy", 0)
 
                         update_apy(
                             vault=vault,
@@ -267,6 +345,5 @@ def main():
 
 
 if __name__ == "__main__":
-    setup_logging_to_console()
     setup_logging_to_file("sync_apy_vault_performance_history", logger=logger)
     main()

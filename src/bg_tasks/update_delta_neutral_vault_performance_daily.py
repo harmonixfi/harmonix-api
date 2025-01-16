@@ -216,12 +216,23 @@ def calculate_reward_apy(
     token_name = reward_configs[0].reward_token.replace("$", "")
     hype_price = get_hl_price(token_name)  # Get current HYPE token price
 
+    # 1. Tìm ngày bắt đầu thật sự sớm nhất của campaign
+    campaign_start_date = min(cfg.start_date for cfg in reward_configs)
+
     # Kết quả lưu APY cho mỗi day_range
     apy_results = {}
 
     for days in day_ranges:
-        # Mốc thời gian bắt đầu tính reward = current_date - days
-        start_period = current_date - timedelta(days=days)
+        # 2. Xác định ngày bắt đầu tính reward, không vượt quá campaign_start_date
+        raw_start_period = current_date - timedelta(days=days)
+        start_period = max(raw_start_period, campaign_start_date)
+
+        # Tính số ngày thực tế
+        effective_days = (current_date - start_period).days
+        if effective_days <= 0:
+            # Nếu chưa có ngày nào để tính reward
+            apy_results[days] = 0.0
+            continue
 
         # Tổng reward kiếm được trong giai đoạn (start_period -> current_date)
         total_earned_in_period = 0.0
@@ -245,13 +256,13 @@ def calculate_reward_apy(
             # Nếu có overlap (khoảng thời gian giao nhau dương)
             if overlap_end > overlap_start:
                 # Tính phần trăm thời gian overlap trong 7 ngày của tuần này
-                total_week_days = (week_end - week_start).days  # thường = 7
-                overlap_days = (overlap_end - overlap_start).days
+                # total_week_days = (week_end - week_start).days  # thường = 7
+                # overlap_days = (overlap_end - overlap_start).days
 
                 # Tránh trường hợp do chênh lệch giờ, .days có thể chưa đủ chính xác
                 # ta có thể dùng total_seconds() / (24*3600) thay thế nếu muốn chính xác tuyệt đối
-                # overlap_days = (overlap_end - overlap_start).total_seconds() / 86400.0
-                # total_week_days = (week_end - week_start).total_seconds() / 86400.0
+                overlap_days = (overlap_end - overlap_start).total_seconds() / 86400.0
+                total_week_days = (week_end - week_start).total_seconds() / 86400.0
 
                 # Fraction of reward tương ứng với số ngày overlap
                 fraction_of_week = overlap_days / total_week_days
@@ -260,9 +271,9 @@ def calculate_reward_apy(
                 earned_reward_this_week = fraction_of_week * reward_for_this_week
                 total_earned_in_period += earned_reward_this_week
 
-        # Tính APY dựa vào lãi trong `days` ngày
-        if total_tvl > 0:
-            apy = (total_earned_in_period / total_tvl) * (365 / days) * 100
+        # 4. Annualize dựa trên effective_days (thay vì days)
+        if total_tvl > 0 and effective_days > 0:
+            apy = (total_earned_in_period / total_tvl) * (365 / effective_days) * 100
         else:
             apy = 0.0
 
@@ -359,7 +370,7 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago
     days_15 = min(time_diff.days, 15) if time_diff.days > 0 else time_diff.hours / 24
-    apy_15d = calculate_roi(
+    base_apy_15d = calculate_roi(
         current_price_per_share,
         price_per_share_15_days_ago.price_per_share,
         days=days_15,
@@ -374,7 +385,7 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago
     days_45 = min(time_diff.days, 45) if time_diff.days > 0 else time_diff.hours / 24
-    apy_45d = calculate_roi(
+    base_apy_45d = calculate_roi(
         current_price_per_share,
         price_per_share_45_days_ago.price_per_share,
         days=days_45,
@@ -392,8 +403,8 @@ def calculate_performance(
     # Add reward APY to base APY
     apy_1m = monthly_apy * 100 + monthly_reward_apy
     apy_1w = weekly_apy * 100 + weekly_reward_apy
-    apy_15d = apy_15d * 100 + apy_reward_15day
-    apy_45d = apy_45d * 100 + apy_reward_45day
+    apy_15d = base_apy_15d * 100 + apy_reward_15day
+    apy_45d = base_apy_45d * 100 + apy_reward_45day
     apy_ytd = apy_ytd * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
@@ -432,6 +443,10 @@ def calculate_performance(
         fee_structure=fee_info,
         apy_15d=apy_15d,
         apy_45d=apy_45d,
+        base_15d_apy=base_apy_15d,
+        base_45d_apy=base_apy_45d,
+        reward_15d_apy=apy_reward_15day,
+        reward_45d_apy=apy_reward_45day,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
@@ -462,7 +477,6 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
-            # .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
             .where(not_(Vault.tags.contains("ended")))
         ).all()
