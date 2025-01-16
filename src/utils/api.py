@@ -1,3 +1,4 @@
+from typing import Optional
 from core import constants
 from datetime import datetime, timezone
 import uuid
@@ -112,18 +113,30 @@ def create_referral(session, referrer_id, referee_id, referral_code_id):
     session.add(new_referral)
 
 
-def get_user_agreement(session, wallet_address: str, type: str):
-    statement = (
-        select(UserAgreement)
-        .where(UserAgreement.wallet_address == wallet_address)
-        .where(UserAgreement.type == type)
+def get_user_agreement(
+    session,
+    wallet_address: str,
+    type: str,
+    vault_id: Optional[uuid.UUID] = None,
+):
+    statement = select(UserAgreement).where(
+        UserAgreement.wallet_address == wallet_address,
+        UserAgreement.type == type,
     )
-    user_agreement = session.exec(statement).first()
-    return user_agreement
+
+    if vault_id is not None:
+        statement = statement.where(UserAgreement.vault_id == vault_id)
+
+    return session.exec(statement).first()
 
 
 def create_user_agreement(
-    session, wallet_address: str, signature: str, message: str, type: str
+    session,
+    wallet_address: str,
+    signature: str,
+    message: str,
+    type: str,
+    vault_id: Optional[uuid.UUID] = None,
 ):
     user_agreement = UserAgreement(
         wallet_address=wallet_address,
@@ -131,6 +144,7 @@ def create_user_agreement(
         signature=signature,
         message=message,
         created_at=datetime.now(tz=timezone.utc),
+        vault_id=vault_id,
     )
     session.add(user_agreement)
     session.commit()

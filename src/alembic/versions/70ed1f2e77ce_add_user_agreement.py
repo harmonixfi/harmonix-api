@@ -1,8 +1,8 @@
 """add_user_agreement
 
-Revision ID: dbe0c281ee8a
+Revision ID: 70ed1f2e77ce
 Revises: 03b933b5766c
-Create Date: 2025-01-16 16:13:21.232362
+Create Date: 2025-01-16 17:06:08.494731
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = "dbe0c281ee8a"
+revision: str = "70ed1f2e77ce"
 down_revision: Union[str, None] = "03b933b5766c"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -29,6 +29,7 @@ def upgrade() -> None:
         sa.Column("message", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("signature", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("type", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("vault_id", sqlmodel.sql.sqltypes.GUID(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )

@@ -1,3 +1,5 @@
+from typing import Optional
+import uuid
 from sqlmodel import SQLModel, Field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
@@ -10,4 +12,5 @@ class UserAgreement(SQLModel, table=True):
     message: str = Field(nullable=False)
     signature: str = Field(nullable=False)
     type: str = Field(nullable=False)
+    vault_id: Optional[uuid.UUID] | None
     created_at: datetime = Field(default=datetime.now(timezone.utc))

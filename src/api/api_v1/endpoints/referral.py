@@ -1,4 +1,5 @@
 from typing import List
+import uuid
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import or_
 from sqlmodel import select
@@ -156,7 +157,7 @@ async def get_points(session: SessionDep, wallet_address: str):
 
 
 @router.post("/users/sign/term-of-services")
-async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreement):
+async def sign_terms_of_service(session: SessionDep, input: schemas.BaseUserAgreement):
     wallet_address = input.wallet_address.lower()
     if not is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=400, detail="Invalid wallet address")
@@ -193,9 +194,7 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
     if not is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=400, detail="Invalid wallet address")
     user_agreement = get_user_agreement(
-        session,
-        wallet_address,
-        constants.UserAgreementType.RISK.value,
+        session, wallet_address, constants.UserAgreementType.RISK.value, input.vault_id
     )
     if user_agreement:
         raise HTTPException(
@@ -208,6 +207,7 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
         input.signature,
         input.message,
         constants.UserAgreementType.RISK.value,
+        vault_id=input.vault_id,
     )
 
     message = (
@@ -234,14 +234,16 @@ async def get_user_term_of_service_status(session: SessionDep, wallet_address: s
 
 
 @router.get("/users/{wallet_address}/sign/risk-agreement/status")
-async def get_user_term_of_service_status(session: SessionDep, wallet_address: str):
+async def get_user_term_of_service_status(
+    session: SessionDep,
+    wallet_address: str,
+    vault_id: uuid.UUID,
+):
     wallet_address = wallet_address.lower()
     if not is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=400, detail="Invalid wallet address")
     user_agreement = get_user_agreement(
-        session,
-        wallet_address,
-        constants.UserAgreementType.RISK.value,
+        session, wallet_address, constants.UserAgreementType.RISK.value, vault_id
     )
     return {
         "is_signed": user_agreement is not None,
