@@ -166,7 +166,9 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
         constants.UserAgreementType.TERM.value,
     )
     if user_agreement:
-        raise HTTPException(status_code=400, detail="User agreement already exists")
+        raise HTTPException(
+            status_code=400, detail="You have already signed the terms of service"
+        )
 
     result = create_user_agreement(
         session,
@@ -195,7 +197,9 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
         constants.UserAgreementType.RISK.value,
     )
     if user_agreement:
-        raise HTTPException(status_code=400, detail="User agreement already exists")
+        raise HTTPException(
+            status_code=400, detail="You have already signed the risk agreement"
+        )
 
     result = create_user_agreement(
         session,
