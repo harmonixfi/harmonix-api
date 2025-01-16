@@ -3,8 +3,11 @@ import logging
 import traceback
 import uuid
 import pandas as pd
-from sqlalchemy import func
+import pendulum
+from sqlalchemy import and_, func
 from sqlmodel import Session, select
+from bg_tasks.update_delta_neutral_vault_performance_daily import calculate_reward_apy
+from core import constants
 from core.db import engine
 from log import setup_logging_to_console, setup_logging_to_file
 from models import Vault
@@ -53,18 +56,34 @@ def update_apy(vault: Vault, datetime: datetime, apy_15d: float, apy_45d: float)
 
 
 def get_apy_history(vault: Vault) -> pd.DataFrame:
-    # Get the latest pps from pps_history table
-    pps_history = session.exec(
-        select(PricePerShareHistory)
+    # Get the price per share and total locked value history by joining tables
+    combined_history = session.exec(
+        select(
+            PricePerShareHistory.datetime,
+            PricePerShareHistory.price_per_share,
+            VaultPerformance.total_locked_value,
+        )
+        .join(
+            VaultPerformance,
+            (PricePerShareHistory.vault_id == VaultPerformance.vault_id)
+            & (
+                func.date(PricePerShareHistory.datetime)
+                == func.date(VaultPerformance.datetime)
+            ),
+        )
         .where(PricePerShareHistory.vault_id == vault.id)
-        .order_by(PricePerShareHistory.datetime.desc())
+        .order_by(PricePerShareHistory.datetime.asc())
     ).all()
 
     # Convert query results into a DataFrame
     df = pd.DataFrame(
         [
-            {"datetime": item.datetime, "price_per_share": item.price_per_share}
-            for item in pps_history
+            {
+                "datetime": item.datetime,
+                "price_per_share": item.price_per_share,
+                "total_locked_value": item.total_locked_value,
+            }
+            for item in combined_history
         ]
     )
 
@@ -117,6 +136,41 @@ def get_apy_history(vault: Vault) -> pd.DataFrame:
         # Add the results to df_daily
         df_daily[col_name] = apys
 
+    # Add reward APY if this is the Pendle RSeth vault
+    if vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG:
+        # Create columns for reward APYs
+        reward_columns = {
+            7: "reward_weekly_apy",
+            15: "reward_15d_apy",
+            30: "reward_monthly_apy",
+            45: "reward_45d_apy",
+        }
+
+        for current_date in df_daily.index:
+            # Get TVL for the date
+            tvl = (
+                df_daily.loc[current_date, "total_locked_value"]
+                if "total_locked_value" in df_daily.columns
+                else 0
+            )
+
+            # Calculate reward APYs for this date
+            weekly_apy, monthly_apy, apy_15d, apy_45d = calculate_reward_apy(
+                vault_id=vault.id,
+                total_tvl=tvl,
+                current_date=pendulum.instance(current_date),
+            )
+
+            # Add reward APYs to DataFrame
+            df_daily.loc[current_date, reward_columns[7]] = weekly_apy
+            df_daily.loc[current_date, reward_columns[15]] = apy_15d
+            df_daily.loc[current_date, reward_columns[30]] = monthly_apy
+            df_daily.loc[current_date, reward_columns[45]] = apy_45d
+
+            # Add reward APYs to base APYs
+            df_daily.loc[current_date, "apy_15d"] += apy_15d
+            df_daily.loc[current_date, "apy_45d"] += apy_45d
+
     apy_columns = ["apy_15d", "apy_45d"]
     df_daily[apy_columns] = df_daily[apy_columns].ffill()
 
@@ -137,7 +191,15 @@ def main():
             "Starting the process to sync_apy_vault_performance_history for vaults..."
         )
         # Get the vaults from the Vault table
-        vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        # vaults = session.exec(select(Vault).where(Vault.is_active == True)).all()
+        vaults = session.exec(
+            select(Vault).where(
+                and_(
+                    Vault.is_active == True,
+                    Vault.slug == constants.PENDLE_RSETH_26JUN25_SLUG,
+                )
+            )
+        ).all()
         date_now = datetime.now().date()
 
         for vault in vaults:

@@ -194,12 +194,14 @@ def calculate_reward_apy(
     vault_id: uuid.UUID,
     total_tvl: float,
     day_ranges: List[int] = [7, 15, 30, 45],
+    current_date: pendulum.DateTime | None = None
 ) -> Tuple[float, float, float, float]:
     """Calculate weekly and monthly reward APY based on distribution config."""
     if total_tvl <= 0:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0, 0
 
-    current_date = pendulum.now(tz=pendulum.UTC)
+    if current_date is None:
+        current_date = pendulum.now(tz=pendulum.UTC)
 
     # Get all reward distributions
     reward_configs = session.exec(
@@ -209,7 +211,7 @@ def calculate_reward_apy(
     ).all()
 
     if not reward_configs:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0, 0
 
     token_name = reward_configs[0].reward_token.replace("$", "")
     hype_price = get_hl_price(token_name)  # Get current HYPE token price
