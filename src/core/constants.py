@@ -194,3 +194,8 @@ class UpdateFrequency(str, Enum):
 
 class AppConfigKey(str, Enum):
     APY_PERIOD = "apy_period"
+
+
+class UserAgreementType(str, Enum):
+    TERM = "TERM"
+    RISK = "RISK"

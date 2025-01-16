@@ -10,10 +10,13 @@ import secrets
 import string
 from eth_utils import is_address, to_checksum_address
 
+from models.user_agreement import UserAgreement
+
+
 def is_valid_wallet_address(wallet_address):
-        if not is_address(wallet_address):
-                return False
-        return to_checksum_address(wallet_address)
+    if not is_address(wallet_address):
+        return False
+    return to_checksum_address(wallet_address)
 
 
 def generate_referral_code(length=8):
@@ -31,6 +34,7 @@ def get_user_by_wallet_address(session, wallet_address):
     user = session.exec(statement).first()
     return user
 
+
 def create_user(user_address, session):
     if get_user_by_wallet_address(session, user_address):
         return False
@@ -39,7 +43,7 @@ def create_user(user_address, session):
     session.add(user)
     create_referral_code(session, user)
     create_reward(session, user.user_id, constants.REWARD_DEFAULT_PERCENTAGE)
-    
+
     session.commit()
     return True
 
@@ -47,14 +51,14 @@ def create_user(user_address, session):
 def create_user_with_referral(user_address, referral_code, session):
     if not referral_code:
         return create_user(user_address, session)
-    
+
     if get_user_by_wallet_address(session, user_address):
         return False
 
     referral = get_referral_by_code(session, referral_code)
     if not referral or referral.usage_limit <= 0:
         return False
-    
+
     referral.usage_limit -= 1
 
     user = User(user_id=uuid.uuid4(), wallet_address=user_address)
@@ -87,8 +91,8 @@ def create_referral_code(session, user):
         return
 
     session.add(new_referral_code)
-    
-    
+
+
 def create_reward(session, user_id, reward_percentage):
     new_reward = Reward(
         user_id=user_id,
@@ -106,3 +110,28 @@ def create_referral(session, referrer_id, referee_id, referral_code_id):
         referral_code_id=referral_code_id,
     )
     session.add(new_referral)
+
+
+def get_user_agreement(session, wallet_address: str, type: str):
+    statement = (
+        select(UserAgreement)
+        .where(UserAgreement.wallet_address == wallet_address)
+        .where(UserAgreement.type == type)
+    )
+    user_agreement = session.exec(statement).first()
+    return user_agreement
+
+
+def create_user_agreement(
+    session, wallet_address: str, signature: str, message: str, type: str
+):
+    user_agreement = UserAgreement(
+        wallet_address=wallet_address,
+        type=type,
+        signature=signature,
+        message=message,
+        created_at=datetime.now(tz=timezone.utc),
+    )
+    session.add(user_agreement)
+    session.commit()
+    return True
