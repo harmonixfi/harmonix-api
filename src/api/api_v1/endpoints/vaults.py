@@ -410,6 +410,7 @@ async def get_vault_performance(
     pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
     pps_history_df.ffill(inplace=True)
+    pps_history_df.dropna(subset=["date", "apy"], inplace=True)
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "apy"]].to_dict(orient="list")
