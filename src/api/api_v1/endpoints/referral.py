@@ -179,10 +179,11 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
     )
 
     message = (
-        "User agreement signed successfully"
+        "Successfully signed the terms of service"
         if result
-        else "Failed to sign user agreement"
+        else "Could not sign the terms of service"
     )
+
     return {"is_signed": result, "detail": message}
 
 
@@ -210,9 +211,9 @@ async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreemen
     )
 
     message = (
-        "User agreement signed successfully"
+        "Successfully signed the risk agreement"
         if result
-        else "Failed to sign user agreement"
+        else "Could not sign the risk agreement"
     )
     return {"is_signed": result, "detail": message}
 
