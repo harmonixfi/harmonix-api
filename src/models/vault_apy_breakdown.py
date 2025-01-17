@@ -22,6 +22,7 @@ class VaultAPYComponent(sqlmodel.SQLModel, table=True):
     vault_apy_breakdown: "VaultAPYBreakdown" = sqlmodel.Relationship(
         back_populates="apy_components"
     )
+    period: int | None = None
 
 
 class VaultAPYBreakdown(sqlmodel.SQLModel, table=True):
@@ -39,3 +40,4 @@ class VaultAPYBreakdown(sqlmodel.SQLModel, table=True):
     apy_components: List[VaultAPYComponent] = sqlmodel.Relationship(
         back_populates="vault_apy_breakdown"
     )
+    period: int | None = None

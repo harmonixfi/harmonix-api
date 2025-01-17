@@ -1,5 +1,5 @@
 import logging
-from typing import Tuple
+from typing import List, Tuple
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -191,13 +191,17 @@ def calculate_reward_distribution_progress(
 
 
 def calculate_reward_apy(
-    vault_id: uuid.UUID, total_tvl: float
+    vault_id: uuid.UUID,
+    total_tvl: float,
+    day_ranges: List[int] = [7, 15, 30, 45],
+    current_date: pendulum.DateTime | None = None
 ) -> Tuple[float, float, float, float]:
     """Calculate weekly and monthly reward APY based on distribution config."""
     if total_tvl <= 0:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0, 0
 
-    now = pendulum.now(tz=pendulum.UTC)
+    if current_date is None:
+        current_date = pendulum.now(tz=pendulum.UTC)
 
     # Get all reward distributions
     reward_configs = session.exec(
@@ -207,131 +211,75 @@ def calculate_reward_apy(
     ).all()
 
     if not reward_configs:
-        return 0.0, 0.0
+        return 0.0, 0.0, 0, 0
 
     token_name = reward_configs[0].reward_token.replace("$", "")
     hype_price = get_hl_price(token_name)  # Get current HYPE token price
 
-    total_weekly_reward_usd = 0
-    total_monthly_reward_usd = 0
-    total_15day_reward_usd = 0
-    total_45day_reward_usd = 0
-    progress = 0
+    # 1. Tìm ngày bắt đầu thật sự sớm nhất của campaign
+    campaign_start_date = min(cfg.start_date for cfg in reward_configs)
 
-    for config in reward_configs:
-        if not all([config.total_reward, config.distribution_percentage]):
+    # Kết quả lưu APY cho mỗi day_range
+    apy_results = {}
+
+    for days in day_ranges:
+        # 2. Xác định ngày bắt đầu tính reward, không vượt quá campaign_start_date
+        raw_start_period = current_date - timedelta(days=days)
+        start_period = max(raw_start_period, campaign_start_date)
+
+        # Tính số ngày thực tế
+        effective_days = (current_date - start_period).days
+        if effective_days <= 0:
+            # Nếu chưa có ngày nào để tính reward
+            apy_results[days] = 0.0
             continue
 
-        week_start = pendulum.instance(config.start_date)
-        week_end = week_start.add(weeks=1)
+        # Tổng reward kiếm được trong giai đoạn (start_period -> current_date)
+        total_earned_in_period = 0.0
 
-        # Skip future distributions
-        if now < week_start:
-            continue
+        for config in reward_configs:
+            # Mỗi tuần được định nghĩa bắt đầu tại config.start_date
+            week_start = config.start_date
+            # Giả sử 1 tuần reward = 7 ngày
+            week_end = week_start + timedelta(days=7)
 
-        # Calculate weekly reward in HYPE tokens
-        weekly_reward_tokens = config.total_reward * config.distribution_percentage
+            # Reward của tuần = total_reward * distribution_percentage (VD: 100 * 0.35 = 35)
+            reward_for_this_week = (config.total_reward or 0.0) * (
+                config.distribution_percentage or 0.0
+            )
+            reward_for_this_week *= hype_price
 
-        # Convert to USD
-        weekly_reward_usd = weekly_reward_tokens * hype_price
+            # Tính overlap giữa khoảng [start_period, current_date] và [week_start, week_end]
+            overlap_start = max(start_period, week_start)
+            overlap_end = min(current_date, week_end)
 
-        # For completed weeks, add full amount
-        if now >= week_end:
-            total_weekly_reward_usd += weekly_reward_usd
-            total_monthly_reward_usd += weekly_reward_usd
-            continue
+            # Nếu có overlap (khoảng thời gian giao nhau dương)
+            if overlap_end > overlap_start:
+                # Tính phần trăm thời gian overlap trong 7 ngày của tuần này
+                # total_week_days = (week_end - week_start).days  # thường = 7
+                # overlap_days = (overlap_end - overlap_start).days
 
-        # For current week, calculate partial distribution
-        progress = calculate_reward_distribution_progress(week_start, now)
-        current_week_reward_usd = weekly_reward_usd * progress
+                # Tránh trường hợp do chênh lệch giờ, .days có thể chưa đủ chính xác
+                # ta có thể dùng total_seconds() / (24*3600) thay thế nếu muốn chính xác tuyệt đối
+                overlap_days = (overlap_end - overlap_start).total_seconds() / 86400.0
+                total_week_days = (week_end - week_start).total_seconds() / 86400.0
 
-        # Add to totals
-        total_weekly_reward_usd = (
-            current_week_reward_usd  # Only current week for weekly APY
-        )
-        total_monthly_reward_usd += current_week_reward_usd  # Add to monthly total
+                # Fraction of reward tương ứng với số ngày overlap
+                fraction_of_week = overlap_days / total_week_days
 
-        # For monthly APY, include completed weeks from last 30 days
-        thirty_days_ago = now.subtract(days=30)
-        if week_start >= thirty_days_ago and now >= week_end:
-            total_monthly_reward_usd += weekly_reward_usd
+                # Reward thực nhận cho phần overlap
+                earned_reward_this_week = fraction_of_week * reward_for_this_week
+                total_earned_in_period += earned_reward_this_week
 
-        # For 15-day and 45-day APYs, include completed distributions from the respective periods
-        fifteen_days_ago = now.subtract(days=15)
-        forty_five_days_ago = now.subtract(days=45)
-        total_15day_reward_usd += current_week_reward_usd
-        if week_start >= fifteen_days_ago and now >= week_end:
-            total_15day_reward_usd += weekly_reward_usd
+        # 4. Annualize dựa trên effective_days (thay vì days)
+        if total_tvl > 0 and effective_days > 0:
+            apy = (total_earned_in_period / total_tvl) * (365 / effective_days) * 100
+        else:
+            apy = 0.0
 
-        total_45day_reward_usd += current_week_reward_usd
-        if week_start >= forty_five_days_ago and now >= week_end:
-            total_45day_reward_usd += weekly_reward_usd
+        apy_results[days] = apy
 
-    # Projected total weekly reward based on progress
-    projected_weekly_reward_usd = (
-        total_weekly_reward_usd / progress if progress > 0 else 0
-    )
-
-    # Calculate the number of days from the start of the campaign
-    campaign_start_date = min(config.start_date for config in reward_configs)
-    days_since_campaign_start = (now - pendulum.instance(campaign_start_date)).days
-
-    # Determine the number of days to use for monthly projection
-    if days_since_campaign_start < 30:
-        days_to_use = days_since_campaign_start if days_since_campaign_start > 0 else 1
-    else:
-        # If more than 30 days have passed, use the start of the month
-        days_to_use = now.day - 1  # Days in the current month
-
-    # Determine the number of days to use for 15 days projection
-    if days_since_campaign_start < 15:
-        fifteen_days_to_use = (
-            days_since_campaign_start if days_since_campaign_start > 0 else 1
-        )
-    else:
-        # If more than 15 days have passed, use the start of the month
-        fifteen_days_to_use = now.day - 1  # Days in the current month
-
-    # Determine the number of days to use for 45 days projection
-    if days_since_campaign_start < 45:
-        forty_five_days_to_use = (
-            days_since_campaign_start if days_since_campaign_start > 0 else 1
-        )
-    else:
-        # If more than 45 days have passed, use the start of the month
-        forty_five_days_to_use = now.day - 1  # Days in the current month
-
-    # Projected total monthly reward based on the determined days
-    projected_monthly_reward_usd = (
-        total_monthly_reward_usd / days_to_use * 30 if days_to_use > 0 else 0
-    )
-
-    # Projected total 15days reward based on the determined days
-    projected_15day_reward_usd = (
-        total_15day_reward_usd / fifteen_days_to_use * 15
-        if fifteen_days_to_use > 0
-        else 0
-    )
-    # Projected total 45days reward based on the determined days
-    projected_45day_reward_usd = (
-        total_45day_reward_usd / forty_five_days_to_use * 45
-        if fifteen_days_to_use > 0
-        else 0
-    )
-    # Calculate APYs
-    # Weekly APY = (projected weekly reward / TVL) * 52 weeks * 100%
-    weekly_apy = (projected_weekly_reward_usd / total_tvl) * 52 * 100
-
-    # Monthly APY = (projected monthly reward / TVL) * 12 months * 100%
-    monthly_apy = (projected_monthly_reward_usd / total_tvl) * 12 * 100
-
-    # 15-day APY
-    apy_15day = (projected_15day_reward_usd / total_tvl) * (365 / 15) * 100
-
-    # 45-day APY
-    apy_45day = (projected_45day_reward_usd / total_tvl) * (365 / 45) * 100
-
-    return weekly_apy, monthly_apy, apy_15day, apy_45day
+    return apy_results[7], apy_results[30], apy_results[15], apy_results[45]
 
 
 # Step 4: Calculate Performance Metrics
@@ -422,7 +370,7 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago
     days_15 = min(time_diff.days, 15) if time_diff.days > 0 else time_diff.hours / 24
-    apy_15d = calculate_roi(
+    base_apy_15d = calculate_roi(
         current_price_per_share,
         price_per_share_15_days_ago.price_per_share,
         days=days_15,
@@ -437,7 +385,7 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago
     days_45 = min(time_diff.days, 45) if time_diff.days > 0 else time_diff.hours / 24
-    apy_45d = calculate_roi(
+    base_apy_45d = calculate_roi(
         current_price_per_share,
         price_per_share_45_days_ago.price_per_share,
         days=days_45,
@@ -455,8 +403,8 @@ def calculate_performance(
     # Add reward APY to base APY
     apy_1m = monthly_apy * 100 + monthly_reward_apy
     apy_1w = weekly_apy * 100 + weekly_reward_apy
-    apy_15d = apy_15d * 100 + apy_reward_15day
-    apy_45d = apy_45d * 100 + apy_reward_45day
+    apy_15d = base_apy_15d * 100 + apy_reward_15day
+    apy_45d = base_apy_45d * 100 + apy_reward_45day
     apy_ytd = apy_ytd * 100
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
@@ -495,6 +443,10 @@ def calculate_performance(
         fee_structure=fee_info,
         apy_15d=apy_15d,
         apy_45d=apy_45d,
+        base_15d_apy=base_apy_15d,
+        base_45d_apy=base_apy_45d,
+        reward_15d_apy=apy_reward_15day,
+        reward_45d_apy=apy_reward_45day,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
@@ -525,7 +477,6 @@ def main(chain: str):
             )
             .where(Vault.is_active == True)
             .where(Vault.network_chain == network_chain)
-            # .where(Vault.slug != constants.HYPE_DELTA_NEUTRAL_SLUG)
             .where(Vault.category != VaultCategory.real_yield_v2)
             .where(not_(Vault.tags.contains("ended")))
         ).all()

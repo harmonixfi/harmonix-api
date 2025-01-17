@@ -177,14 +177,25 @@ def calculate_performance(
     owner_address: str,
     update_freq: str = "daily",
 ):
+    logger.info("Starting performance calculation for vault: %s", vault.name)
     current_price = get_price("ETHUSDT")
+    logger.info("Current ETH price: $%.2f", current_price)
 
     today = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S")
 
     current_price_per_share = get_current_pps(vault_contract)
     total_balance = get_current_tvl(vault_contract)
+    logger.info(
+        "Current PPS: %.6f, Total TVL: %.2f", current_price_per_share, total_balance
+    )
+
     fee_info = get_fee_info()
     vault_state = get_vault_state(vault_contract, owner_address=owner_address)
+    logger.info(
+        "Vault state - Total shares: %.2f, Fee pool: %.2f",
+        vault_state.total_shares,
+        vault_state.total_fee_pool_amount,
+    )
 
     weekly_reward_apy = 0
     monthly_reward_apy = 0
@@ -195,9 +206,11 @@ def calculate_performance(
             calculate_reward_apy(vault.id, total_balance)
         )
         logger.info(
-            "Reward APY calculated - Weekly: %.2f%%, Monthly: %.2f%%",
+            "Reward APY calculated - Weekly: %.2f%%, Monthly: %.2f%%, 15d: %.2f%%, 45d: %.2f%%",
             weekly_reward_apy,
             monthly_reward_apy,
+            apy_reward_15day,
+            apy_reward_45day,
         )
 
     # Calculate Monthly APY
@@ -211,14 +224,11 @@ def calculate_performance(
     monthly_apy = calculate_roi(
         current_price_per_share, month_ago_price_per_share.price_per_share, days=days
     )
-
-    pendle_data = pendle_service.get_market(
-        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+    logger.info(
+        "Base Monthly APY (before Pendle): %.2f%% (over %.2f days)",
+        monthly_apy * 100,
+        days,
     )
-    if pendle_data:
-        pendle_market_data = pendle_data[0]
-    if pendle_market_data:
-        monthly_apy += pendle_market_data.implied_apy / 2
 
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
@@ -229,8 +239,10 @@ def calculate_performance(
     weekly_apy = calculate_roi(
         current_price_per_share, week_ago_price_per_share.price_per_share, days=days
     )
+    logger.info("Weekly APY: %.2f%% (over %.2f days)", weekly_apy * 100, days)
 
     apy_ytd = calculate_apy_ytd(vault.id, current_price_per_share)
+    logger.info("YTD APY: %.2f%%", apy_ytd * 100)
 
     # apy 15days
     price_per_share_15_days_ago = get_before_price_per_shares(
@@ -241,11 +253,18 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_15_days_ago
     days_15 = min(time_diff.days, 15) if time_diff.days > 0 else time_diff.hours / 24
-    apy_15d = calculate_roi(
+    logger.info(
+        "15-day APY calculation details - Previous PPS: %.6f, Previous datetime: %s, Time diff: %s days",
+        price_per_share_15_days_ago.price_per_share,
+        datetime_15_days_ago,
+        days_15,
+    )
+    base_apy_15d = calculate_roi(
         current_price_per_share,
         price_per_share_15_days_ago.price_per_share,
         days=days_15,
     )
+    logger.info("15-day APY: %.2f%% (over %.2f days)", base_apy_15d * 100, base_apy_15d)
 
     # apy 45days
     price_per_share_45_days_ago = get_before_price_per_shares(
@@ -256,11 +275,30 @@ def calculate_performance(
     ).in_tz(pendulum.UTC)
     time_diff = pendulum.now(tz=pendulum.UTC) - datetime_45_days_ago
     days_45 = min(time_diff.days, 45) if time_diff.days > 0 else time_diff.hours / 24
-    apy_45d = calculate_roi(
+    logger.info(
+        "45-day APY calculation details - Previous PPS: %.6f, Previous datetime: %s, Time diff: %s days",
+        price_per_share_45_days_ago.price_per_share,
+        datetime_45_days_ago,
+        days_45,
+    )
+    base_apy_45d = calculate_roi(
         current_price_per_share,
         price_per_share_45_days_ago.price_per_share,
         days=days_45,
     )
+    logger.info("45-day APY: %.2f%% (over %.2f days)", base_apy_45d * 100, days_45)
+
+    pendle_data = pendle_service.get_market(
+        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+    )
+    if pendle_data:
+        pendle_market_data = pendle_data[0]
+    if pendle_market_data:
+        fixed_yield = pendle_market_data.implied_apy / 2
+        monthly_apy += fixed_yield
+        weekly_apy += fixed_yield
+        base_apy_15d += fixed_yield
+        base_apy_45d += fixed_yield
 
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
@@ -268,16 +306,52 @@ def calculate_performance(
 
     benchmark = current_price
     benchmark_percentage = ((benchmark / performance_history.benchmark) - 1) * 100
+    logger.info("Benchmark change: %.2f%%", benchmark_percentage)
+
     # Add reward APY to base APY
     apy_1m = monthly_apy * 100 + monthly_reward_apy
     apy_1w = weekly_apy * 100 + weekly_reward_apy
-    apy_15d = apy_15d * 100 + apy_reward_15day
-    apy_45d = apy_45d * 100 + apy_reward_45day
+    apy_15d = base_apy_15d * 100 + apy_reward_15day
+    apy_45d = base_apy_45d * 100 + apy_reward_45day
     apy_ytd = apy_ytd * 100
+
+    logger.info("Final APY values (including rewards):")
+    logger.info(
+        "1 Month: %.2f%% (Base: %.2f%% + Reward: %.2f%%)",
+        apy_1m,
+        monthly_apy * 100,
+        monthly_reward_apy,
+    )
+    logger.info(
+        "1 Week: %.2f%% (Base: %.2f%% + Reward: %.2f%%)",
+        apy_1w,
+        weekly_apy * 100,
+        weekly_reward_apy,
+    )
+    logger.info(
+        "15 Days: %.2f%% (Base: %.2f%% + Reward: %.2f%%)",
+        apy_15d,
+        apy_15d - apy_reward_15day,
+        apy_reward_15day,
+    )
+    logger.info(
+        "45 Days: %.2f%% (Base: %.2f%% + Reward: %.2f%%)",
+        apy_45d,
+        apy_45d - apy_reward_45day,
+        apy_reward_45day,
+    )
+    logger.info("YTD: %.2f%%", apy_ytd)
 
     all_time_high_per_share, sortino, downside, risk_factor = calculate_pps_statistics(
         session, vault.id
     )
+    logger.info(
+        "Risk metrics - Sortino: %.2f, Downside: %.2f, Risk Factor: %.2f",
+        sortino,
+        downside,
+        risk_factor,
+    )
+    logger.info("All-time high PPS: %.6f", all_time_high_per_share)
 
     # count all portfolio of vault
     statement = (
@@ -286,6 +360,7 @@ def calculate_performance(
         .where(UserPortfolio.vault_id == vault.id)
     )
     count = session.scalar(statement)
+    logger.info("Number of unique depositors: %d", count)
 
     # Create a new VaultPerformance object
     performance = VaultPerformance(
@@ -294,11 +369,9 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
-        base_monthly_apy=monthly_apy * 100,
-        reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
-        base_weekly_apy=weekly_apy * 100,
-        reward_weekly_apy=weekly_reward_apy,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
         risk_factor=risk_factor,
@@ -309,11 +382,18 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
-        apy_15d=apy_15d,
-        apy_45d=apy_45d,
+        base_monthly_apy=monthly_apy * 100,
+        base_weekly_apy=weekly_apy * 100,
+        base_15d_apy=base_apy_15d * 100,
+        base_45d_apy=base_apy_45d * 100,
+        reward_weekly_apy=weekly_reward_apy,
+        reward_monthly_apy=monthly_reward_apy,
+        reward_15d_apy=apy_reward_15day,
+        reward_45d_apy=apy_reward_45day,
     )
 
     update_price_per_share(vault.id, current_price_per_share)
+    logger.info("Performance calculation completed for vault: %s", vault.name)
 
     return performance
 
