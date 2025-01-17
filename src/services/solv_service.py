@@ -18,7 +18,7 @@ def nav_data_to_dataframe(nav_data):
 
 def fetch_nav_data():
     url = "https://sft-api.com/graphql"
-    payload = "{\"query\":\"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}\",\"variables\":{\"filter\":{\"navType\":\"Investment\",\"poolSlotInfoId\":40},\"pagination\":{},\"sort\":{\"field\":\"navDate\",\"direction\":\"ASC\"}}}"
+    payload = '{"query":"query NavsOpenFund($filter: NavOpenFundFilter, $pagination: Pagination, $sort: Sort) {\\n  navsOpenFund(filter: $filter, pagination: $pagination, sort: $sort) {\\n    poolSlotInfoId\\n    symbol\\n    allTimeHigh\\n    currencyDecimals\\n    serialData {\\n      nav\\n      navDate\\n      adjustedNav\\n      __typename\\n    }\\n    __typename\\n  }\\n}","variables":{"filter":{"navType":"Investment","poolSlotInfoId":40},"pagination":{},"sort":{"field":"navDate","direction":"ASC"}}}'
     headers = {
         "authority": "sft-api.com",
         "accept": "*/*",
@@ -69,6 +69,31 @@ def get_weekly_apy(df, column="nav"):
     ]
     days = (now - one_week_ago).days
     return calculate_roi(recent_nav, week_ago_nav, days)
+
+
+def calculate_periodic_apy(df, days, column="nav"):
+    """
+    Calculate APY for the specified number of days.
+
+    Parameters:
+        df (pd.DataFrame): DataFrame containing NAV data with a "navDate" column.
+        days (int): The number of days to calculate APY for (e.g., 15, 45).
+        column (str): The column name containing NAV values (default: "nav").
+
+    Returns:
+        float: The calculated APY for the given period.
+    """
+    now = pd.Timestamp.now(tz="UTC")
+    days_ago = now - pd.DateOffset(days=days)
+
+    # Get the most recent NAV
+    recent_nav = df[df["navDate"] <= now.strftime("%Y-%m-%d")].iloc[-1][column]
+
+    # Get NAV from the specified number of days ago
+    days_ago_nav = df[df["navDate"] <= days_ago.strftime("%Y-%m-%d")].iloc[-1][column]
+
+    # Calculate ROI
+    return calculate_roi(recent_nav, days_ago_nav, days)
 
 
 if __name__ == "__main__":

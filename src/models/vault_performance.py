@@ -11,6 +11,8 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     apy_1m: float
     apy_1w: float
     apy_ytd: float | None = None
+    apy_15d: float | None = None
+    apy_45d: float | None = None
     benchmark: float
     pct_benchmark: float
     risk_factor: float | None = None
@@ -24,8 +26,12 @@ class VaultPerformanceBase(sqlmodel.SQLModel):
     projected_apy: float | None = None
     base_weekly_apy: float | None = None
     base_monthly_apy: float | None = None
+    base_15d_apy: float | None = None
+    base_45d_apy: float | None = None
     reward_weekly_apy: float | None = None
     reward_monthly_apy: float | None = None
+    reward_15d_apy: float | None = None
+    reward_45d_apy: float | None = None
 
 
 class VaultPerformance(VaultPerformanceBase, table=True):

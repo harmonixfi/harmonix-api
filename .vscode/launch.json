@@ -45,6 +45,14 @@
             "cwd": "${workspaceFolder}/src"
         },
         {
+            "name": "Python: Update APY history",
+            "type": "debugpy",
+            "request": "launch",
+            "module": "bg_tasks.sync_apy_vault_performance_history",
+            "justMyCode": true,
+            "cwd": "${workspaceFolder}/src"
+        },
+        {
             "name": "Update Rethink ETH Vault Performance",
             "type": "debugpy",
             "request": "launch",

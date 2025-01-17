@@ -266,6 +266,8 @@ async def get_all_vaults(
                 "name": vault.vault_group.name if vault.vault_group else vault.name,
                 "tvl": schema_vault.tvl or 0,
                 "apy": schema_vault.apy or 0,
+                "apy_15d": schema_vault.apy_15d or 0,
+                "apy_45d": schema_vault.apy_45d or 0,
                 "default_vault_id": (
                     vault.vault_group.default_vault_id if vault.vault_group else None
                 ),
@@ -278,6 +280,8 @@ async def get_all_vaults(
             grouped_vaults[group_id]["tvl"] += vault.tvl or 0
             if vault.vault_group and vault.vault_group.default_vault_id == vault.id:
                 grouped_vaults[group_id]["apy"] = schema_vault.apy or 0
+                grouped_vaults[group_id]["apy_15d"] = schema_vault.apy_15d or 0
+                grouped_vaults[group_id]["apy_45d"] = schema_vault.apy_45d or 0
 
         # Aggregate points for each partner
         for point in schema_vault.points:
@@ -299,6 +303,8 @@ async def get_all_vaults(
             name=group["name"],
             tvl=group["tvl"],
             apy=group["apy"],
+            apy_15d=group["apy_15d"],
+            apy_45d=group["apy_45d"],
             vaults=group["vaults"],
             points=[
                 schemas.EarnedPoints(name=partner, point=points)
@@ -355,7 +361,9 @@ async def get_vault_info(session: SessionDep, vault_slug: str):
 
 
 @router.get("/{vault_slug}/performance")
-async def get_vault_performance(session: SessionDep, vault_slug: str):
+async def get_vault_performance(
+    session: SessionDep, vault_slug: str, apy_option: Optional[str] = None
+):
     # Get the VaultPerformance records for the given vault_id
     statement = select(Vault).where(Vault.slug == vault_slug)
     vault = session.exec(statement).first()
@@ -378,37 +386,35 @@ async def get_vault_performance(session: SessionDep, vault_slug: str):
 
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
-
-    if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
-
-    # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-    #     pps_history_df = pps_history_df[["date", "apy"]].copy()
-
-    #     # resample pps_history_df to daily frequency
-    #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-    #     pps_history_df.set_index("date", inplace=True)
-    #     pps_history_df = pps_history_df.resample("D").mean()
-    #     pps_history_df.ffill(inplace=True)
-
-    #     if (
-    #         len(pps_history_df) >= 7 * 2
-    #     ):  # we will make sure the normalized series enough to plot
-    #         # calculate ma 7 days pps_history_df['apy']
-    #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
-
-    elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df["apy_ytd"]
+    apy_mapping_dict = {"15D": "apy_15d", "45D": "apy_45d"}
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+        pps_history_df["apy"] = pps_history_df[
+            apy_mapping_dict.get(apy_option, "apy_ytd")
+        ]
     else:
-        pps_history_df["apy"] = pps_history_df["apy_1m"]
+        pps_history_df["apy"] = pps_history_df[
+            apy_mapping_dict.get(apy_option, "apy_1m")
+        ]
 
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
     # Filter for the last month
-    one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    # Resample to keep last value per day
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    pps_history_df.set_index("date", inplace=True)
+    pps_history_df = pps_history_df.resample("D").last()
+    pps_history_df.reset_index(inplace=True)
+
+    # Make one_month_ago timezone-naive to match DataFrame
+
+    current_date = min(
+        datetime.now(tz=timezone.utc).replace(tzinfo=None), pps_history_df["date"].max()
+    )
+    one_month_ago = current_date - timedelta(days=30)
     pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
-    pps_history_df.fillna(0, inplace=True)
+    pps_history_df.ffill(inplace=True)
+    pps_history_df.dropna(subset=["date", "apy"], inplace=True)
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "apy"]].to_dict(orient="list")
@@ -490,7 +496,9 @@ async def get_vault_performance_chart(session: SessionDep):
 
 
 @router.get("/apy-breakdown/{vault_id}")
-def get_apy_breakdown(session: SessionDep, vault_id: str):
+def get_apy_breakdown(
+    session: SessionDep, vault_id: str, apy_option: Optional[str] = None
+):
     statement = select(Vault).where(Vault.id == vault_id)
     vault = session.exec(statement).first()
     if vault is None:
@@ -499,7 +507,16 @@ def get_apy_breakdown(session: SessionDep, vault_id: str):
             detail="The data not found in the database.",
         )
 
-    statement = select(VaultAPYBreakdown).where(VaultAPYBreakdown.vault_id == vault_id)
+    apy_period_map = {
+        "15D": 15,
+        "45D": 45,
+    }
+    period = apy_period_map.get(apy_option, 30)
+    statement = (
+        select(VaultAPYBreakdown)
+        .where(VaultAPYBreakdown.vault_id == vault_id)
+        .where(VaultAPYBreakdown.period == period)
+    )
     vault_apy = session.exec(statement).first()
     if vault_apy is None:
         return {}

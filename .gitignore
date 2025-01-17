@@ -46,4 +46,4 @@ volume/cache
 *.xlsx
 src/notebooks/data/*.csv
 src/notebooks/*.csv
-src/notebooks/
+src/notebooks/*
