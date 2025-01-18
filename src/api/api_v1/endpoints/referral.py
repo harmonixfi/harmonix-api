@@ -1,4 +1,5 @@
 from typing import List
+import uuid
 from fastapi import APIRouter, HTTPException
 from sqlalchemy import or_
 from sqlmodel import select
@@ -14,7 +15,9 @@ import schemas
 from api.api_v1.deps import SessionDep
 from core import constants
 from utils.api import (
+    create_user_agreement,
     create_user_with_referral,
+    get_user_agreement,
     get_user_by_wallet_address,
     is_valid_wallet_address,
 )
@@ -151,3 +154,97 @@ async def get_points(session: SessionDep, wallet_address: str):
         )
         points.append(point)
     return points
+
+
+@router.post("/users/sign/term-of-services")
+async def sign_terms_of_service(session: SessionDep, input: schemas.BaseUserAgreement):
+    wallet_address = input.wallet_address.lower()
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
+    user_agreement = get_user_agreement(
+        session,
+        wallet_address,
+        constants.UserAgreementType.TERM.value,
+    )
+    if user_agreement:
+        raise HTTPException(
+            status_code=400, detail="You have already signed the terms of service"
+        )
+
+    result = create_user_agreement(
+        session,
+        wallet_address,
+        input.signature,
+        input.message,
+        constants.UserAgreementType.TERM.value,
+    )
+
+    message = (
+        "Successfully signed the terms of service"
+        if result
+        else "Could not sign the terms of service"
+    )
+
+    return {"is_signed": result, "detail": message}
+
+
+@router.post("/users/sign/risk-agreement")
+async def sign_terms_of_service(session: SessionDep, input: schemas.UserAgreement):
+    wallet_address = input.wallet_address.lower()
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
+    user_agreement = get_user_agreement(
+        session, wallet_address, constants.UserAgreementType.RISK.value, input.vault_id
+    )
+    if user_agreement:
+        raise HTTPException(
+            status_code=400, detail="You have already signed the risk agreement"
+        )
+
+    result = create_user_agreement(
+        session,
+        wallet_address,
+        input.signature,
+        input.message,
+        constants.UserAgreementType.RISK.value,
+        vault_id=input.vault_id,
+    )
+
+    message = (
+        "Successfully signed the risk agreement"
+        if result
+        else "Could not sign the risk agreement"
+    )
+    return {"is_signed": result, "detail": message}
+
+
+@router.get("/users/{wallet_address}/sign/term-of-services/status")
+async def get_user_term_of_service_status(session: SessionDep, wallet_address: str):
+    wallet_address = wallet_address.lower()
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
+    user_agreement = get_user_agreement(
+        session,
+        wallet_address,
+        constants.UserAgreementType.TERM.value,
+    )
+    return {
+        "is_signed": user_agreement is not None,
+    }
+
+
+@router.get("/users/{wallet_address}/sign/risk-agreement/status")
+async def get_user_term_of_service_status(
+    session: SessionDep,
+    wallet_address: str,
+    vault_id: uuid.UUID,
+):
+    wallet_address = wallet_address.lower()
+    if not is_valid_wallet_address(wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid wallet address")
+    user_agreement = get_user_agreement(
+        session, wallet_address, constants.UserAgreementType.RISK.value, vault_id
+    )
+    return {
+        "is_signed": user_agreement is not None,
+    }
