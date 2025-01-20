@@ -24,7 +24,7 @@ from schemas.vault import GroupSchema, SupportedNetwork, VaultExtended, VaultSor
 router = APIRouter()
 
 
-@router.get("vaults/", response_model=List[schemas.VaultExtended])
+@router.get("/vaults/", response_model=List[schemas.VaultExtended])
 async def get_all_vaults(
     session: SessionDep,
     category: VaultCategory = Query(None),
@@ -70,7 +70,7 @@ async def get_all_vaults(
 
         for vault_metata in vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
-            result.deposit_token = (vault_metata.deposit_token.split(","),)
+            result.deposit_token = vault_metata.deposit_token.split(",")
             result.group_name = group_dict.get(group_id, "")
             results.append(result)
 

@@ -857,12 +857,7 @@ def init_db(session: Session) -> None:
     # Rethink
     add_deposit_tokens(
         constants.ETH_WITH_LENDING_BOOST_YIELD,
-        ",".join([constants.DepositToken.ETH.value]),
-        session,
-    )
-    add_deposit_tokens(
-        constants.ETH_WITH_LENDING_BOOST_YIELD,
-        ",".join([constants.DepositToken.WETH.value]),
+        ",".join([constants.DepositToken.ETH.value, constants.DepositToken.WETH.value]),
         session,
     )
 
