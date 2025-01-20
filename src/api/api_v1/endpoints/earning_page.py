@@ -30,13 +30,12 @@ async def get_all_vaults(
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
     tags: Optional[List[str]] = Query(None),
-    sort_by: List[VaultSortField] = Query(
-        default=["order"],
-        description="Multiple sort fields. Example: sort_by=category&sort_by=apy_desc",
+    sort_by: Optional[List[VaultSortField]] = Query(
+        default=None,
+        description="Optional sort fields. Example: sort_by=category&sort_by=apy_desc",
     ),
 ):
-    statement = select(Vault).where(Vault.is_active == True).order_by(Vault.order)
-
+    statement = select(Vault).where(Vault.is_active == True)
     conditions = []
     if category:
         conditions.append(Vault.category == category)
@@ -75,23 +74,24 @@ async def get_all_vaults(
             result.group_name = group_dict.get(group_id, "")
             results.append(result)
 
-    # Sort results based on multiple sort fields
-    for sort_field in reversed(sort_by):  # Reverse to maintain priority
-        if sort_field == VaultSortField.TVL_DESC:
-            results.sort(key=lambda x: float(x.tvl or 0), reverse=True)
-        elif sort_field == VaultSortField.TVL_ASC:
-            results.sort(key=lambda x: float(x.tvl or 0))
-        elif sort_field == VaultSortField.NAME_ASC:
-            results.sort(key=lambda x: x.name.lower())
-        elif sort_field == VaultSortField.NAME_DESC:
-            results.sort(key=lambda x: x.name.lower(), reverse=True)
-        elif sort_field == VaultSortField.APY_DESC:
-            results.sort(key=lambda x: float(x.apy or 0), reverse=True)
-        elif sort_field == VaultSortField.APY_ASC:
-            results.sort(key=lambda x: float(x.apy or 0))
-        elif sort_field == VaultSortField.CATEGORY:
-            results.sort(key=lambda x: str(x.category))
-        elif sort_field == VaultSortField.ORDER:
-            results.sort(key=lambda x: x.order)
+    # Apply sorting only if sort_by is provided
+    if sort_by:
+        for sort_field in reversed(sort_by):
+            if sort_field == VaultSortField.TVL_DESC:
+                results.sort(key=lambda x: float(x.tvl or 0), reverse=True)
+            elif sort_field == VaultSortField.TVL_ASC:
+                results.sort(key=lambda x: float(x.tvl or 0))
+            elif sort_field == VaultSortField.NAME_ASC:
+                results.sort(key=lambda x: x.name.lower())
+            elif sort_field == VaultSortField.NAME_DESC:
+                results.sort(key=lambda x: x.name.lower(), reverse=True)
+            elif sort_field == VaultSortField.APY_DESC:
+                results.sort(key=lambda x: float(x.apy or 0), reverse=True)
+            elif sort_field == VaultSortField.APY_ASC:
+                results.sort(key=lambda x: float(x.apy or 0))
+            elif sort_field == VaultSortField.CATEGORY:
+                results.sort(key=lambda x: str(x.category))
+            elif sort_field == VaultSortField.ORDER:
+                results.sort(key=lambda x: x.order)
 
     return results
