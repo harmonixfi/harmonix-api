@@ -6,7 +6,7 @@ from datetime import datetime
 from models.point_distribution_history import PointDistributionHistory
 from models.vaults import NetworkChain, VaultCategory
 from schemas.earned_rewards import EarnedRewards
-
+from enum import Enum
 from .earned_point import EarnedPoints
 
 
@@ -102,3 +102,14 @@ class VaultExtended(Vault):
     deposit_token: list[str] = []
     points: List[EarnedPoints] = []
     rewards: List[EarnedRewards] = []
+
+
+class VaultSortField(str, Enum):
+    ORDER = "order"
+    TVL_DESC = "tvl_desc"
+    TVL_ASC = "tvl_asc"
+    NAME_ASC = "name_asc"
+    NAME_DESC = "name_desc"
+    APY_DESC = "apy_desc"
+    APY_ASC = "apy_asc"
+    CATEGORY = "category"
