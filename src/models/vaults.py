@@ -95,6 +95,7 @@ class VaultMetadata(sqlmodel.SQLModel, table=True):
     goldlink_trading_account: str | None
     last_updated: datetime = sqlmodel.Field(default_factory=datetime.utcnow)
 
+    deposit_token: Optional[str] | None = None
     # Relationship to the Vault
     vault: "Vault" = sqlmodel.Relationship(back_populates="vault_metadata")
 
