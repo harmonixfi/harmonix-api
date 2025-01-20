@@ -18,7 +18,7 @@ from api.api_v1.endpoints.vaults import (
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault
-from models.vaults import NetworkChain, VaultCategory, VaultGroup
+from models.vaults import NetworkChain, VaultCategory, VaultGroup, VaultMetadata
 from schemas.vault import GroupSchema, SupportedNetwork, VaultExtended, VaultSortField
 
 router = APIRouter()
@@ -30,6 +30,7 @@ async def get_all_vaults(
     category: VaultCategory = Query(None),
     network_chain: NetworkChain = Query(None),
     tags: Optional[List[str]] = Query(None),
+    deposit_token: Optional[str] = Query(None),
     sort_by: Optional[List[VaultSortField]] = Query(
         default=None,
         description="Optional sort fields. Example: sort_by=category&sort_by=apy_desc",
@@ -49,6 +50,11 @@ async def get_all_vaults(
         conditions.append(or_(*tags_conditions))
     else:
         conditions.append(~Vault.tags.contains("ended"))
+
+    # Add deposit token filter
+    if deposit_token:
+        statement = statement.join(Vault.vault_metadata)
+        conditions.append(VaultMetadata.deposit_token.contains(deposit_token))
 
     if conditions:
         statement = statement.where(and_(*conditions))
