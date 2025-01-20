@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from typing import List
 
 from sqlalchemy import bindparam, func, text
 from sqlmodel import Session, create_engine, select
@@ -714,6 +715,28 @@ def seed_reward_distribution_config(
     session.commit()
 
 
+def add_deposit_tokens(slug: str, deposit_token: str, session: Session):
+    existing_vault = session.exec(select(Vault).where(Vault.slug == slug)).first()
+    if not existing_vault:
+        return  # Hoặc raise Exception nếu muốn xử lý khi vault không tồn tại
+    existing_vault_metadata = session.exec(
+        select(VaultMetadata)
+        .where(VaultMetadata.vault_id == existing_vault.id)
+        .where(VaultMetadata.deposit_token == deposit_token)
+    ).first()
+
+    if existing_vault_metadata:
+        return
+
+    vault_metadata = VaultMetadata(
+        vault_id=existing_vault.id,
+        last_updated=datetime.now(tz=timezone.utc),
+        deposit_token=deposit_token,
+    )
+    session.add(vault_metadata)
+    session.commit()
+
+
 def init_db(session: Session) -> None:
     seed_vault_category(session)
 
@@ -785,4 +808,73 @@ def init_db(session: Session) -> None:
     )
     seed_reward_distribution_config(
         session=session, vault_slug="arbitrum-pendle-rseth-26jun2025", total_reward=60
+    )
+
+    # add token
+    add_deposit_tokens(
+        constants.KELPDAO_VAULT_ARBITRUM_SLUG,
+        ",".join(
+            [
+                constants.DepositToken.USDC.value,
+                constants.DepositToken.USDT.value,
+                constants.DepositToken.DAI.value,
+            ]
+        ),
+        session,
+    )
+    add_deposit_tokens(
+        constants.KELPDAO_GAIN_VAULT_SLUG,
+        ",".join(
+            [
+                constants.DepositToken.USDC.value,
+                constants.DepositToken.USDT.value,
+                constants.DepositToken.DAI.value,
+            ],
+        ),
+        session,
+    )
+
+    # Pendle
+    add_deposit_tokens(
+        constants.PENDLE_RSETH_26JUN25_SLUG,
+        ",".join(
+            [
+                constants.DepositToken.USDC.value,
+            ]
+        ),
+        session,
+    )
+    add_deposit_tokens(
+        constants.PENDLE_RSETH_26DEC24_SLUG,
+        ",".join(
+            [
+                constants.DepositToken.USDC.value,
+            ]
+        ),
+        session,
+    )
+
+    # Rethink
+    add_deposit_tokens(
+        constants.ETH_WITH_LENDING_BOOST_YIELD,
+        ",".join([constants.DepositToken.ETH.value]),
+        session,
+    )
+    add_deposit_tokens(
+        constants.ETH_WITH_LENDING_BOOST_YIELD,
+        ",".join([constants.DepositToken.WETH.value]),
+        session,
+    )
+
+    # Solv
+    add_deposit_tokens(
+        constants.SOLV_VAULT_SLUG,
+        ",".join([constants.DepositToken.WBTC.value]),
+        session,
+    )
+    # HYPE
+    add_deposit_tokens(
+        constants.HYPE_DELTA_NEUTRAL_SLUG,
+        ",".join([constants.DepositToken.USDC.value]),
+        session,
     )

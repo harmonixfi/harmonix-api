@@ -147,6 +147,15 @@ DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
 VAULT_SOLV_NAME = "The Golden Guardian with Solv"
 
 
+class DepositToken(str, Enum):
+    USDC = "USDC"
+    USDT = "USDT"
+    DAI = "DAI"
+    WETH = "WETH"
+    ETH = "ETH"
+    WBTC = "WBTC"
+
+
 class Status(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"

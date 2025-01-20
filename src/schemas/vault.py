@@ -95,3 +95,10 @@ class GroupSchema(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class VaultExtended(Vault):
+    group_name: Optional[str] | None = None
+    deposit_token: list[str] = []
+    points: List[EarnedPoints] = []
+    rewards: List[EarnedRewards] = []
