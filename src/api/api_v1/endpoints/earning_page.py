@@ -52,9 +52,14 @@ async def get_all_vaults(
         conditions.append(~Vault.tags.contains("ended"))
 
     # Add deposit token filter
+    # Add deposit token filter using regex pattern for exact match
     if deposit_token:
         statement = statement.join(Vault.vault_metadata)
-        conditions.append(VaultMetadata.deposit_token.contains(deposit_token))
+        # Match exact token in comma-separated list
+        pattern = (
+            f"(^{deposit_token}$|^{deposit_token},|,{deposit_token}$|,{deposit_token},)"
+        )
+        conditions.append(VaultMetadata.deposit_token.regexp_match(pattern))
 
     if conditions:
         statement = statement.where(and_(*conditions))
