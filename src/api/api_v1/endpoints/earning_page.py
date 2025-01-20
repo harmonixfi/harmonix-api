@@ -24,7 +24,7 @@ from schemas.vault import GroupSchema, SupportedNetwork, VaultExtended, VaultSor
 router = APIRouter()
 
 
-@router.get("/", response_model=List[schemas.VaultExtended])
+@router.get("vaults/", response_model=List[schemas.VaultExtended])
 async def get_all_vaults(
     session: SessionDep,
     category: VaultCategory = Query(None),
