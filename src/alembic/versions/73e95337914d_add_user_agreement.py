@@ -1,8 +1,8 @@
 """add_user_agreement
 
-Revision ID: 70ed1f2e77ce
-Revises: 03b933b5766c
-Create Date: 2025-01-16 17:06:08.494731
+Revision ID: 73e95337914d
+Revises: 4d79c0af0b3a
+Create Date: 2025-01-20 11:30:29.393550
 
 """
 
@@ -14,8 +14,8 @@ from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = "70ed1f2e77ce"
-down_revision: Union[str, None] = "03b933b5766c"
+revision: str = "73e95337914d"
+down_revision: Union[str, None] = "4d79c0af0b3a"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
