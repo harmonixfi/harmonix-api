@@ -27,7 +27,7 @@ router = APIRouter()
 @router.get("/vaults/", response_model=List[schemas.VaultExtended])
 async def get_all_vaults(
     session: SessionDep,
-    category: VaultCategory = Query(None),
+    category: Optional[str] = Query(None),
     network_chain: NetworkChain = Query(None),
     tags: Optional[List[str]] = Query(None),
     deposit_token: Optional[str] = Query(None),
@@ -39,7 +39,7 @@ async def get_all_vaults(
     statement = select(Vault).where(Vault.is_active == True)
     conditions = []
     if category:
-        conditions.append(Vault.category == category)
+        conditions.append(Vault.ui_category == category)
 
     if network_chain:
         conditions.append(Vault.network_chain == network_chain)
@@ -67,10 +67,7 @@ async def get_all_vaults(
     vaults = session.exec(statement).all()
     results = []
 
-    groups = session.exec(select(VaultGroup)).all()
-    group_dict = {group.id: group.name for group in groups}
     for vault in vaults:
-        group_id = vault.group_id or vault.id
         schema_vault = _update_vault_apy(vault, session=session)
         schema_vault.points = get_earned_points(session, vault)
         schema_vault.rewards = get_earned_rewards(session, vault)
@@ -82,7 +79,7 @@ async def get_all_vaults(
         for vault_metata in vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
             result.deposit_token = vault_metata.deposit_token.split(",")
-            result.group_name = group_dict.get(group_id, "")
+            result.ui_category = vault.ui_category
             results.append(result)
 
     # Apply sorting only if sort_by is provided

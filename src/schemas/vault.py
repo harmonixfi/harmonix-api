@@ -98,10 +98,10 @@ class GroupSchema(BaseModel):
 
 
 class VaultExtended(Vault):
-    group_name: Optional[str] | None = None
     deposit_token: list[str] = []
     points: List[EarnedPoints] = []
     rewards: List[EarnedRewards] = []
+    ui_category: Optional[str] | None = None
 
 
 class VaultSortField(str, Enum):
