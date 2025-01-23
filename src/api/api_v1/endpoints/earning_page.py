@@ -46,6 +46,8 @@ async def get_all_vaults(
 
     if tags:
         conditions.append(Vault.tags.contains(tags))
+    else:
+        conditions.append(~Vault.tags.contains("ended"))
 
     # Add deposit token filter
     # Add deposit token filter using regex pattern for exact match
