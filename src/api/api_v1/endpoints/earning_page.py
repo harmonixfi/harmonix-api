@@ -29,7 +29,7 @@ async def get_all_vaults(
     session: SessionDep,
     category: Optional[str] = Query(None),
     network_chain: NetworkChain = Query(None),
-    tags: Optional[List[str]] = Query(None),
+    tags: Optional[str] = Query(None),
     deposit_token: Optional[str] = Query(None),
     sort_by: Optional[List[VaultSortField]] = Query(
         default=None,
@@ -45,11 +45,7 @@ async def get_all_vaults(
         conditions.append(Vault.network_chain == network_chain)
 
     if tags:
-        # Adjust the filter for tags stored as a serialized string
-        tags_conditions = [Vault.tags.contains(tag) for tag in tags]
-        conditions.append(or_(*tags_conditions))
-    else:
-        conditions.append(~Vault.tags.contains("ended"))
+        conditions.append(Vault.tags.contains(tags))
 
     # Add deposit token filter
     # Add deposit token filter using regex pattern for exact match
@@ -78,7 +74,11 @@ async def get_all_vaults(
 
         for vault_metata in vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
-            result.deposit_token = vault_metata.deposit_token.split(",")
+            result.deposit_token = (
+                vault_metata.deposit_token.split(",")
+                if vault_metata.deposit_token
+                else ["USDC"]
+            )
             result.ui_category = vault.ui_category
             results.append(result)
 
