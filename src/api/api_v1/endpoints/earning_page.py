@@ -30,6 +30,7 @@ async def get_all_vaults(
     category: Optional[str] = Query(None),
     network_chain: NetworkChain = Query(None),
     tags: Optional[str] = Query(None),
+    strategy: Optional[str] = Query(None),
     deposit_token: Optional[str] = Query(None),
     sort_by: Optional[List[VaultSortField]] = Query(
         default=None,
@@ -48,6 +49,9 @@ async def get_all_vaults(
         conditions.append(Vault.tags.contains(tags))
     else:
         conditions.append(~Vault.tags.contains("ended"))
+
+    if strategy:
+        conditions.append(Vault.strategy_name.contains(strategy))
 
     # Add deposit token filter
     # Add deposit token filter using regex pattern for exact match
