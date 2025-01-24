@@ -13,3 +13,4 @@ from .earned_rewards import EarnedRewards
 from .onchain_transaction_history import OnchainTransactionHistory
 from .funding_history_entry import FundingHistoryEntry
 from .user_earned_reward import UserEarnedRewards
+from .user_agreement import UserAgreement, BaseUserAgreement

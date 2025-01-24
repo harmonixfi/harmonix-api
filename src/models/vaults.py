@@ -95,6 +95,7 @@ class VaultMetadata(sqlmodel.SQLModel, table=True):
     goldlink_trading_account: str | None
     last_updated: datetime = sqlmodel.Field(default_factory=datetime.utcnow)
 
+    deposit_token: Optional[str] | None = None
     # Relationship to the Vault
     vault: "Vault" = sqlmodel.Relationship(back_populates="vault_metadata")
 
@@ -109,6 +110,7 @@ class Vault(VaultBase, table=True):
     vault_group: VaultGroup | None = sqlmodel.Relationship(back_populates="vaults")
     update_frequency: str | None = sqlmodel.Field(default="daily")
     pt_address: str | None = None
+    ui_category: Optional[str] | None = None
 
     # Relationship to VaultMetadata
     vault_metadata: List[VaultMetadata] = sqlmodel.Relationship(back_populates="vault")
