@@ -387,31 +387,10 @@ async def get_vault_performance(
     # Rename the datetime column to date
     pps_history_df.rename(columns={"datetime": "date"}, inplace=True)
     apy_mapping_dict = {"15D": "apy_15d", "45D": "apy_45d"}
-    if vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
-        pps_history_df["apy"] = pps_history_df[
-            apy_mapping_dict.get(apy_option, "apy_1m")
-        ]
-
-    # if vault.network_chain in {NetworkChain.arbitrum_one, NetworkChain.base}:
-    #     pps_history_df = pps_history_df[["date", "apy"]].copy()
-
-    #     # resample pps_history_df to daily frequency
-    #     pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
-    #     pps_history_df.set_index("date", inplace=True)
-    #     pps_history_df = pps_history_df.resample("D").mean()
-    #     pps_history_df.ffill(inplace=True)
-
-    #     if (
-    #         len(pps_history_df) >= 7 * 2
-    #     ):  # we will make sure the normalized series enough to plot
-    #         # calculate ma 7 days pps_history_df['apy']
-    #         pps_history_df["apy"] = pps_history_df["apy"].rolling(window=7).mean()
-
-    elif vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
+    if vault.strategy_name == constants.OPTIONS_WHEEL_STRATEGY:
         pps_history_df["apy"] = pps_history_df[
             apy_mapping_dict.get(apy_option, "apy_ytd")
         ]
-
     else:
         pps_history_df["apy"] = pps_history_df[
             apy_mapping_dict.get(apy_option, "apy_1m")
@@ -420,10 +399,22 @@ async def get_vault_performance(
     # Convert the date column to string format
     pps_history_df.reset_index(inplace=True)
     # Filter for the last month
-    one_month_ago = datetime.now(tz=timezone.utc) - timedelta(days=30)
+    # Resample to keep last value per day
+    pps_history_df["date"] = pd.to_datetime(pps_history_df["date"])
+    pps_history_df.set_index("date", inplace=True)
+    pps_history_df = pps_history_df.resample("D").last()
+    pps_history_df.reset_index(inplace=True)
+
+    # Make one_month_ago timezone-naive to match DataFrame
+
+    current_date = min(
+        datetime.now(tz=timezone.utc).replace(tzinfo=None), pps_history_df["date"].max()
+    )
+    one_month_ago = current_date - timedelta(days=30)
     pps_history_df = pps_history_df[pps_history_df["date"] >= one_month_ago]
     pps_history_df["date"] = pps_history_df["date"].dt.strftime("%Y-%m-%dT%H:%M:%S")
-    pps_history_df.fillna(0, inplace=True)
+    pps_history_df.ffill(inplace=True)
+    pps_history_df.dropna(subset=["date", "apy"], inplace=True)
 
     # Convert the DataFrame to a dictionary and return it
     return pps_history_df[["date", "apy"]].to_dict(orient="list")

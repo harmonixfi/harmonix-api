@@ -1,6 +1,7 @@
 import logging
 from datetime import datetime, timedelta, timezone
 import traceback
+from typing import List
 import uuid
 from sqlalchemy import func
 from sqlmodel import Session, select
@@ -268,17 +269,17 @@ def harmonix_distribute_points(current_time):
 def update_referral_points(
     current_time, reward_session, reward_session_config, total_points_distributed
 ):
-    logger.info("Starting referral points update")
+    logger.info("Starting referral points distribution process...")
     referrals_query = select(Referral).order_by(Referral.referrer_id)
     referrals = session.exec(referrals_query).all()
-    logger.info(f"Found {len(referrals)} total referrals")
+    logger.info(f"Retrieved {len(referrals)} total referral records")
 
     referrals_copy = referrals.copy()
     unique_referrers = []
     for referral in referrals_copy:
         if referral.referrer_id not in unique_referrers:
             unique_referrers.append(referral.referrer_id)
-    logger.info(f"Found {len(unique_referrers)} unique referrers")
+    logger.info(f"Identified {len(unique_referrers)} unique referrers for processing")
 
     # Create a dictionary mapping referrer_ids to their referrals
     referrals_by_referrer = {}
@@ -288,41 +289,79 @@ def update_referral_points(
         referrals_by_referrer[referral.referrer_id].append(referral)
 
     for referrer_id in unique_referrers:
-        logger.info(f"Processing referrer ID: {referrer_id}")
+        # Get referrer user info for better logging
+        referrer_user = session.exec(
+            select(User).where(User.user_id == referrer_id)
+        ).first()
+        logger.info(
+            f"Processing referrer | ID: {referrer_id} | Wallet: {referrer_user.wallet_address}"
+        )
+
         # O(1) lookup instead of O(n) filtering
         referrer_referrals = referrals_by_referrer.get(referrer_id, [])
+        logger.info(f"Found {len(referrer_referrals)} referees for current referrer")
+
         referral_points_query = (
             select(ReferralPoints)
             .where(ReferralPoints.user_id == referrer_id)
             .where(ReferralPoints.session_id == reward_session.session_id)
         )
         user_referral_points = session.exec(referral_points_query).first()
+
+        total_referee_points = 0  # Track total points earned by referees
         if user_referral_points:
-            logger.info(f"Found existing referral points for referrer {referrer_id}")
+            logger.info(
+                f"Found existing referral points record for referrer {referrer_id}"
+            )
             referral_points = 0
             for referral in referrer_referrals:
                 user_points = get_user_points_by_referee_id(
                     referral, reward_session, session
                 )
                 if not user_points:
-                    logger.info(
-                        f"No user points found for referee {referral.referee_id}"
-                    )
+                    logger.info(f"No points found for referee {referral.referee_id}")
                     continue
+                user_points_list = [point.id for point in user_points]
                 # get points from points_history
-                user_points_history_query = (
-                    select(UserPointsHistory)
-                    .where(UserPointsHistory.user_points_id == user_points.id)
-                    .order_by(UserPointsHistory.created_at.desc())
+                points_sum_query = select(
+                    func.sum(UserPointsHistory.point).label("total_points")
+                ).where(
+                    UserPointsHistory.id.in_(
+                        select(UserPointsHistory.id)
+                        .where(UserPointsHistory.user_points_id.in_(user_points_list))
+                        .distinct(UserPointsHistory.user_points_id)
+                        .order_by(
+                            UserPointsHistory.user_points_id,
+                            UserPointsHistory.created_at.desc(),
+                        )
+                    )
                 )
-                user_points_history = session.exec(user_points_history_query).first()
-                referral_points += user_points_history.point
 
-            logger.info(f"Raw referral points calculated: {referral_points}")
+                user_points_history_point = session.exec(points_sum_query).first()
+                user_points_history_point = user_points_history_point or 0
+                referee_points = user_points_history_point
+                total_referee_points += referee_points
+                logger.info(
+                    f"Referee {referral.referee_id} earned {referee_points:,.2f} points"
+                )
+                referral_points += referee_points
+
+            logger.info(
+                f"Total points earned by all referees: {total_referee_points:,.2f}"
+            )
+            logger.info(
+                f"Raw referral points before adjustment: {referral_points:,.2f}"
+            )
             referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
             )
-            logger.info(f"Adjusted referral points: {referral_points}")
+            logger.info(f"Adjusted referral points: {referral_points:,.2f}")
+            logger.info(
+                f"Current total referral points: {user_referral_points.points:,.2f}"
+            )
+            logger.info(
+                f"New total after adding: {(user_referral_points.points + referral_points):,.2f}"
+            )
 
             user_referral_points.points += referral_points
             user_referral_points.updated_at = current_time
@@ -335,29 +374,57 @@ def update_referral_points(
             session.commit()
             total_points_distributed += referral_points
             if total_points_distributed >= reward_session_config.max_points:
-                logger.info("Max points reached, ending reward session")
+                logger.info("Maximum points limit reached - ending reward session")
                 reward_session.end_date = current_time
                 session.commit()
                 break
         else:
-            logger.info(f"Creating new referral points for referrer {referrer_id}")
+            logger.info(
+                f"Creating new referral points record for referrer {referrer_id}"
+            )
             referral_points = 0
             for referral in referrer_referrals:
                 user_points = get_user_points_by_referee_id(
                     referral, reward_session, session
                 )
                 if not user_points:
-                    logger.info(
-                        f"No user points found for referee {referral.referee_id}"
-                    )
+                    logger.info(f"No points found for referee {referral.referee_id}")
                     continue
-                referral_points += user_points.points
+                user_points_list = [point.id for point in user_points]
+                # get points from points_history
+                points_sum_query = select(
+                    func.sum(UserPointsHistory.point).label("total_points")
+                ).where(
+                    UserPointsHistory.id.in_(
+                        select(UserPointsHistory.id)
+                        .where(UserPointsHistory.user_points_id.in_(user_points_list))
+                        .distinct(UserPointsHistory.user_points_id)
+                        .order_by(
+                            UserPointsHistory.user_points_id,
+                            UserPointsHistory.created_at.desc(),
+                        )
+                    )
+                )
 
-            logger.info(f"Raw referral points calculated: {referral_points}")
+                user_points_history_point = session.exec(points_sum_query).first()
+                user_points_history_point = user_points_history_point or 0
+                referee_points = user_points_history_point
+                total_referee_points += referee_points
+                logger.info(
+                    f"Referee {referral.referee_id} earned {referee_points:,.2f} points"
+                )
+                referral_points += referee_points
+
+            logger.info(
+                f"Total points earned by all referees: {total_referee_points:,.2f}"
+            )
+            logger.info(
+                f"Raw referral points before adjustment: {referral_points:,.2f}"
+            )
             referral_points = adjust_referral_points_within_bounds(
                 reward_session_config, total_points_distributed, referral_points
             )
-            logger.info(f"Adjusted referral points: {referral_points}")
+            logger.info(f"Adjusted referral points: {referral_points:,.2f}")
 
             user_referral_points = ReferralPoints(
                 id=uuid.uuid4(),
@@ -377,14 +444,18 @@ def update_referral_points(
             session.commit()
             total_points_distributed += referral_points
             if total_points_distributed >= reward_session_config.max_points:
-                logger.info("Max points reached, ending reward session")
+                logger.info("Maximum points limit reached - ending reward session")
                 reward_session.end_date = current_time
                 session.commit()
                 break
+        logger.info(
+            f"Completed processing referrer {referrer_id} with {len(referrer_referrals)} referees"
+        )
+        logger.info("-------------------------------------------")
 
     session.commit()
     logger.info(
-        f"Referral Points distribution job completed. Total points distributed: {total_points_distributed}"
+        f"Referral Points distribution completed | Total points distributed: {total_points_distributed:,.2f}"
     )
 
 
@@ -398,7 +469,9 @@ def adjust_referral_points_within_bounds(
     return referral_points
 
 
-def get_user_points_by_referee_id(referral, reward_session, session):
+def get_user_points_by_referee_id(
+    referral, reward_session, session: Session
+) -> List[UserPoints]:
     user_query = select(User).where(User.user_id == referral.referee_id)
     user = session.exec(user_query).first()
     if not user:
@@ -409,7 +482,7 @@ def get_user_points_by_referee_id(referral, reward_session, session):
         .where(UserPoints.partner_name == constants.HARMONIX)
         .where(UserPoints.session_id == reward_session.session_id)
     )
-    user_points = session.exec(user_points_query).first()
+    user_points = session.exec(user_points_query).all()
     return user_points
 
 

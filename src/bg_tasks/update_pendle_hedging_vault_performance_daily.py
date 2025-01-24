@@ -230,17 +230,6 @@ def calculate_performance(
         days,
     )
 
-    pendle_data = pendle_service.get_market(
-        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
-    )
-    if pendle_data:
-        pendle_market_data = pendle_data[0]
-    if pendle_market_data:
-        monthly_apy += pendle_market_data.implied_apy / 2
-        logger.info(
-            "Monthly APY after adding Pendle implied APY: %.2f%%", monthly_apy * 100
-        )
-
     week_ago_price_per_share = get_before_price_per_shares(session, vault.id, days=7)
     week_ago_datetime = pendulum.instance(week_ago_price_per_share.datetime).in_tz(
         pendulum.UTC
@@ -270,12 +259,12 @@ def calculate_performance(
         datetime_15_days_ago,
         days_15,
     )
-    apy_15d = calculate_roi(
+    base_apy_15d = calculate_roi(
         current_price_per_share,
         price_per_share_15_days_ago.price_per_share,
         days=days_15,
     )
-    logger.info("15-day APY: %.2f%% (over %.2f days)", apy_15d * 100, days_15)
+    logger.info("15-day APY: %.2f%% (over %.2f days)", base_apy_15d * 100, base_apy_15d)
 
     # apy 45days
     price_per_share_45_days_ago = get_before_price_per_shares(
@@ -292,12 +281,24 @@ def calculate_performance(
         datetime_45_days_ago,
         days_45,
     )
-    apy_45d = calculate_roi(
+    base_apy_45d = calculate_roi(
         current_price_per_share,
         price_per_share_45_days_ago.price_per_share,
         days=days_45,
     )
-    logger.info("45-day APY: %.2f%% (over %.2f days)", apy_45d * 100, days_45)
+    logger.info("45-day APY: %.2f%% (over %.2f days)", base_apy_45d * 100, days_45)
+
+    pendle_data = pendle_service.get_market(
+        constants.CHAIN_IDS["CHAIN_ARBITRUM"], vault.pt_address
+    )
+    if pendle_data:
+        pendle_market_data = pendle_data[0]
+    if pendle_market_data:
+        fixed_yield = pendle_market_data.implied_apy / 2
+        monthly_apy += fixed_yield
+        weekly_apy += fixed_yield
+        base_apy_15d += fixed_yield
+        base_apy_45d += fixed_yield
 
     performance_history = session.exec(
         select(VaultPerformance).order_by(VaultPerformance.datetime.asc()).limit(1)
@@ -310,8 +311,8 @@ def calculate_performance(
     # Add reward APY to base APY
     apy_1m = monthly_apy * 100 + monthly_reward_apy
     apy_1w = weekly_apy * 100 + weekly_reward_apy
-    apy_15d = apy_15d * 100 + apy_reward_15day
-    apy_45d = apy_45d * 100 + apy_reward_45day
+    apy_15d = base_apy_15d * 100 + apy_reward_15day
+    apy_45d = base_apy_45d * 100 + apy_reward_45day
     apy_ytd = apy_ytd * 100
 
     logger.info("Final APY values (including rewards):")
@@ -368,11 +369,9 @@ def calculate_performance(
         benchmark=benchmark,
         pct_benchmark=benchmark_percentage,
         apy_1m=apy_1m,
-        base_monthly_apy=monthly_apy * 100,
-        reward_monthly_apy=monthly_reward_apy,
         apy_1w=apy_1w,
-        base_weekly_apy=weekly_apy * 100,
-        reward_weekly_apy=weekly_reward_apy,
+        apy_15d=apy_15d,
+        apy_45d=apy_45d,
         apy_ytd=apy_ytd,
         vault_id=vault.id,
         risk_factor=risk_factor,
@@ -383,8 +382,12 @@ def calculate_performance(
         unique_depositors=count,
         earned_fee=vault_state.total_fee_pool_amount,
         fee_structure=fee_info,
-        apy_15d=apy_15d,
-        apy_45d=apy_45d,
+        base_monthly_apy=monthly_apy * 100,
+        base_weekly_apy=weekly_apy * 100,
+        base_15d_apy=base_apy_15d * 100,
+        base_45d_apy=base_apy_45d * 100,
+        reward_weekly_apy=weekly_reward_apy,
+        reward_monthly_apy=monthly_reward_apy,
         reward_15d_apy=apy_reward_15day,
         reward_45d_apy=apy_reward_45day,
     )
