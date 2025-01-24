@@ -8,6 +8,8 @@ from web3 import Web3
 
 from bg_tasks.utils import calculate_roi
 from core.abi_reader import read_abi
+from models.config_quotation import ConfigQuotation
+from models.pps_history import PricePerShareHistory
 from models.reward_distribution_config import RewardDistributionConfig
 from models.user_points import UserPoints
 from models.user_portfolio import PositionStatus
@@ -19,6 +21,7 @@ from models import Vault, UserPortfolio
 from schemas import Position
 from core.config import settings
 from core import constants
+from schemas.unrealized_pnl import UnrealizedPnl
 from services.market_data import get_price
 from utils.json_encoder import custom_encoder
 from utils.vault_utils import get_vault_currency_price
@@ -30,7 +33,8 @@ rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
 pendlehedging_vault_abi = read_abi("pendlehedging")
 rethink_vault_abi = read_abi("rethink_yield_v2")
-
+MAX_SLIPPAGE = 'Max Slippage'
+TRADING_FEE = 'Trading Fee'
 
 def create_vault_contract(vault: Vault):
     w3 = Web3(Web3.HTTPProvider(constants.NETWORK_RPC_URLS[vault.network_chain]))
@@ -235,11 +239,43 @@ async def get_portfolio_info(
 
         position.pnl = position.total_balance - position.init_deposit
 
+
+
+
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
         # Ensure non-negative PNL and APY for first 10 days
         if holding_period <= 10:
             position.pnl = max(position.pnl, 0)
+        else:
+            trading_fee = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.TRADING_FEE)).one())
+            max_slipage = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.MAX_SLIPPAGE)).one())
+            max_slipage = max_slipage *position.total_balance
+            trading_fee = trading_fee * position.total_balance
+            negative_funding_fee = position.pnl - (max_slipage + trading_fee)
+            unrealize_pnl_percentage = position.pnl/position.total_balance
+            
+            statement = session.exec(select(PricePerShareHistory).where(PricePerShareHistory.vault_id == position.vault_id).order_by(PricePerShareHistory.datetime.desc())).all()
+            now = datetime.datetime.now(datetime.timezone.utc)
+            pnl = [pps for pps in statement if pps.datetime >= now - datetime.timedelta(days=30)]
 
+            pps_by_date = [pps for i, pps in enumerate(pnl) if i == 0 or pnl[i-1].datetime.date() != pps.datetime.date()]
+
+            list_diff = [
+                pps_by_date[i].price_per_share - pps_by_date[i + 1].price_per_share
+                for i in range(len(pps_by_date) - 1)
+            ]
+            avg_diff = sum(list_diff) / len(list_diff)
+            if avg_diff == 0:
+                recovery = 0
+            else:
+                recovery = unrealize_pnl_percentage / avg_diff
+            recovery = -1
+            if recovery < 0:
+                recovery = None
+            unrealize_pnl= UnrealizedPnl(trading_fee=trading_fee, max_slippage=max_slipage, negative_funding_fee=negative_funding_fee, projected_record=recovery)
+            position.unrealizedPnL = unrealize_pnl
+
+            
         position.apy = calculate_roi(
             position.total_balance,
             position.init_deposit,
@@ -308,3 +344,10 @@ async def get_total_points(session: SessionDep, user_address: str):
     ]
 
     return schemas.PortfolioPoint(points=earned_points)
+
+@router.get("/{user_address}/unrealized-pnl", response_model=schemas.UnrealizedPnl)
+async def get_unrealized_pnl(session: SessionDep, user_address: str):
+    max_slippage = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == MAX_SLIPPAGE)).one())
+    trading_fee = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == TRADING_FEE)).one())
+    return schemas.UnrealizedPnl(max_slippage=max_slippage, trading_fee=trading_fee, projected_record=0)
+

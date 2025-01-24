@@ -846,3 +846,4 @@ async def get_tvl_chart_data(session: SessionDep):
         })
 
     return result
+

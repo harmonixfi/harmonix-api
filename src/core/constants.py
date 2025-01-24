@@ -146,6 +146,11 @@ UNISWAP_POOLS = {
 DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
 VAULT_SOLV_NAME = "The Golden Guardian with Solv"
 
+MAX_SLIPPAGE = 'max_slippage'
+TRADING_FEE = 'trading_fee'
+SPOT_PERP_SPREAD = 'spot_perp_spread'
+PERFORMANCE_FEE = 'performance_fee'
+MANAGEMENT_FEE = 'management_fee'
 
 class Status(str, Enum):
     ACTIVE = "active"

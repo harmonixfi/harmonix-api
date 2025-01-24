@@ -6,6 +6,7 @@ from sqlmodel import Session, create_engine, select
 from core import constants
 from core.config import settings
 from models.campaigns import Campaign
+from models.config_quotation import ConfigQuotation
 from models.points_multiplier_config import PointsMultiplierConfig
 from models.pps_history import PricePerShareHistory
 from models.referralcodes import ReferralCode
@@ -713,6 +714,23 @@ def seed_reward_distribution_config(
 
     session.commit()
 
+def seed_config_quotation(session: Session):
+
+    list = [
+        (constants.TRADING_FEE, "0.0366"),
+        (constants.MAX_SLIPPAGE, "0.1"),
+        (constants.SPOT_PERP_SPREAD, "0.05"),
+        (constants.PERFORMANCE_FEE, "10"),
+        (constants.MANAGEMENT_FEE, "1"),
+    ]
+    
+    existing_config = session.exec(select(ConfigQuotation)).all()
+    for key, value in list:
+        if key not in [config.key for config in existing_config]:
+            config = ConfigQuotation(key=key, value=value)
+            session.add(config)
+    
+    session.commit()
 
 def init_db(session: Session) -> None:
     seed_vault_category(session)
@@ -786,3 +804,4 @@ def init_db(session: Session) -> None:
     seed_reward_distribution_config(
         session=session, vault_slug="arbitrum-pendle-rseth-26jun2025", total_reward=60
     )
+    seed_config_quotation(session)
