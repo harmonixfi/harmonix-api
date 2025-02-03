@@ -278,9 +278,10 @@ async def get_portfolio_info(
             withdrawal = vault_contract.functions.getUserWithdrawal(
                 Web3.to_checksum_address(user_address)
             ).call()
-            price_per_share = withdrawal[1] / 10**6
+            price_per_share = vault_contract.functions.pricePerShare().call() / 10**6
             withdraw_amount = withdrawal[4] / 10**6
             total_balance = balance_of * price_per_share + withdraw_amount
+            position.total_balance = total_balance
 
         else:
             total_balance += position.total_balance * currency_price
