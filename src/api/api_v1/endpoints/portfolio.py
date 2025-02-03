@@ -30,6 +30,8 @@ rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
 pendlehedging_vault_abi = read_abi("pendlehedging")
 rethink_vault_abi = read_abi("rethink_yield_v2")
+hype_abi = read_abi("hype")
+kelpdao_abi = read_abi("kelpdao")
 
 
 def create_vault_contract(vault: Vault):
@@ -39,6 +41,13 @@ def create_vault_contract(vault: Vault):
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rethink_vault_abi
         )
+    elif vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
+        contract = w3.eth.contract(address=vault.contract_address, abi=hype_abi)
+    elif (
+        vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG
+        or vault.slug == constants.KELPDAO_VAULT_ARBITRUM_SLUG
+    ):
+        contract = w3.eth.contract(address=vault.contract_address, abi=kelpdao_abi)
     elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rockonyx_delta_neutral_vault_abi
@@ -258,6 +267,26 @@ async def get_portfolio_info(
         # else:
         #     total_balance += position.total_balance
         currency_price = get_vault_currency_price(vault.vault_currency)
+        if vault.slug in [
+            constants.KELPDAO_VAULT_ARBITRUM_SLUG,
+            constants.HYPE_DELTA_NEUTRAL_SLUG,
+        ]:
+            shares = (
+                vault_contract.functions.balanceOf(
+                    Web3.to_checksum_address(user_address)
+                ).call()
+                / 10**6
+            )
+            withdrawal = vault_contract.functions.getUserWithdrawal(
+                Web3.to_checksum_address(user_address)
+            ).call()
+            current_price_per_share = (
+                vault_contract.functions.pricePerShare().call() / 10**6
+            )
+            withdraw_amount = withdrawal[4] / 10**6
+            position_balance = shares * current_price_per_share + withdraw_amount
+            position.total_balance = position_balance
+
         total_balance += position.total_balance * currency_price
 
         # encode datetime
