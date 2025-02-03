@@ -268,23 +268,26 @@ async def get_portfolio_info(
         #     total_balance += position.total_balance
         currency_price = get_vault_currency_price(vault.vault_currency)
         if vault.slug in [
-            constants.KELPDAO_GAIN_VAULT_SLUG,
             constants.KELPDAO_VAULT_ARBITRUM_SLUG,
             constants.HYPE_DELTA_NEUTRAL_SLUG,
         ]:
-            balance_of = vault_contract.functions.balanceOf(
-                Web3.to_checksum_address(user_address)
-            ).call()
+            shares = (
+                vault_contract.functions.balanceOf(
+                    Web3.to_checksum_address(user_address)
+                ).call()
+                / 10**6
+            )
             withdrawal = vault_contract.functions.getUserWithdrawal(
                 Web3.to_checksum_address(user_address)
             ).call()
-            price_per_share = vault_contract.functions.pricePerShare().call() / 10**6
+            current_price_per_share = (
+                vault_contract.functions.pricePerShare().call() / 10**6
+            )
             withdraw_amount = withdrawal[4] / 10**6
-            total_balance = balance_of * price_per_share + withdraw_amount
-            position.total_balance = total_balance
+            position_balance = shares * current_price_per_share + withdraw_amount
+            position.total_balance = position_balance
 
-        else:
-            total_balance += position.total_balance * currency_price
+        total_balance += position.total_balance * currency_price
 
         # encode datetime
         position.trade_start_date = custom_encoder(pos.trade_start_date)
