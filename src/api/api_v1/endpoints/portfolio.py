@@ -284,7 +284,11 @@ async def get_portfolio_info(
                 vault_contract.functions.pricePerShare().call() / 10**6
             )
             withdraw_amount = withdrawal[4] / 10**6
-            position_balance = shares * current_price_per_share + withdraw_amount
+            position_balance = (
+                shares * current_price_per_share
+                + withdraw_amount
+                - withdrawal[3] / 10**6
+            )
             position.total_balance = position_balance
 
         total_balance += position.total_balance * currency_price
