@@ -247,31 +247,31 @@ async def get_portfolio_info(
         if holding_period <= 10:
             position.pnl = max(position.pnl, 0)
         else:
-            trading_fee = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.TRADING_FEE)).one())
-            max_slipage = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.MAX_SLIPPAGE)).one())
+            trading_fee = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.TRADING_FEE)).one())/100
+            max_slipage = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == constants.MAX_SLIPPAGE)).one())/100
             max_slipage = max_slipage *position.total_balance
             trading_fee = trading_fee * position.total_balance
-            negative_funding_fee = position.pnl - (max_slipage + trading_fee)
-            unrealize_pnl_percentage = position.pnl/position.total_balance
-            
-            statement = session.exec(select(PricePerShareHistory).where(PricePerShareHistory.vault_id == position.vault_id).order_by(PricePerShareHistory.datetime.desc())).all()
-            now = datetime.datetime.now(datetime.timezone.utc)
-            pnl = [pps for pps in statement if pps.datetime >= now - datetime.timedelta(days=30)]
+            negative_funding_fee = 0
+            recovery = None
+            if position.pnl < 0:
+                negative_funding_fee = position.pnl - (max_slipage + trading_fee)
+                unrealize_pnl_percentage = position.pnl/position.total_balance
+                
+                statement = session.exec(select(PricePerShareHistory).where(PricePerShareHistory.vault_id == position.vault_id).order_by(PricePerShareHistory.datetime.desc())).all()
+                now = datetime.datetime.now(datetime.timezone.utc)
+                pnl = [pps for pps in statement if pps.datetime >= now - datetime.timedelta(days=30)]
 
-            pps_by_date = [pps for i, pps in enumerate(pnl) if i == 0 or pnl[i-1].datetime.date() != pps.datetime.date()]
+                pps_by_date = [pps for i, pps in enumerate(pnl) if i == 0 or pnl[i-1].datetime.date() != pps.datetime.date()]
 
-            list_diff = [
-                pps_by_date[i].price_per_share - pps_by_date[i + 1].price_per_share
-                for i in range(len(pps_by_date) - 1)
-            ]
-            avg_diff = sum(list_diff) / len(list_diff)
-            if avg_diff == 0:
-                recovery = 0
-            else:
-                recovery = unrealize_pnl_percentage / avg_diff
-            recovery = -1
-            if recovery < 0:
-                recovery = None
+                list_diff = [
+                    pps_by_date[i].price_per_share - pps_by_date[i + 1].price_per_share
+                    for i in range(len(pps_by_date) - 1)
+                ]
+                avg_diff = sum(list_diff) / len(list_diff)
+                if avg_diff == 0 or unrealize_pnl_percentage / avg_diff < 0:
+                    recovery = None
+                else:
+                    recovery = unrealize_pnl_percentage / avg_diff
             unrealize_pnl= UnrealizedPnl(trading_fee=trading_fee, max_slippage=max_slipage, negative_funding_fee=negative_funding_fee, projected_record=recovery)
             position.unrealizedPnL = unrealize_pnl
 
