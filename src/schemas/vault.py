@@ -102,7 +102,7 @@ class VaultExtended(Vault):
     points: List[EarnedPoints] = []
     rewards: List[EarnedRewards] = []
     ui_category: Optional[str] | None = None
-    tvl_of_usd: Optional[float] = 0
+    tvl_in_usd: Optional[float] = 0
 
 
 class VaultSortField(str, Enum):

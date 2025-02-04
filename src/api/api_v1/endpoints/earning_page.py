@@ -82,7 +82,7 @@ async def get_all_vaults(
 
         for vault_metata in vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
-            result.tvl_of_usd = result.tvl * current_price
+            result.tvl_in_usd = result.tvl * current_price
             result.deposit_token = (
                 vault_metata.deposit_token.split(",")
                 if vault_metata.deposit_token
