@@ -341,3 +341,39 @@ async def get_total_points(session: SessionDep, user_address: str):
     ]
 
     return schemas.PortfolioPoint(points=earned_points)
+
+
+@router.get(
+    "/{user_address}/rewards/{vault_id}", response_model=List[schemas.UserEarnedRewards]
+)
+async def get_user_rewards(session: SessionDep, user_address: str, vault_id: str):
+    user_address = user_address.lower()
+    user_reward = session.exec(
+        select(UserRewards)
+        .where(UserRewards.wallet_address == user_address)
+        .where(UserRewards.vault_id == vault_id)
+    ).first()
+
+    rewards = []
+    token_name = _get_name_token_reward(session, vault_id) or "$HYPE"
+    if user_reward:
+        rewards.append(
+            schemas.UserEarnedRewards(
+                name=token_name,
+                unclaim=user_reward.total_reward,
+                claimed=0,
+                created_at=user_reward.created_at,
+            )
+        )
+
+    else:
+        rewards.append(
+            schemas.UserEarnedRewards(
+                name=token_name,
+                unclaim=0,
+                claimed=0,
+                created_at=None,
+            )
+        )
+
+    return rewards
