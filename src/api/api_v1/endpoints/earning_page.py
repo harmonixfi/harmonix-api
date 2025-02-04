@@ -20,6 +20,7 @@ from api.api_v1.deps import SessionDep
 from models import Vault
 from models.vaults import NetworkChain, VaultCategory, VaultGroup, VaultMetadata
 from schemas.vault import GroupSchema, SupportedNetwork, VaultExtended, VaultSortField
+from utils.vault_utils import get_vault_currency_price
 
 router = APIRouter()
 
@@ -77,9 +78,11 @@ async def get_all_vaults(
         schema_vault.price_per_share = _get_last_price_per_share(
             session=session, vault_id=vault.id
         )
+        current_price = get_vault_currency_price(schema_vault.vault_currency)
 
         for vault_metata in vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
+            result.tvl_of_usd = result.tvl * current_price
             result.deposit_token = (
                 vault_metata.deposit_token.split(",")
                 if vault_metata.deposit_token
