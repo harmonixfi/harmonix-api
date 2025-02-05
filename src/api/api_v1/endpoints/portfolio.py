@@ -345,9 +345,3 @@ async def get_total_points(session: SessionDep, user_address: str):
 
     return schemas.PortfolioPoint(points=earned_points)
 
-@router.get("/{user_address}/unrealized-pnl", response_model=schemas.UnrealizedPnl)
-async def get_unrealized_pnl(session: SessionDep, user_address: str):
-    max_slippage = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == MAX_SLIPPAGE)).one())
-    trading_fee = float(session.exec(select(ConfigQuotation.value).where(ConfigQuotation.key == TRADING_FEE)).one())
-    return schemas.UnrealizedPnl(max_slippage=max_slippage, trading_fee=trading_fee, projected_record=0)
-
