@@ -15,6 +15,8 @@ from api.api_v1.endpoints.vaults import (
     get_earned_points,
     get_earned_rewards,
 )
+from core import constants
+from models.app_config import AppConfig
 import schemas
 from api.api_v1.deps import SessionDep
 from models import Vault
@@ -91,6 +93,10 @@ async def get_all_vaults(
             result.ui_category = vault.ui_category
             results.append(result)
 
+    statement = select(AppConfig).where(
+        AppConfig.name == constants.AppConfigKey.APY_PERIOD.value
+    )
+    app_config = session.exec(statement).first()
     # Apply sorting only if sort_by is provided
     if sort_by:
         for sort_field in reversed(sort_by):
@@ -102,10 +108,15 @@ async def get_all_vaults(
                 results.sort(key=lambda x: x.name.lower())
             elif sort_field == VaultSortField.NAME_DESC:
                 results.sort(key=lambda x: x.name.lower(), reverse=True)
-            elif sort_field == VaultSortField.APY_DESC:
-                results.sort(key=lambda x: float(x.apy or 0), reverse=True)
-            elif sort_field == VaultSortField.APY_ASC:
-                results.sort(key=lambda x: float(x.apy or 0))
+            elif sort_field in {VaultSortField.APY_DESC, VaultSortField.APY_ASC}:
+                apy_field = (
+                    "apy_15d" if app_config and int(app_config.key) == 15 else "apy_45d"
+                )
+                reverse_sort = sort_field == VaultSortField.APY_DESC
+                results.sort(
+                    key=lambda x: float(getattr(x, apy_field, 0) or 0),
+                    reverse=reverse_sort,
+                )
             elif sort_field == VaultSortField.CATEGORY:
                 results.sort(key=lambda x: str(x.category))
             elif sort_field == VaultSortField.ORDER:
