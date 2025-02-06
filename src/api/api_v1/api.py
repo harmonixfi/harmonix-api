@@ -10,6 +10,7 @@ from api.api_v1.endpoints import (
     reports,
     configs,
     earning_page,
+    withdraw,
 )
 
 api_router = APIRouter()
@@ -24,4 +25,5 @@ api_router.include_router(healthz.router, prefix="/healthz", tags=["Others"])
 api_router.include_router(reports.router, prefix="/reports", tags=["Reports"])
 api_router.include_router(configs.router, prefix="/app-config", tags=["App Configs"])
 api_router.include_router(earning_page.router, prefix="/earning", tags=["Earning Page"])
+api_router.include_router(withdraw.router, prefix="/withdraw", tags=["Withdraw"])
 api_router.redirect_slashes = False

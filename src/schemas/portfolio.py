@@ -6,7 +6,7 @@ from typing import List, Dict, Any
 from schemas.earned_rewards import EarnedRewards
 from schemas.user_earned_reward import UserEarnedRewards
 from .earned_point import EarnedPoints
-
+from .unrealized_pnl import UnrealizedPnl
 
 class Position(BaseModel):
     id: int
@@ -33,6 +33,7 @@ class Position(BaseModel):
     initiated_withdrawal_at: str | None = None
     points: List[EarnedPoints] = []
     rewards: List[UserEarnedRewards] = []
+    unrealizedPnL: UnrealizedPnl | None = None
 
 
 class PortfolioBase(BaseModel):

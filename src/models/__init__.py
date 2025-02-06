@@ -37,3 +37,5 @@ from .whitelist_wallets import WhitelistWallet
 from .reward_distribution_config import RewardDistributionConfig
 from .app_config import AppConfig
 from .user_agreement import UserAgreement
+
+from .config_quotation import ConfigQuotation
