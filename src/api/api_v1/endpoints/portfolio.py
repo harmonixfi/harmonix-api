@@ -33,6 +33,9 @@ rockonyx_delta_neutral_vault_abi = read_abi("RockOnyxDeltaNeutralVault")
 solv_vault_abi = read_abi("solv")
 pendlehedging_vault_abi = read_abi("pendlehedging")
 rethink_vault_abi = read_abi("rethink_yield_v2")
+hype_abi = read_abi("hype")
+kelpdao_abi = read_abi("kelpdao")
+
 MAX_SLIPPAGE = 'Max Slippage'
 TRADING_FEE = 'Trading Fee'
 
@@ -43,6 +46,13 @@ def create_vault_contract(vault: Vault):
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rethink_vault_abi
         )
+    elif vault.slug == constants.HYPE_DELTA_NEUTRAL_SLUG:
+        contract = w3.eth.contract(address=vault.contract_address, abi=hype_abi)
+    elif (
+        vault.slug == constants.KELPDAO_GAIN_VAULT_SLUG
+        or vault.slug == constants.KELPDAO_VAULT_ARBITRUM_SLUG
+    ):
+        contract = w3.eth.contract(address=vault.contract_address, abi=kelpdao_abi)
     elif vault.strategy_name == constants.DELTA_NEUTRAL_STRATEGY:
         contract = w3.eth.contract(
             address=vault.contract_address, abi=rockonyx_delta_neutral_vault_abi
@@ -341,6 +351,69 @@ def get_vault_position_details(session, user_address, pos):
             shares * price_per_share + pending_withdrawal * price_per_share
         )
 
+        position.pnl = position.total_balance - position.init_deposit
+
+        holding_period = (datetime.datetime.now() - pos.trade_start_date).days
+        # Ensure non-negative PNL and APY for first 10 days
+        if holding_period <= 10:
+            position.pnl = max(position.pnl, 0)
+
+        position.apy = calculate_roi(
+            position.total_balance,
+            position.init_deposit,
+            days=holding_period if holding_period > 0 else 1,
+        )
+        position.apy *= 100
+
+        # Ensure non-negative APY for first 10 days
+        if holding_period <= 10:
+            position.total_balance = max(position.init_deposit, position.total_balance)
+            position.apy = max(position.apy, 0)
+
+        # if vault.slug == constants.SOLV_VAULT_SLUG:
+        #     btc_price = get_price("BTCUSDT")
+        #     total_balance += position.total_balance * btc_price
+        # else:
+        #     total_balance += position.total_balance
+        currency_price = get_vault_currency_price(vault.vault_currency)
+        if vault.slug in [
+            constants.KELPDAO_VAULT_ARBITRUM_SLUG,
+            constants.HYPE_DELTA_NEUTRAL_SLUG,
+        ]:
+            shares = (
+                vault_contract.functions.balanceOf(
+                    Web3.to_checksum_address(user_address)
+                ).call()
+                / 10**6
+            )
+            withdrawal = vault_contract.functions.getUserWithdrawal(
+                Web3.to_checksum_address(user_address)
+            ).call()
+            current_price_per_share = (
+                vault_contract.functions.pricePerShare().call() / 10**6
+            )
+            withdraw_amount = withdrawal[4] / 10**6
+            position_balance = (
+                shares * current_price_per_share
+                + withdraw_amount
+                - withdrawal[3] / 10**6
+            )
+            position.total_balance = position_balance
+
+        total_balance += position.total_balance * currency_price
+
+        # encode datetime
+        position.trade_start_date = custom_encoder(pos.trade_start_date)
+        position.next_close_round_date = custom_encoder(vault.next_close_round_date)
+
+        positions.append(position)
+
+    total_pnl = sum(position.pnl for position in positions)
+
+    portfolio = schemas.Portfolio(
+        total_balance=total_balance, pnl=total_pnl, positions=positions
+    )
+    return portfolio
     position.pnl = position.total_balance - position.init_deposit
     return vault, position
 
@@ -379,3 +452,39 @@ async def get_total_points(session: SessionDep, user_address: str):
     ]
 
     return schemas.PortfolioPoint(points=earned_points)
+
+
+@router.get(
+    "/{user_address}/rewards/{vault_id}", response_model=List[schemas.UserEarnedRewards]
+)
+async def get_user_rewards(session: SessionDep, user_address: str, vault_id: str):
+    user_address = user_address.lower()
+    user_reward = session.exec(
+        select(UserRewards)
+        .where(UserRewards.wallet_address == user_address)
+        .where(UserRewards.vault_id == vault_id)
+    ).first()
+
+    rewards = []
+    token_name = _get_name_token_reward(session, vault_id) or "$HYPE"
+    if user_reward:
+        rewards.append(
+            schemas.UserEarnedRewards(
+                name=token_name,
+                unclaim=user_reward.total_reward,
+                claimed=0,
+                created_at=user_reward.created_at,
+            )
+        )
+
+    else:
+        rewards.append(
+            schemas.UserEarnedRewards(
+                name=token_name,
+                unclaim=0,
+                claimed=0,
+                created_at=None,
+            )
+        )
+
+    return rewards

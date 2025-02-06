@@ -152,6 +152,15 @@ SPOT_PERP_SPREAD = 'spot_perp_spread'
 PERFORMANCE_FEE = 'performance_fee'
 MANAGEMENT_FEE = 'management_fee'
 
+class DepositToken(str, Enum):
+    USDC = "USDC"
+    USDT = "USDT"
+    DAI = "DAI"
+    WETH = "WETH"
+    ETH = "ETH"
+    WBTC = "WBTC"
+
+
 class Status(str, Enum):
     ACTIVE = "active"
     CLOSED = "closed"
@@ -199,3 +208,8 @@ class UpdateFrequency(str, Enum):
 
 class AppConfigKey(str, Enum):
     APY_PERIOD = "apy_period"
+
+
+class UserAgreementType(str, Enum):
+    TERM = "TERM"
+    RISK = "RISK"
