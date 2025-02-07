@@ -132,7 +132,10 @@ async def get_withdraw_quote(
     trading_fee *= withdraw_value
     max_slipage *= withdraw_value
     spot_perp_spread *= withdraw_value
-    performance_fee *= (withdraw_value / position.total_balance) * position.pnl
+    if position.pnl < 0:
+        performance_fee = 0
+    else:
+        performance_fee *= (withdraw_value / position.total_balance) * position.pnl
     management_fee *= (
         position.total_balance
         * (
