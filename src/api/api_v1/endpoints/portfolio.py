@@ -141,7 +141,6 @@ def get_user_earned_rewards(
 
     return earned_rewards
 
-
 @router.get("/{user_address}", response_model=schemas.Portfolio)
 async def get_portfolio_info(
     session: SessionDep,
@@ -165,75 +164,18 @@ async def get_portfolio_info(
     positions: List[Position] = []
     total_balance = 0.0
     for pos in user_positions:
-        vault, position = get_vault_position_details(session, user_address, pos)
+        vault = session.exec(select(Vault).where(Vault.id == pos.vault_id)).one()
+
+        vault_contract = create_vault_contract(vault)
+
+        position = get_vault_position_details(session, user_address, pos, vault, vault_contract)
 
         holding_period = (datetime.datetime.now() - pos.trade_start_date).days
         # Ensure non-negative PNL and APY for first 10 days
         if holding_period <= 10:
             position.pnl = max(position.pnl, 0)
         else:
-            trading_fee = (
-                float(
-                    session.exec(
-                        select(ConfigQuotation.value).where(
-                            ConfigQuotation.key == constants.TRADING_FEE
-                        )
-                    ).one()
-                )
-                / 100
-            )
-            max_slipage = (
-                float(
-                    session.exec(
-                        select(ConfigQuotation.value).where(
-                            ConfigQuotation.key == constants.MAX_SLIPPAGE
-                        )
-                    ).one()
-                )
-                / 100
-            )
-            max_slipage = max_slipage * position.total_balance
-            trading_fee = trading_fee * position.total_balance
-            negative_funding_fee = 0
-            recovery = None
-            if position.pnl < 0:
-                negative_funding_fee = abs(position.pnl) - (max_slipage + trading_fee)
-                unrealize_pnl_percentage = position.pnl / position.total_balance
-
-                statement = session.exec(
-                    select(PricePerShareHistory)
-                    .where(PricePerShareHistory.vault_id == position.vault_id)
-                    .order_by(PricePerShareHistory.datetime.desc())
-                ).all()
-                now = datetime.datetime.now(datetime.timezone.utc)
-                pnl = [
-                    pps
-                    for pps in statement
-                    if pps.datetime >= now - datetime.timedelta(days=30)
-                ]
-
-                pps_by_date = [
-                    pps
-                    for i, pps in enumerate(pnl)
-                    if i == 0 or pnl[i - 1].datetime.date() != pps.datetime.date()
-                ]
-
-                list_diff = [
-                    pps_by_date[i].price_per_share - pps_by_date[i + 1].price_per_share
-                    for i in range(len(pps_by_date) - 1)
-                ]
-                if len(list_diff) > 0:
-                    avg_diff = sum(list_diff) / len(list_diff)
-                    recovery = unrealize_pnl_percentage / avg_diff
-
-            unrealize_pnl = UnrealizedPnl(
-                trading_fee=trading_fee,
-                max_slippage=max_slipage,
-                negative_funding_fee=negative_funding_fee,
-                projected_record=recovery,
-            )
-            position.unrealizedPnL = unrealize_pnl
-
+            calculate_unrealized_pnl(session, position)
         position.apy = calculate_roi(
             position.total_balance,
             position.init_deposit,
@@ -245,130 +187,7 @@ async def get_portfolio_info(
         if holding_period <= 10:
             position.total_balance = max(position.init_deposit, position.total_balance)
             position.apy = max(position.apy, 0)
-
-        # if vault.slug == constants.SOLV_VAULT_SLUG:
-        #     btc_price = get_price("BTCUSDT")
-        #     total_balance += position.total_balance * btc_price
-        # else:
-        #     total_balance += position.total_balance
-        currency_price = get_vault_currency_price(vault.vault_currency)
-        total_balance += position.total_balance * currency_price
-
-        # encode datetime
-        position.trade_start_date = custom_encoder(pos.trade_start_date)
-        position.next_close_round_date = custom_encoder(vault.next_close_round_date)
-
-        positions.append(position)
-
-    total_pnl = sum(position.pnl for position in positions)
-
-    portfolio = schemas.Portfolio(
-        total_balance=total_balance, pnl=total_pnl, positions=positions
-    )
-    return portfolio
-
-
-def get_vault_position_details(session, user_address, pos):
-    vault = session.exec(select(Vault).where(Vault.id == pos.vault_id)).one()
-
-    vault_contract = create_vault_contract(vault)
-
-    position = Position(
-        id=pos.id,
-        vault_id=pos.vault_id,
-        user_address=pos.user_address,
-        vault_address=vault.contract_address,
-        total_balance=pos.total_balance,
-        init_deposit=(
-            pos.init_deposit + pos.pending_withdrawal * pos.entry_price
-            if pos.pending_withdrawal
-            else pos.init_deposit
-        ),
-        entry_price=pos.entry_price,
-        pnl=pos.pnl,
-        status=pos.status,
-        pending_withdrawal=pos.pending_withdrawal,
-        vault_name=vault.name,
-        vault_currency=vault.vault_currency,
-        current_round=vault.current_round,
-        monthly_apy=vault.monthly_apy,
-        weekly_apy=vault.weekly_apy,
-        slug=vault.slug,
-        initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
-        points=get_user_earned_points(session, pos),
-        rewards=get_user_earned_rewards(session=session, position=pos),
-        vault_network=vault.network_chain,
-    )
-
-    if vault.category == VaultCategory.real_yield_v2:
-        price_per_share = vault_contract.functions.pricePerShare().call()
-        shares = vault_contract.functions.balanceOf(
-            Web3.to_checksum_address(user_address)
-        ).call()
-        shares = shares / 10**18
-        price_per_share = price_per_share / 10**18
-    elif vault.strategy_name in {
-        constants.DELTA_NEUTRAL_STRATEGY,
-        constants.PENDLE_HEDGING_STRATEGY,
-    }:
-        price_per_share = vault_contract.functions.pricePerShare().call()
-        shares = vault_contract.functions.balanceOf(
-            Web3.to_checksum_address(user_address)
-        ).call()
-        shares = shares / 10**6
-        price_per_share = price_per_share / 10**6
-    elif vault.slug == constants.SOLV_VAULT_SLUG:
-        price_per_share = vault_contract.functions.pricePerShare().call()
-        shares = vault_contract.functions.balanceOf(
-            Web3.to_checksum_address(user_address)
-        ).call()
-        shares = shares / 10**18
-        price_per_share = price_per_share / 10**8
-    else:
-        # calculate next Friday from today
-        position.next_close_round_date = (
-            datetime.datetime.now()
-            + datetime.timedelta(days=(4 - datetime.datetime.now().weekday()) % 7)
-        ).replace(hour=8, minute=0, second=0)
-
-        price_per_share = vault_contract.functions.pricePerShare().call()
-        shares = vault_contract.functions.balanceOf(
-            Web3.to_checksum_address(user_address)
-        ).call()
-        shares = shares / 10**6
-        price_per_share = price_per_share / 10**6
-
-    pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
-
-    if vault.category == VaultCategory.real_yield_v2:
-        position.total_balance = (
-            (shares * price_per_share)
-            + (pos.pending_deposit)
-            + (pending_withdrawal * price_per_share)
-        )
-    else:
-        position.total_balance = (
-            shares * price_per_share + pending_withdrawal * price_per_share
-        )
-
-        position.pnl = position.total_balance - position.init_deposit
-
-        holding_period = (datetime.datetime.now() - pos.trade_start_date).days
-        # Ensure non-negative PNL and APY for first 10 days
-        if holding_period <= 10:
-            position.pnl = max(position.pnl, 0)
-
-        position.apy = calculate_roi(
-            position.total_balance,
-            position.init_deposit,
-            days=holding_period if holding_period > 0 else 1,
-        )
-        position.apy *= 100
-
-        # Ensure non-negative APY for first 10 days
-        if holding_period <= 10:
-            position.total_balance = max(position.init_deposit, position.total_balance)
-            position.apy = max(position.apy, 0)
+        
 
         # if vault.slug == constants.SOLV_VAULT_SLUG:
         #     btc_price = get_price("BTCUSDT")
@@ -414,9 +233,154 @@ def get_vault_position_details(session, user_address, pos):
         total_balance=total_balance, pnl=total_pnl, positions=positions
     )
     return portfolio
-    position.pnl = position.total_balance - position.init_deposit
-    return vault, position
 
+def get_vault_position_details(session, user_address, pos, vault, vault_contract):
+    position = Position(
+            id=pos.id,
+            vault_id=pos.vault_id,
+            user_address=pos.user_address,
+            vault_address=vault.contract_address,
+            total_balance=pos.total_balance,
+            init_deposit=(
+                pos.init_deposit + pos.pending_withdrawal * pos.entry_price
+                if pos.pending_withdrawal
+                else pos.init_deposit
+            ),
+            entry_price=pos.entry_price,
+            pnl=pos.pnl,
+            status=pos.status,
+            pending_withdrawal=pos.pending_withdrawal,
+            vault_name=vault.name,
+            vault_currency=vault.vault_currency,
+            current_round=vault.current_round,
+            monthly_apy=vault.monthly_apy,
+            weekly_apy=vault.weekly_apy,
+            slug=vault.slug,
+            initiated_withdrawal_at=custom_encoder(pos.initiated_withdrawal_at),
+            points=get_user_earned_points(session, pos),
+            rewards=get_user_earned_rewards(session=session, position=pos),
+            vault_network=vault.network_chain,
+        )
+
+    if vault.category == VaultCategory.real_yield_v2:
+        price_per_share = vault_contract.functions.pricePerShare().call()
+        shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+        shares = shares / 10**18
+        price_per_share = price_per_share / 10**18
+    elif vault.strategy_name in {
+            constants.DELTA_NEUTRAL_STRATEGY,
+            constants.PENDLE_HEDGING_STRATEGY,
+        }:
+        price_per_share = vault_contract.functions.pricePerShare().call()
+        shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+        shares = shares / 10**6
+        price_per_share = price_per_share / 10**6
+    elif vault.slug == constants.SOLV_VAULT_SLUG:
+        price_per_share = vault_contract.functions.pricePerShare().call()
+        shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+        shares = shares / 10**18
+        price_per_share = price_per_share / 10**8
+    else:
+            # calculate next Friday from today
+        position.next_close_round_date = (
+                datetime.datetime.now()
+                + datetime.timedelta(days=(4 - datetime.datetime.now().weekday()) % 7)
+            ).replace(hour=8, minute=0, second=0)
+
+        price_per_share = vault_contract.functions.pricePerShare().call()
+        shares = vault_contract.functions.balanceOf(
+                Web3.to_checksum_address(user_address)
+            ).call()
+        shares = shares / 10**6
+        price_per_share = price_per_share / 10**6
+
+    pending_withdrawal = pos.pending_withdrawal if pos.pending_withdrawal else 0
+
+    if vault.category == VaultCategory.real_yield_v2:
+        position.total_balance = (
+                (shares * price_per_share)
+                + (pos.pending_deposit)
+                + (pending_withdrawal * price_per_share)
+            )
+    else:
+        position.total_balance = (
+                shares * price_per_share + pending_withdrawal * price_per_share
+            )
+
+    position.pnl = position.total_balance - position.init_deposit
+    return position
+
+def calculate_unrealized_pnl(session, position):
+    print("calculate unrealized pnl")
+    trading_fee = (
+                float(
+                    session.exec(
+                        select(ConfigQuotation.value).where(
+                            ConfigQuotation.key == constants.TRADING_FEE
+                        )
+                    ).one()
+                )
+                / 100
+            )
+    max_slipage = (
+                float(
+                    session.exec(
+                        select(ConfigQuotation.value).where(
+                            ConfigQuotation.key == constants.MAX_SLIPPAGE
+                        )
+                    ).one()
+                )
+                / 100
+            )
+    max_slipage = max_slipage * position.total_balance
+    trading_fee = trading_fee * position.total_balance
+    negative_funding_fee = 0
+    recovery = None
+    if position.pnl < 0:
+        negative_funding_fee = abs(position.pnl) - (max_slipage + trading_fee)
+        unrealize_pnl_percentage = abs(position.pnl) / position.total_balance
+
+        statement = session.exec(
+                    select(PricePerShareHistory)
+                    .where(PricePerShareHistory.vault_id == position.vault_id)
+                    .order_by(PricePerShareHistory.datetime.desc())
+                ).all()
+        now = datetime.datetime.now(datetime.timezone.utc)
+        pnl = [
+                    pps
+                    for pps in statement
+                    if pps.datetime >= now - datetime.timedelta(days=30)
+                ]
+
+        pps_by_date = [
+                    pps
+                    for i, pps in enumerate(pnl)
+                    if i == 0 or pnl[i - 1].datetime.date() != pps.datetime.date()
+                ]
+
+        list_diff = [
+                    pps_by_date[i].price_per_share - pps_by_date[i + 1].price_per_share
+                    for i in range(len(pps_by_date) - 1)
+                ]
+        length = len(list_diff)
+        sum_list_diff = sum(list_diff)
+        if length > 0 and sum_list_diff > 0:
+            avg_diff = sum(list_diff) / len(list_diff)
+            recovery = unrealize_pnl_percentage / avg_diff
+
+    unrealize_pnl = UnrealizedPnl(
+                trading_fee=trading_fee,
+                max_slippage=max_slipage,
+                negative_funding_fee=negative_funding_fee,
+                projected_record=recovery,
+            )
+    position.unrealizedPnL = unrealize_pnl
 
 @router.get("/{user_address}/total-points", response_model=schemas.PortfolioPoint)
 async def get_total_points(session: SessionDep, user_address: str):
