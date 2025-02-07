@@ -62,7 +62,9 @@ async def get_withdraw_quote(
 
     vault_contract = create_vault_contract(vault)
 
-    position = get_vault_position_details(session, wallet_address, pos, vault, vault_contract)
+    position = get_vault_position_details(
+        session, wallet_address, pos, vault, vault_contract
+    )
 
     if withdraw_value > position.total_balance:
         raise HTTPException(

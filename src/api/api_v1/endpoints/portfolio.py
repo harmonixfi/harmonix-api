@@ -319,31 +319,31 @@ def get_vault_position_details(session, user_address, pos, vault, vault_contract
 def calculate_unrealized_pnl(session, position):
     print("calculate unrealized pnl")
     trading_fee = (
-                float(
-                    session.exec(
-                        select(ConfigQuotation.value).where(
-                            ConfigQuotation.key == constants.TRADING_FEE
-                        )
-                    ).one()
+        float(
+            session.exec(
+                select(ConfigQuotation.value).where(
+                    ConfigQuotation.key == constants.TRADING_FEE
                 )
-                / 100
-            )
-    max_slipage = (
-                float(
-                    session.exec(
-                        select(ConfigQuotation.value).where(
-                            ConfigQuotation.key == constants.MAX_SLIPPAGE
-                        )
-                    ).one()
+            ).one()
+        )
+        / 100
+    )
+    max_slippage = (
+        float(
+            session.exec(
+                select(ConfigQuotation.value).where(
+                    ConfigQuotation.key == constants.MAX_SLIPPAGE
                 )
-                / 100
-            )
-    max_slipage = max_slipage * position.total_balance
+            ).one()
+        )
+        / 100
+    )
+    max_slippage = max_slippage * position.total_balance
     trading_fee = trading_fee * position.total_balance
     negative_funding_fee = 0
     recovery = None
     if position.pnl < 0:
-        negative_funding_fee = abs(position.pnl) - (max_slipage + trading_fee)
+        negative_funding_fee = abs(position.pnl) - (max_slippage + trading_fee)
         unrealize_pnl_percentage = abs(position.pnl) / position.total_balance
 
         statement = session.exec(
@@ -376,7 +376,7 @@ def calculate_unrealized_pnl(session, position):
 
     unrealize_pnl = UnrealizedPnl(
                 trading_fee=trading_fee,
-                max_slippage=max_slipage,
+                max_slippage=max_slippage,
                 negative_funding_fee=negative_funding_fee,
                 projected_record=recovery,
             )
