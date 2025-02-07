@@ -290,6 +290,7 @@ async def get_portfolio_info(
                 - withdrawal[3] / 10**6
             )
             position.total_balance = position_balance
+            position.pnl = position.total_balance - position.init_deposit
 
         total_balance += position.total_balance * currency_price
 
