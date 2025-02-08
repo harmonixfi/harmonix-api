@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 
-class UserStakingBalance(SQLModel, table=True):
-    __tablename__ = "user_staking_balances"
+class UserStaking(SQLModel, table=True):
+    __tablename__ = "user_stakings"
     id: UUID = Field(default_factory=uuid4, primary_key=True)
     validator_id: UUID
     wallet_address: str = Field(index=True)
