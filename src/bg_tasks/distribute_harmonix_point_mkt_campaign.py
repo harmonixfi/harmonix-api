@@ -21,7 +21,7 @@ session = Session(engine)
 
 # # Initialize logger
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("excel_point_assignment")
+logger = logging.getLogger("distribute_harmonix_point_mkt_campaign")
 logger.setLevel(logging.INFO)
 
 
@@ -178,5 +178,5 @@ def main():
 
 if __name__ == "__main__":
     setup_logging_to_console()
-    setup_logging_to_file("excel_point_assignment", logger=logger)
+    setup_logging_to_file("distribute_harmonix_point_mkt_campaign", logger=logger)
     main()
