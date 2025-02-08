@@ -760,10 +760,10 @@ def seed_config_quotation(session: Session):
 
 def seed_data_validator(session: Session):
     validators = [
-        {"validator_slug_name": "validao"},
-        {"validator_slug_name": "alphaticks"},
-        {"validator_slug_name": "hyperstake"},
-        {"validator_slug_name": "nansen-hypurrcollective"},
+        {"slug_name": "validao"},
+        {"slug_name": "alphaticks"},
+        {"slug_name": "hyperstake"},
+        {"slug_name": "nansen-hypurrcollective"},
     ]
 
     for validator in validators:

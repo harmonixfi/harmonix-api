@@ -4,6 +4,11 @@ from datetime import datetime
 from typing import Optional
 
 
+class StakingValidatorResponse(BaseModel):
+    id: UUID
+    slug_name: str
+
+
 class StakingInfoResponse(BaseModel):
     validator_id: UUID
     wallet_address: str

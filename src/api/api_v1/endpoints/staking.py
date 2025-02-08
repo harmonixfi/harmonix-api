@@ -15,7 +15,7 @@ from schemas.staking_requests import (
     UpdateTotalStakedRequest,
     UpdateTotalUnstakedRequest,
 )
-from schemas.staking_response import StakingInfoResponse
+from schemas.staking_response import StakingInfoResponse, StakingValidatorResponse
 
 router = APIRouter()
 
@@ -23,8 +23,11 @@ router = APIRouter()
 @router.get("/all-validator")
 async def get_all_validator(session: SessionDep):
     statement = select(StakingValidator)
-    stacking_validators = session.exec(statement).all()
-    return stacking_validators
+    staking_validators = session.exec(statement).all()
+    return [
+        StakingValidatorResponse(id=v.id, slug_name=v.slug_name)
+        for v in staking_validators
+    ]
 
 
 @router.post("/update-total-staked/")
