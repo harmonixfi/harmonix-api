@@ -15,6 +15,7 @@ from models.reward_distribution_config import RewardDistributionConfig
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
 from models.reward_thresholds import RewardThresholds
+from models.staking_validators import StakingValidator
 from models.user import User
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault, VaultGroup, VaultMetadata
@@ -737,6 +738,7 @@ def add_deposit_tokens(slug: str, deposit_token: str, session: Session):
     session.add(vault_metadata)
     session.commit()
 
+
 def seed_config_quotation(session: Session):
 
     list = [
@@ -746,14 +748,29 @@ def seed_config_quotation(session: Session):
         (constants.PERFORMANCE_FEE, "10"),
         (constants.MANAGEMENT_FEE, "1"),
     ]
-    
+
     existing_config = session.exec(select(ConfigQuotation)).all()
     for key, value in list:
         if key not in [config.key for config in existing_config]:
             config = ConfigQuotation(key=key, value=value)
             session.add(config)
-    
+
     session.commit()
+
+
+def seed_data_validator(session: Session):
+    validators = [
+        {"validator_slug_name": "validao"},
+        {"validator_slug_name": "alphaticks"},
+        {"validator_slug_name": "hyperstake"},
+        {"validator_slug_name": "nansen-hypurrcollective"},
+    ]
+
+    for validator in validators:
+        session.add(StakingValidator(**validator))
+
+    session.commit()
+
 
 def init_db(session: Session) -> None:
     seed_vault_category(session)
@@ -892,3 +909,4 @@ def init_db(session: Session) -> None:
         session,
     )
     seed_config_quotation(session)
+    seed_data_validator(session)
