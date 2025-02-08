@@ -6,7 +6,7 @@ from typing import Optional
 
 class StakingValidatorResponse(BaseModel):
     id: UUID
-    slug_name: str
+    slug: str
 
 
 class StakingInfoResponse(BaseModel):

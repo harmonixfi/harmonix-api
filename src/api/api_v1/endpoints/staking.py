@@ -24,10 +24,7 @@ router = APIRouter()
 async def get_all_validator(session: SessionDep):
     statement = select(StakingValidator)
     staking_validators = session.exec(statement).all()
-    return [
-        StakingValidatorResponse(id=v.id, slug_name=v.slug_name)
-        for v in staking_validators
-    ]
+    return [StakingValidatorResponse(id=v.id, slug=v.slug) for v in staking_validators]
 
 
 @router.post("/update-total-staked/")

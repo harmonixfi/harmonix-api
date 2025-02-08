@@ -1,8 +1,8 @@
 """add_table_staking
 
-Revision ID: d33df0dca6e7
+Revision ID: 91b90fbc0626
 Revises: dd82a7ec803e
-Create Date: 2025-02-08 14:19:29.558727
+Create Date: 2025-02-08 15:30:36.744747
 
 """
 
@@ -14,7 +14,7 @@ from sqlalchemy.dialects import postgresql
 import sqlmodel
 
 # revision identifiers, used by Alembic.
-revision: str = "d33df0dca6e7"
+revision: str = "91b90fbc0626"
 down_revision: Union[str, None] = "dd82a7ec803e"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.create_table(
         "staking_validators",
         sa.Column("id", sqlmodel.sql.sqltypes.GUID(), nullable=False),
-        sa.Column("slug_name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("slug", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
     )
     op.create_table(
