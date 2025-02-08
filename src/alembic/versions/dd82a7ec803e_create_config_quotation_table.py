@@ -1,7 +1,7 @@
 """create config quotation table
 
 Revision ID: dd82a7ec803e
-Revises: 4d79c0af0b3a
+Revises: 6084c6cf6d73
 Create Date: 2025-01-23 18:34:38.997580
 
 """
@@ -14,7 +14,7 @@ import sqlmodel
 
 # revision identifiers, used by Alembic.
 revision: str = 'dd82a7ec803e'
-down_revision: Union[str, None] = '4d79c0af0b3a'
+down_revision: Union[str, None] = '6084c6cf6d73'  # Changed here to the previous revision
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
