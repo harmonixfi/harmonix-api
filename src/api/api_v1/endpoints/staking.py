@@ -58,7 +58,7 @@ def update_total_staked(request: UpdateTotalStakedRequest, session: SessionDep):
     }
 
 
-@router.put("/update-total-unstaked")
+@router.post("/update-total-unstaked")
 def update_total_unstaked(request: UpdateTotalUnstakedRequest, session: SessionDep):
     user_staking = session.exec(
         select(UserStaking)
