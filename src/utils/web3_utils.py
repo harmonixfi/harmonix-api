@@ -4,6 +4,9 @@ from web3.eth import Contract
 from core import constants
 from core.abi_reader import read_abi
 from models.vaults import Vault
+from eth_utils import keccak
+from eth_account.messages import encode_defunct
+import eth_keys
 
 
 async def sign_and_send_transaction(
@@ -61,3 +64,28 @@ def get_current_tvl(vault_contract: Contract, decimals=1e6):
     tvl = vault_contract.functions.totalValueLocked().call()
 
     return tvl / decimals
+
+
+def verify_signature(message: str, signature: str, address: str) -> bool:
+    w3 = Web3()
+
+    try:
+        message_hash = encode_defunct(text=message)
+        recovered_address = w3.eth.account.recover_message(
+            message_hash, signature=signature
+        )
+        return recovered_address.lower() == address.lower()
+    except Exception as e:
+        print(f"Verification failed: {str(e)}")
+        return False
+
+
+def verify_raw_signature(message: str, signature: str, public_key: str) -> bool:
+    try:
+        message_hash = keccak(text=message)
+        sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
+        pub_key = eth_keys.keys.PublicKey(bytes.fromhex(public_key.removeprefix("0x")))
+        return pub_key.verify_msg_hash(message_hash, sig_bytes)
+    except Exception as e:
+        print(f"Raw verification failed: {str(e)}")
+        return False

@@ -16,6 +16,7 @@ from schemas.staking_requests import (
     UpdateTotalUnstakedRequest,
 )
 from schemas.staking_response import StakingInfoResponse, StakingValidatorResponse
+from utils.web3_utils import verify_signature
 
 router = APIRouter()
 
@@ -29,6 +30,9 @@ async def get_all_validator(session: SessionDep):
 
 @router.post("/update-total-staked/")
 def update_total_staked(request: UpdateTotalStakedRequest, session: SessionDep):
+    if not verify_signature(request.message, request.signature, request.wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
     user_staking = session.exec(
         select(UserStaking)
         .where(UserStaking.validator_id == request.validator_id)
@@ -60,6 +64,9 @@ def update_total_staked(request: UpdateTotalStakedRequest, session: SessionDep):
 
 @router.post("/update-total-unstaked")
 def update_total_unstaked(request: UpdateTotalUnstakedRequest, session: SessionDep):
+    if not verify_signature(request.message, request.signature, request.wallet_address):
+        raise HTTPException(status_code=400, detail="Invalid signature")
+
     user_staking = session.exec(
         select(UserStaking)
         .where(UserStaking.validator_id == request.validator_id)
