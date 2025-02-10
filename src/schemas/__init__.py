@@ -17,3 +17,4 @@ from .user_agreement import UserAgreement, BaseUserAgreement
 
 from .unrealized_pnl import UnrealizedPnl   
 from .withdraw_quote_response import WithdrawQuoteResponse
+from .points import PointResponse

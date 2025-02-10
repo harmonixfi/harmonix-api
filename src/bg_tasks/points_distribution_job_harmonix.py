@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 session = Session(engine)
 
 
-POINT_PER_DOLLAR = 2000
+POINT_PER_DOLLAR = 1000
 
 
 def harmonix_distribute_points(current_time):
