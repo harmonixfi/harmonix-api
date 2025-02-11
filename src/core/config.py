@@ -220,6 +220,9 @@ class Settings(BaseSettings):
 
     HYPER_LIQUID_API_KEY: str | None = ""
     HYPER_LIQUID_ADDRESS: str | None = ""
+    PARTNER_VALIDAO_API_KEY: Optional[str] = ""
+    VALIDAO_URL: Optional[str] = ""
+    VALIDAO_REFERRAL_CODE: Optional[str] = ""
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:
