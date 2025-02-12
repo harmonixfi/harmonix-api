@@ -180,6 +180,7 @@ class Settings(BaseSettings):
     )
 
     HYPERLIQUID_URL: Optional[str] = "https://api.hyperliquid.xyz/info"
+    HYPERLIQUID_EXPLORER_URL: Optional[str] = "https://api-ui.hyperliquid.xyz/explorer"
 
     BASESCAN_API_KEY: str
     BASESCAN_GET_TRANSACTIONS_URL: str = (

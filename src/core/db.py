@@ -760,10 +760,22 @@ def seed_config_quotation(session: Session):
 
 def seed_data_validator(session: Session):
     validators = [
-        {"slug": "validao"},
-        {"slug": "alphaticks"},
-        {"slug": "hyperstake"},
-        {"slug": "nansen-hypurrcollective"},
+        {
+            "slug": "validao",
+            "hype_validator_id": "0x000000000056f99d36b6f2e0c51fd41496bbacb8",
+        },
+        {
+            "slug": "alphaticks",
+            "hype_validator_id": "0x3e5b2598a32ebf003ad5a7254faa3d04ff41d9fe",
+        },
+        {
+            "slug": "hyperstake",
+            "hype_validator_id": "0x8b8c3966870321866e7b7091c382308a6a97e9b1",
+        },
+        {
+            "slug": "nansen-hypurrcollective",
+            "hype_validator_id": "0xb8f45222a3246a2b0104696a1df26842007c5bc5",
+        },
     ]
 
     for validator in validators:

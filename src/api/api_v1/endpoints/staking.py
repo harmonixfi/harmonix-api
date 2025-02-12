@@ -15,6 +15,10 @@ from api.api_v1.deps import SessionDep
 from schemas.staking_requests import StakingRequest
 from schemas.staking_response import StakingInfoResponse, StakingValidatorResponse
 from services import validao_service
+from services.hyperliquid_service import (
+    get_info_stake,
+    is_valid_token_delegate_transaction,
+)
 from utils.web3_utils import verify_signature
 
 router = APIRouter()
@@ -84,6 +88,30 @@ def validate_request_signature(request: StakingRequest):
         raise HTTPException(status_code=400, detail="Invalid signature")
 
 
+def is_user_exploiting_stake(request: StakingRequest, session: SessionDep):
+    staking_validator = get_staking_validator(session, request.validator_id)
+    if staking_validator is None:
+        raise HTTPException(status_code=400, detail="Validator not found")
+
+    validator_stakes = get_info_stake(request.wallet_address)
+    if validator_stakes is None:
+        return False
+
+    matched_validator = next(
+        filter(
+            lambda stake: stake["validator"] == staking_validator.id, validator_stakes
+        ),
+        None,
+    )
+
+    if matched_validator and request.total_amount >= matched_validator["amount"]:
+        matched_amount = float(matched_validator.get("amount", 0))
+        # True Lock user
+        return request.total_amount >= matched_amount
+
+    return False
+
+
 @router.get("/all-validator")
 async def get_all_validator(session: SessionDep):
     statement = select(StakingValidator)
@@ -94,6 +122,18 @@ async def get_all_validator(session: SessionDep):
 @router.post("/update-total-staked/")
 def update_total_staked(request: StakingRequest, session: SessionDep):
     validate_request_signature(request)
+
+    if not is_valid_token_delegate_transaction(request.tx_hash, request.wallet_address):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid transaction: user mismatch or incorrect action type.",
+        )
+    if is_user_exploiting_stake(request.wallet_address, session):
+        raise HTTPException(
+            status_code=403,
+            detail="Exploit detected: user unstaked recently and is attempting to stake again.",
+        )
+
     process_validao_request(session, request)
     user_staking = update_or_create_user_staking(session, request, is_stake=True)
 
@@ -106,6 +146,16 @@ def update_total_staked(request: StakingRequest, session: SessionDep):
 @router.post("/update-total-unstaked/")
 def update_total_unstaked(request: StakingRequest, session: SessionDep):
     validate_request_signature(request)
+    if not is_valid_token_delegate_transaction(request.tx_hash, request.wallet_address):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid transaction: user mismatch or incorrect action type.",
+        )
+    if is_user_exploiting_stake(request.wallet_address, session):
+        raise HTTPException(
+            status_code=403,
+            detail="Exploit detected: user unstaked recently and is attempting to stake again.",
+        )
     process_validao_request(session, request)
     user_staking = update_or_create_user_staking(session, request, is_stake=False)
 
