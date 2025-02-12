@@ -79,17 +79,23 @@ async def get_all_vaults(
             session=session, vault_id=vault.id
         )
         current_price = get_vault_currency_price(schema_vault.vault_currency)
-
-        for vault_metata in vault.vault_metadata:
+        if not vault.vault_metadata:
             result = schemas.VaultExtended.model_validate(schema_vault)
             result.tvl_in_usd = result.tvl * current_price
-            result.deposit_token = (
-                vault_metata.deposit_token.split(",")
-                if vault_metata.deposit_token
-                else ["USDC"]
-            )
+            result.deposit_token = ["USDC"]
             result.ui_category = vault.ui_category
             results.append(result)
+        else:
+            for vault_metata in vault.vault_metadata:
+                result = schemas.VaultExtended.model_validate(schema_vault)
+                result.tvl_in_usd = result.tvl * current_price
+                result.deposit_token = (
+                    vault_metata.deposit_token.split(",")
+                    if vault_metata.deposit_token
+                    else ["USDC"]
+                )
+                result.ui_category = vault.ui_category
+                results.append(result)
 
     # Apply sorting only if sort_by is provided
     if sort_by:
