@@ -41,3 +41,8 @@ from .user_agreement import UserAgreement
 from .config_quotation import ConfigQuotation
 from .staking_validators import StakingValidator
 from .user_stakings import UserStaking
+from .base_rate_history import BaseRateHistory
+from .tier_config import TierConfig, UserTier
+from .user_time_factor import UserTimeFactor
+from .wtvl_history import WTVLHistory
+from .user_season_1_points import UserSeason1Points
