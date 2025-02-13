@@ -1,0 +1,105 @@
+erDiagram
+    USERS {
+        UUID user_id PK
+        VARCHAR wallet_address
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    VAULTS {
+        UUID id PK
+        VARCHAR name
+        DOUBLE tvl
+        DOUBLE apr
+        INT vault_capacity
+        VARCHAR contract_address
+        NETWORKCHAIN network_chain
+        VARCHAR strategy_name
+        BOOLEAN is_active
+    }
+
+    POINTS_MULTIPLIER_CONFIG {
+        UUID id PK
+        UUID vault_id FK
+        DOUBLE multiplier
+        TIMESTAMP created_at
+    }
+
+    USER_PORTFOLIO {
+        UUID id PK
+        UUID vault_id FK
+        VARCHAR user_address
+        DOUBLE total_balance
+        DOUBLE init_deposit
+        DOUBLE pnl
+        STATUS position_status
+        TIMESTAMP trade_start_date
+        TIMESTAMP trade_end_date
+    }
+
+    REWARD_SESSIONS {
+        UUID session_id PK
+        VARCHAR session_name
+        TIMESTAMP start_date
+        TIMESTAMP end_date
+        DECIMAL max_points
+        DECIMAL points_distributed
+    }
+
+    USER_POINTS {
+        UUID id PK
+        UUID user_id FK
+        UUID vault_id FK
+        UUID session_id FK
+        DECIMAL points
+        TIMESTAMP created_at
+    }
+
+    USER_POINTS_HISTORY {
+        UUID id PK
+        UUID user_points_id FK
+        DOUBLE point
+        TIMESTAMP created_at
+    }
+
+    LOYALTY_BONUS {
+        UUID id PK
+        UUID user_id FK
+        UUID session_id FK
+        DECIMAL bonus_points
+        TIMESTAMP created_at
+    }
+
+    TIER_REWARDS {
+        UUID tier_id PK
+        VARCHAR tier_name
+        DECIMAL points_required
+        VARCHAR reward
+    }
+
+    TIME_FACTOR {
+        UUID id PK
+        UUID user_id FK
+        UUID vault_id FK
+        INT days_held
+        DOUBLE factor
+        TIMESTAMP last_updated
+    }
+
+    %% --- Define Relationships ---
+    USERS ||--o{ USER_PORTFOLIO : owns
+    USERS ||--o{ USER_POINTS : earns
+    USERS ||--o{ LOYALTY_BONUS : receives
+    USERS ||--o{ TIME_FACTOR : tracked_by
+
+    VAULTS ||--o{ USER_PORTFOLIO : contains
+    VAULTS ||--o{ POINTS_MULTIPLIER_CONFIG : applies
+    VAULTS ||--o{ USER_POINTS : contributes
+    VAULTS ||--o{ TIME_FACTOR : influences
+
+    REWARD_SESSIONS ||--o{ USER_POINTS : distributes
+    REWARD_SESSIONS ||--o{ LOYALTY_BONUS : rewards
+
+    USER_POINTS ||--o{ USER_POINTS_HISTORY : tracks
+
+    TIME_FACTOR ||--o{ USER_POINTS : affects

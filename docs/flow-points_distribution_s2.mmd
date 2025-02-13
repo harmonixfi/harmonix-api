@@ -1,0 +1,7 @@
+graph TD;
+    A[User Deposits Money] -->|Funds are deposited into the vault| B[Update USER_PORTFOLIO];
+    B -->|Update the number of days the funds are held| C[Update TIME_FACTOR];
+    C -->|Job runs every hour| D[Update days_held & factor];
+    D -->|Calculate points based on balance & holding duration| E[Calculate User Points & Loyalty Bonus];
+    E -->|Update total points| F[Update USER_POINTS & Insert USER_POINTS_HISTORY];
+    F -->|End the points calculation session| G[Update REWARD_SESSIONS];
