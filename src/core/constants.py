@@ -65,6 +65,8 @@ KELPDAO_GAIN_VAULT_SLUG = "ethereum-kelpdao-gain-restaking-delta-neutral-vault"
 PENDLE_VAULT_VAULT_SLUG_DEC = "arbitrum-pendle-rseth-26dec2024"
 KELPDAO_VAULT_SLUG = "ethereum-kelpdao-restaking-delta-neutral-vault"
 
+VALIDAO_SLUG = "validao"
+
 NETWORK_RPC_URLS = {
     CHAIN_ARBITRUM: settings.ARBITRUM_MAINNET_INFURA_URL,
     CHAIN_ETHER_MAINNET: settings.ETHER_MAINNET_INFURA_URL,
@@ -146,11 +148,12 @@ UNISWAP_POOLS = {
 DAI_CONTRACT_ADDRESS = "0xda10009cbd5d07dd0cecc66161fc93d7c9000da1"
 VAULT_SOLV_NAME = "The Golden Guardian with Solv"
 
-MAX_SLIPPAGE = 'max_slippage'
-TRADING_FEE = 'trading_fee'
-SPOT_PERP_SPREAD = 'spot_perp_spread'
-PERFORMANCE_FEE = 'performance_fee'
-MANAGEMENT_FEE = 'management_fee'
+MAX_SLIPPAGE = "max_slippage"
+TRADING_FEE = "trading_fee"
+SPOT_PERP_SPREAD = "spot_perp_spread"
+PERFORMANCE_FEE = "performance_fee"
+MANAGEMENT_FEE = "management_fee"
+
 
 class DepositToken(str, Enum):
     USDC = "USDC"

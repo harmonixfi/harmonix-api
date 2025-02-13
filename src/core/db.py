@@ -15,6 +15,7 @@ from models.reward_distribution_config import RewardDistributionConfig
 from models.reward_session_config import RewardSessionConfig
 from models.reward_sessions import RewardSessions
 from models.reward_thresholds import RewardThresholds
+from models.staking_validators import StakingValidator
 from models.user import User
 from models.vault_performance import VaultPerformance
 from models.vaults import NetworkChain, Vault, VaultGroup, VaultMetadata
@@ -737,6 +738,7 @@ def add_deposit_tokens(slug: str, deposit_token: str, session: Session):
     session.add(vault_metadata)
     session.commit()
 
+
 def seed_config_quotation(session: Session):
 
     list = [
@@ -746,14 +748,41 @@ def seed_config_quotation(session: Session):
         (constants.PERFORMANCE_FEE, "10"),
         (constants.MANAGEMENT_FEE, "1"),
     ]
-    
+
     existing_config = session.exec(select(ConfigQuotation)).all()
     for key, value in list:
         if key not in [config.key for config in existing_config]:
             config = ConfigQuotation(key=key, value=value)
             session.add(config)
-    
+
     session.commit()
+
+
+def seed_data_validator(session: Session):
+    validators = [
+        {
+            "slug": "validao",
+            "hype_validator_id": "0x000000000056f99d36b6f2e0c51fd41496bbacb8",
+        },
+        {
+            "slug": "alphaticks",
+            "hype_validator_id": "0x3e5b2598a32ebf003ad5a7254faa3d04ff41d9fe",
+        },
+        {
+            "slug": "hyperstake",
+            "hype_validator_id": "0x8b8c3966870321866e7b7091c382308a6a97e9b1",
+        },
+        {
+            "slug": "nansen-hypurrcollective",
+            "hype_validator_id": "0xb8f45222a3246a2b0104696a1df26842007c5bc5",
+        },
+    ]
+
+    for validator in validators:
+        session.add(StakingValidator(**validator))
+
+    session.commit()
+
 
 def init_db(session: Session) -> None:
     seed_vault_category(session)
@@ -892,3 +921,4 @@ def init_db(session: Session) -> None:
         session,
     )
     seed_config_quotation(session)
+    seed_data_validator(session)

@@ -180,6 +180,7 @@ class Settings(BaseSettings):
     )
 
     HYPERLIQUID_URL: Optional[str] = "https://api.hyperliquid.xyz/info"
+    HYPERLIQUID_EXPLORER_URL: Optional[str] = "https://api-ui.hyperliquid.xyz/explorer"
 
     BASESCAN_API_KEY: str
     BASESCAN_GET_TRANSACTIONS_URL: str = (
@@ -220,6 +221,9 @@ class Settings(BaseSettings):
 
     HYPER_LIQUID_API_KEY: str | None = ""
     HYPER_LIQUID_ADDRESS: str | None = ""
+    PARTNER_VALIDAO_API_KEY: Optional[str] = ""
+    VALIDAO_URL: Optional[str] = ""
+    VALIDAO_REFERRAL_CODE: Optional[str] = ""
 
     @field_validator("SQLALCHEMY_DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: str | None, info: ValidationInfo) -> Any:

@@ -39,3 +39,5 @@ from .app_config import AppConfig
 from .user_agreement import UserAgreement
 
 from .config_quotation import ConfigQuotation
+from .staking_validators import StakingValidator
+from .user_stakings import UserStaking
